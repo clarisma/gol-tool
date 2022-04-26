@@ -1,0 +1,116 @@
+name:				world
+title:
+description:
+updates:			daily
+retention:			90 days
+import-file:        ../mapdata/de.osm.pbf
+import-page-size:	64K					// the page size of the bootstrap db
+max-tiles:			65535               // 16K
+min-tile-density:	10000
+tile-zoom-levels:	4,6,8,10,12
+max-strings:		16000				// the maximum number of strings in GST
+min-string-usage:	1000				// if string is used fewer times, it is not included in GST
+excluded-keys:
+	converted_by
+	created_by
+	geobase:datasetName
+	geobase:uuid
+	KSJ2:*
+	odbl
+	odbl:note
+	openGeoDB:auto_update
+	osmarender:*
+	source
+	source:*
+	tiger:separated
+	tiger:source
+    tiger:tlid
+    tiger:upload_uuid
+	SK53_bulk:load
+	yh:LINE_NAME
+	yh:LINE_NUM
+	yh:STRUCTURE
+	yh:TOTYUMONO
+	yh:TYPE
+	yh:WIDTH_RANK
+	// see https://wiki.openstreetmap.org/wiki/Discardable_tags
+	// see https://github.com/openstreetmap/iD/blob/develop/data/discarded.json
+	naptan:*
+rtree-bucket-size:	16		// valid 4-100
+key-weights:
+	name:			5
+	short_name:		3
+	ref:			4
+	fax:			0.2
+	contact:fax:	0.2
+	note:			0.1
+	fixme:			0.1
+	FIXME:			0.1
+	todo:			0.1
+	TODO:			0.1
+// rename to indexed-keys
+category-keys:
+	place
+	highway
+	railway
+	// public_transport
+	aeroway
+	aerialway
+	tourism
+	amenity
+	shop
+	craft
+	power
+	industrial
+	man_made
+	leisure
+	landuse
+	waterway
+	natural/geological
+	military
+	historic
+	healthcare
+	office
+	emergency
+	// barrier
+	building
+	boundary
+	// entrance
+	// crossing/traffic_sign
+	building:part
+	telecom/communication
+	route
+	// indoor
+	// restriction
+
+indexed-relation-types:
+    route
+    restriction
+
+max-key-indexes:             8
+key-index-min-features:    300
+
+properties:
+    license:       ODbL 2.0
+    license-url:
+
+compiler-heap:      6g
+compiler-threads:   auto
+compiler-queue:     auto
+
+sorter:
+    heap:       0.5g
+    threads:    auto
+    queue:      auto
+    page-size:  auto
+    batch-size: auto
+
+analyzer:
+    heap:       1g
+    threads:    auto
+    queue:      auto
+
+compiler:
+    heap:       6g
+    threads:    auto
+    queue:      auto

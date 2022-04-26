@@ -33,8 +33,6 @@ public class Archive
 	private MutableIntObjectMap<Hole> holesByPage = new IntObjectHashMap<>();
 	private TreeMap<Integer, Hole> holesBySize = new TreeMap<>(); 
 
-	public static final Logger log = LogManager.getLogger();
-	
 	public int size()
 	{
 		return pos;

@@ -64,8 +64,6 @@ public abstract class StructIndex<T extends Struct> extends Struct
 	private static final int SLOT_SIZE = 8;
 	private static final int SLOTS_PER_PAGE = PAGE_SIZE / SLOT_SIZE;
 	
-	private static final Logger log = LogManager.getLogger();
-
 	public StructIndex(List<T> items, int slotCount)
 	{
 		spilloverChains = new ArrayList<>();

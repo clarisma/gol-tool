@@ -3,6 +3,7 @@ package com.geodesk.gol.build;
 import com.clarisma.common.cli.Verbosity;
 import com.clarisma.common.collect.Linked;
 import com.clarisma.common.text.Format;
+import com.clarisma.common.util.Log;
 import com.geodesk.core.Mercator;
 import com.geodesk.core.Tile;
 import com.geodesk.feature.FeatureType;
@@ -189,7 +190,7 @@ public class Analyzer extends OsmPbfReader
                 // TODO: check this approach
                 minLocalStringCount++;
                 // minLocalStringCount <<= 1;
-                log.debug("Minimum instance count is now {}", minLocalStringCount);
+                Log.debug("Minimum instance count is now %d", minLocalStringCount);
                 continue;
             }
             if(c.total < minLocalStringCount)
@@ -197,7 +198,7 @@ public class Analyzer extends OsmPbfReader
                 globalStrings.remove(c.string);
                 if(minLocalStringCount >= 1000 && c.total > 1)
                 {
-                    log.debug("Removed {} with count {}", c.string, c.total);
+                    Log.debug("Removed %s with count %d", c.string, c.total);
                 }
                 c.remove();
                 return;
@@ -227,7 +228,7 @@ public class Analyzer extends OsmPbfReader
         if(evictionCount < evictionGoal)
         {
             minLocalStringCount++; //  <<= 1;
-            log.debug("Minimum instance count is now {}", minLocalStringCount);
+            Log.debug("Minimum instance count is now %d", minLocalStringCount);
         }
     }
 

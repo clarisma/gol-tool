@@ -4,6 +4,7 @@ import com.clarisma.common.pbf.PbfBuffer;
 import com.clarisma.common.pbf.PbfOutputStream;
 import com.clarisma.common.soar.Archive;
 import com.clarisma.common.soar.SBytes;
+import com.clarisma.common.util.Log;
 import com.geodesk.feature.FeatureId;
 import com.geodesk.feature.store.FeatureStoreBase;
 import com.geodesk.gol.compiler.Tip;
@@ -56,9 +57,8 @@ public class ServerFeatureStore extends FeatureStoreBase
             {
                 if(tip != 0)
                 {
-                    log.warn("No exports for tip {}, can't resolve {} at {}",
-                        String.format("%06X", tip), FeatureId.toString(typedId),
-                        String.format("%06X/%08X", importingTip, linkPos));
+                    Log.warn("No exports for tip %06X, can't resolve %s at %06X/%08X",
+                        tip, FeatureId.toString(typedId), importingTip, linkPos);
                 }
                 continue;
             }
@@ -66,26 +66,19 @@ public class ServerFeatureStore extends FeatureStoreBase
             int targetPos = targets.get(typedId);
             if(targetPos == 0)
             {
-                log.warn("{} has not been exported by tile {}, can't resolve at {}",
-                    FeatureId.toString(typedId), String.format("%06X", tip),
-                    String.format("%06X/%08X", importingTip, linkPos));
+                Log.warn("%s has not been exported by tile %06X, can't resolve at %06X/%08X",
+                    FeatureId.toString(typedId), tip, importingTip, linkPos);
                 continue;
             }
-            // assert targetPos != 0: String.format("%s has not been exported by tile %d",
-            //    FeatureId.toString(typedId), tip);
-        
-                /*
-                log.debug(String.format("Resolved link at %08X to %s at %06X/%08X",
-                    linkPos, FeatureId.toString(typedId), tip, targetPos));
 
-                 */
-
+            /*
             if(typedId == FeatureId.ofWay(705988446))
             {
                 log.debug("Imported {} from tile {}: Position: {} (Shifted: {})",
                     FeatureId.toString(typedId), Tip.toString(tip),
                     targetPos, shift);
             }
+             */
 
             int p = linkPos + ofs;
             int flags = buf.getInt(p);

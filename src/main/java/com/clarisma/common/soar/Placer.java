@@ -8,8 +8,6 @@ import java.util.Queue;
 
 public class Placer
 {
-    private static final Logger log = LogManager.getLogger();
-
     private Archive archive;
     private Queue<Struct>[] queues;
     private int maxAlignment;

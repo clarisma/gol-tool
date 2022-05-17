@@ -1,14 +1,14 @@
 package com.geodesk.gol;
 
 import com.clarisma.common.cli.Command_old;
-import com.geodesk.feature.FeatureStore;
+import com.geodesk.feature.FeatureLibrary;
 
 import java.util.List;
 import java.util.Map;
 
 public abstract class GolCommand extends Command_old
 {
-    protected FeatureStore features;
+    protected FeatureLibrary features;
 
     public GolCommand(List<String> arguments, Map<String, Object> options)
     {

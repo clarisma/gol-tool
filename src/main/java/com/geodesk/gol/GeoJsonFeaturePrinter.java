@@ -7,6 +7,8 @@ import org.locationtech.jts.geom.Point;
 
 import java.io.PrintWriter;
 
+// TODO: remember, polygons must have proper winding order!
+
 public class GeoJsonFeaturePrinter implements FeaturePrinter
 {
     private boolean firstFeature = true;

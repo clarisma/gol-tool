@@ -4,15 +4,11 @@ import com.clarisma.common.soar.Archive;
 import com.clarisma.common.soar.SString;
 import com.clarisma.common.soar.SharedStruct;
 import com.clarisma.common.soar.Struct;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 
 import java.util.*;
 
 public abstract class FeatureLayout
 {
-    private static final Logger log = LogManager.getLogger();
-
     protected Archive archive;
     protected SIndexTree[] indexes;
     protected List<STagTable> sharedTags;

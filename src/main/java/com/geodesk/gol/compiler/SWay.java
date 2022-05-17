@@ -5,6 +5,7 @@ package com.geodesk.gol.compiler;
 
 import com.clarisma.common.pbf.PbfOutputStream;
 import com.clarisma.common.soar.StructOutputStream;
+import com.clarisma.common.util.Log;
 import com.geodesk.feature.FeatureId;
 import com.geodesk.core.Tile;
 import com.geodesk.core.TileQuad;
@@ -301,11 +302,11 @@ public class SWay extends SFeature
             {
                 if (Coordinates.fixMissing(coords, 0, 0))
                 {
-                    Compiler.log.info("Patched {} missing coordinates in way/{}", missingCoords, id);
+                    Log.debug("Patched %d missing coordinates in way/%d", missingCoords, id);
                 }
                 else
                 {
-                    Compiler.log.error("Unable to fix {} missing coordinates for way/{}", missingCoords, id);
+                    Log.error("Unable to fix %d missing coordinates for way/%d", missingCoords, id);
                 }
             }
             setWayNodes(wayNodes);

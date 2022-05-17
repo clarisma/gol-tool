@@ -73,11 +73,6 @@ public class SNode extends SFeature implements Bounds
 
     @Override public void build(FeatureTile ft)
     {
-        if(id == 945568320)
-        {
-            Compiler.log.debug("Building node/945568320");
-        }
-
         if(isMissing())
         {
             if (x == 0 && y == 0)

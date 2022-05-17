@@ -10,8 +10,6 @@ import com.geodesk.core.Box;
 import com.geodesk.geom.Bounds;
 import com.geodesk.gol.*;
 import com.geodesk.gol.build.*;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.eclipse.collections.api.map.primitive.IntObjectMap;
 import org.eclipse.collections.api.map.primitive.ObjectIntMap;
 
@@ -24,7 +22,7 @@ import static com.geodesk.gol.build.ProtoGol.*;
 
 public class Compiler extends Processor<Compiler.Task>
 {
-    public static final Logger log = LogManager.getLogger();
+    // public static final Logger log = LogManager.getLogger();
 
     private final ServerFeatureStore featureStore;
     private final Path rootPath;
@@ -426,7 +424,7 @@ public class Compiler extends Processor<Compiler.Task>
                     }
                     else
                     {
-                        log.error("Unknown marker: {}", groupMarker);
+                        // log.error("Unknown marker: {}", groupMarker);
                         break;
                     }
                 }
@@ -447,7 +445,7 @@ public class Compiler extends Processor<Compiler.Task>
                 }
                 else
                 {
-                    log.error("Unknown marker: {}", groupMarker);
+                    // log.error("Unknown marker: {}", groupMarker);
                     break;
                 }
             }
@@ -547,7 +545,7 @@ public class Compiler extends Processor<Compiler.Task>
         }
     }
 
-    public void compileAll()
+    public void compileAll() throws IOException
     {
         // linkerImportFile.seek(0);       // TODO: not really needed?
         run();
@@ -555,6 +553,7 @@ public class Compiler extends Processor<Compiler.Task>
         // TODO: close linker files if we split this part into separate Process
 
         // TODO: verbosity
+        pileFile.close();
         System.err.format("Compiled %d tiles in %s\n",
             tileCatalog.tileCount(), Format.formatTimespan(timeElapsed()));
     }

@@ -22,7 +22,7 @@ import java.util.Properties;
 
 import static com.geodesk.gol.build.Utils.*;
 
-public class MakeCommand extends BasicCommand
+public class BuildCommand extends BasicCommand
 {
     private static final int ANALYZE  = 0;
     private static final int PREPARE  = 1;
@@ -103,6 +103,9 @@ public class MakeCommand extends BasicCommand
                         "\"source\" property in the configuration file)");
             }
         }
+
+        System.out.format("Building %s from %s using %s...\n",
+            golPath, sourcePath, configPath);
 
         // TODO: respect config setting
         createWorkPath();

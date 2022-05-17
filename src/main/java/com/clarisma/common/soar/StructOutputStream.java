@@ -1,6 +1,7 @@
 package com.clarisma.common.soar;
 
 import com.clarisma.common.pbf.PbfOutputStream;
+import com.clarisma.common.util.Log;
 import com.geodesk.gol.compiler.Compiler;
 
 import java.io.IOException;
@@ -146,7 +147,7 @@ public class StructOutputStream extends OutputStream
 
 			if(target.location() == 0)
 			{
-				Compiler.log.error("Target {} has not been placed", target);
+				Log.error("Target %s has not been placed", target);
 			}
 
 			int alignment = target.alignment();

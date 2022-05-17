@@ -1,8 +1,6 @@
 package com.geodesk.gol.build;
 
 import com.geodesk.feature.store.ZoomLevels;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 
 import java.io.*;
 import java.nio.file.Path;
@@ -25,8 +23,6 @@ public class Project implements Serializable
 	private int maxKeyIndexes = 8;
 	private int keyIndexMinFeatures = 300;
 	private Map<String,String> properties;
-
-	private static final Logger log = LogManager.getLogger();
 
 	private static void error(String msg, Object... args)
 	{

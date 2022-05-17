@@ -7,16 +7,13 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Random;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import com.clarisma.common.util.Log;
 import org.eclipse.collections.api.set.primitive.MutableLongSet;
 import org.eclipse.collections.impl.factory.primitive.LongSets;
 import org.junit.Test;
 
 public class DensePackedIntIndexTest 
 {
-	private static final Logger log = LogManager.getLogger();
-
 	@Test
 	public void test() throws IOException 
 	{
@@ -27,7 +24,7 @@ public class DensePackedIntIndexTest
 		int range = 1;
 		Path indexFile = Files.createTempFile("index-test", ".idx");
 		IntIndex index = new DensePackedIntIndex(indexFile, 18);
-		log.debug("Created {}.", indexFile);
+		Log.debug("Created %s.", indexFile);
 		
 		/*
 		long kx = 2845508447l;
@@ -73,7 +70,7 @@ public class DensePackedIntIndexTest
 						v+i2, sv, k+i2);
 			}
 		}
-		log.debug("Tested {} keys.", usedKeys.size());
+		Log.debug("Tested %d keys.", usedKeys.size());
 	}
 
 }

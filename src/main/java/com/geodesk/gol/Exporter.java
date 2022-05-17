@@ -1,7 +1,7 @@
 package com.geodesk.gol;
 
 
-import com.geodesk.feature.FeatureStore;
+import com.geodesk.feature.store.FeatureStore;
 import com.geodesk.feature.store.TileIndexWalker;
 import com.geodesk.core.Box;
 import com.geodesk.gol.compiler.Tip;
@@ -76,6 +76,7 @@ public class Exporter extends Processor<Exporter.Task>
         }
     }
 
+    /*
     public static void main(String[] args)
     {
         FeatureStore store = new FeatureStore(Path.of(args[0]));
@@ -84,4 +85,5 @@ public class Exporter extends Processor<Exporter.Task>
         exporter.run();
         store.close();
     }
+     */
 }

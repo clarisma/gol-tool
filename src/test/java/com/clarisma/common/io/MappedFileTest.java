@@ -3,16 +3,12 @@ package com.clarisma.common.io;
 import java.io.IOException;
 import java.nio.file.Paths;
 
-import com.clarisma.common.io.MappedFile;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import com.clarisma.common.util.Log;
 import org.junit.Test;
 import org.locationtech.jts.util.Stopwatch;
 
 public class MappedFileTest 
 {
-	private static final Logger log = LogManager.getLogger();
-
 	@Test
 	public void test() throws IOException  
 	{
@@ -24,7 +20,7 @@ public class MappedFileTest
 		{
 			mf.getMapping(i);
 		}
-		log.info("Mapped {} GB in {} ms\n", gigs, timer.stop());
+		Log.debug("Mapped %d GB in %d ms\n", gigs, timer.stop());
 	}
 
 }

@@ -6,8 +6,6 @@ import com.clarisma.common.soar.SBytes;
 import com.clarisma.common.soar.Struct;
 import com.clarisma.common.soar.StructOutputStream;
 import com.geodesk.feature.store.TagValues;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.eclipse.collections.api.map.primitive.MutableObjectIntMap;
 import org.eclipse.collections.api.map.primitive.ObjectIntMap;
 import org.eclipse.collections.impl.map.mutable.primitive.ObjectIntHashMap;
@@ -46,8 +44,6 @@ import java.util.List;
  */
 public class StringTableBuilder
 {
-    private static final Logger log = LogManager.getLogger();
-
     private List<StringEntry> keys = new ArrayList<>();
     private List<StringEntry> values = new ArrayList<>();
     private List<StringEntry> roles = new ArrayList<>();

@@ -3,14 +3,13 @@ package com.geodesk.gol.build;
 import com.clarisma.common.io.PileFile;
 import com.clarisma.common.pbf.PbfBuffer;
 import com.clarisma.common.pbf.PbfOutputStream;
+import com.clarisma.common.util.Log;
 import com.geodesk.feature.FeatureId;
 import com.geodesk.core.Tile;
 import com.geodesk.core.TileQuad;
 import com.geodesk.core.XY;
 import com.geodesk.feature.FeatureType;
 import com.geodesk.core.Box;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.eclipse.collections.api.list.primitive.IntList;
 import org.eclipse.collections.api.list.primitive.MutableIntList;
 import org.eclipse.collections.api.map.primitive.IntObjectMap;
@@ -163,8 +162,6 @@ import static com.geodesk.gol.build.Utils.readSettings;
 
 public class Validator
 {
-    private static final Logger log = LogManager.getLogger();
-
     private ExecutorService executor;
     private final PileFile pileFile;
     private final TileCatalog tileCatalog;
@@ -224,7 +221,7 @@ public class Validator
         if(tasks.size() == 0) return;
         try
         {
-            log.info("Validating {} tiles at zoom {}, {}/{}",
+            Log.debug("Validating %d tiles at zoom %d, %s/%s",
                 tasks.size(),
                 15 - (batchCode >> 2),
                 (batchCode & 1) == 0 ? "even" : "odd",
@@ -293,7 +290,6 @@ public class Validator
 
     public void validate() throws Throwable
     {
-        log.info("Validating...");
         Stopwatch timer = new Stopwatch();
         timer.start();
 
@@ -303,8 +299,8 @@ public class Validator
         batchTasks();
 
         executor.shutdown();
-        log.info("Validated tiles in {} ms\n", timer.stop());
-
+        // TODO: proper formatting
+        System.out.format("Validated tiles in %d ms\n", timer.stop());
     }
 
     // move to db
@@ -424,7 +420,7 @@ public class Validator
                     }
                     else
                     {
-                        log.error("Unknown marker {} in tile {} (Pile {})", groupMarker,
+                        Log.error("Unknown marker %d in tile %s (Pile %d)", groupMarker,
                             Tile.toString(sourceTile), sourcePile);
                         break;
                     }
@@ -446,7 +442,7 @@ public class Validator
                 }
                 else
                 {
-                    log.error("Unknown marker {} in tile {} (Pile {})", groupMarker,
+                    Log.error("Unknown marker %d in tile %s (Pile %d)", groupMarker,
                         Tile.toString(sourceTile), sourcePile);
                     break;
                 }
@@ -1285,7 +1281,7 @@ public class Validator
                     {
                         if(tilesAndBounds.get(pMemberBounds) == 0)
                         {
-                            log.warn("Failed to calculate quad for way/{}",  memberId);
+                            Log.warn("Failed to calculate quad for way/%d",  memberId);
                         }
                         else
                         {
@@ -1306,7 +1302,7 @@ public class Validator
             }
             if(bounds.quad == 0)
             {
-                log.warn("Could not calculate quad for relation/{} [processing {}]",
+                Log.warn("Could not calculate quad for relation/%d [processing %s]",
                     getId(relations, pRelation), Tile.toString(sourceTile));
             }
             assert memberCount > 0 || bounds.isNull();
@@ -1394,7 +1390,7 @@ public class Validator
             }
             if(bounds.quad == 0)
             {
-                log.error("Could not calculate bounds of way/{}", getId(ways, pWay));
+                Log.error("Could not calculate bounds of way/%d", getId(ways, pWay));
             }
             /*
             if(getId(ways, pWay) == 5038215)
@@ -1467,7 +1463,7 @@ public class Validator
                     writeVarint(((id - prevId) << 1) | 1);
                     if(TileQuad.zoom(quad) != TileQuad.zoom(sourceTile))
                     {
-                        log.error("Quad at wrong zoom level for {}/{}",
+                        Log.error("Quad at wrong zoom level for %s/%d",
                             type==WAYS ? "way" : "relation", id);
                         // TODO: should we fix zoom level here,
                         //  or in the calculate...() methods?

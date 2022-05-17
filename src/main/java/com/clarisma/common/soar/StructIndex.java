@@ -6,9 +6,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.TreeSet;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-
 /**
  * A fast, locality-aware hash table used to retrieve Structs via their primary ID.
  *  

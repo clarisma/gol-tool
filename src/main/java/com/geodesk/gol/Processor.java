@@ -1,7 +1,6 @@
 package com.geodesk.gol;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import com.clarisma.common.util.Log;
 
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
@@ -15,8 +14,6 @@ import java.util.concurrent.LinkedBlockingQueue;
 //   this task
 public abstract class Processor<T> implements Runnable
 {
-    private static final Logger log = LogManager.getLogger();
-
     private int threadCount = Runtime.getRuntime().availableProcessors();
     private int queueSize = threadCount * 2;
     private Thread[] workerThreads;
@@ -71,7 +68,7 @@ public abstract class Processor<T> implements Runnable
             {
                 if(isInterrupted())
                 {
-                    log.debug("Interrupted, ending...");
+                    Log.debug("Interrupted, ending...");
                     break;
                 }
                 try
@@ -85,7 +82,7 @@ public abstract class Processor<T> implements Runnable
                 }
                 catch(InterruptedException ex)
                 {
-                    log.debug("Interrupted while waiting for tasks, ending...");
+                    Log.debug("Interrupted while waiting for tasks, ending...");
                     break;
                 }
                 catch (Throwable ex)
@@ -95,7 +92,7 @@ public abstract class Processor<T> implements Runnable
                 }
             }
             latch.countDown();
-            log.debug("Worker thread is done.");
+            Log.debug("Worker thread is done.");
         }
     }
 
@@ -134,7 +131,7 @@ public abstract class Processor<T> implements Runnable
             feed();
             if(failed())
             {
-                log.debug("Failed, run() quits.");
+                Log.debug("Failed, run() quits.");
                 throw error;
             }
             for (int i = 0; i < workerThreads.length; i++)

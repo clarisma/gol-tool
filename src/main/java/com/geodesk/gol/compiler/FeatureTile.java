@@ -353,17 +353,17 @@ public class FeatureTile
             List<SRelation> stillUnresolved = new ArrayList<>();
             for (SRelation rel: unresolved)
             {
-                Compiler.log.debug("Resolving deferred {}", rel);
+                // Compiler.log.debug("Resolving deferred {}", rel);
                 long prevArea = rel.areaCovered();
                 rel.build(this);
                 if(rel.areaCovered() != prevArea)
                 {
-                    Compiler.log.debug("  Made progress on {}", rel);
+                    // Compiler.log.debug("  Made progress on {}", rel);
                     changedCount++;
                 }
                 else
                 {
-                    Compiler.log.debug("  {} stayed the same", rel);
+                    // Compiler.log.debug("  {} stayed the same", rel);
                 }
                 if(!rel.isBuilt()) stillUnresolved.add(rel);
             }
@@ -563,9 +563,11 @@ public class FeatureTile
                 }
             });
 
+            /*
             Compiler.log.info(
                 "Purgatory includes {} nodes, {} ways, {} relations (incl. foreign refs)",
                 nodes.size(), ways.size(), relations.size());
+             */
         }
 
         for(SRelationTable rt: relationTables.values()) rt.build(this);

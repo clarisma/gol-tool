@@ -6,8 +6,8 @@ import com.clarisma.common.cli.Parameter;
 import com.clarisma.common.cli.Verbosity;
 import com.clarisma.common.text.Format;
 import com.geodesk.feature.Feature;
-import com.geodesk.feature.FeatureStore;
 import com.geodesk.core.Box;
+import com.geodesk.feature.FeatureLibrary;
 import com.geodesk.gol.build.Utils;
 
 import java.io.PrintWriter;
@@ -65,7 +65,7 @@ public class QueryCommand extends BasicCommand
 
     @Override public int perform() throws Exception
     {
-        FeatureStore features = new FeatureStore(golPath);
+        FeatureLibrary features = new FeatureLibrary(golPath.toString());
         long start = System.currentTimeMillis();
         long count = 0;
 

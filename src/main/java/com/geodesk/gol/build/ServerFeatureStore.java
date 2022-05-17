@@ -6,8 +6,7 @@ import com.clarisma.common.soar.Archive;
 import com.clarisma.common.soar.SBytes;
 import com.clarisma.common.util.Log;
 import com.geodesk.feature.FeatureId;
-import com.geodesk.feature.store.FeatureStoreBase;
-import com.geodesk.gol.compiler.Tip;
+import com.geodesk.feature.store.FeatureStore;
 import org.eclipse.collections.api.map.primitive.IntObjectMap;
 import org.eclipse.collections.api.map.primitive.LongIntMap;
 
@@ -17,7 +16,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 // TODO: better name
-public class ServerFeatureStore extends FeatureStoreBase
+public class ServerFeatureStore extends FeatureStore
 {
     // this needs to be synchronized
     public synchronized int createTile(int tip, int size)

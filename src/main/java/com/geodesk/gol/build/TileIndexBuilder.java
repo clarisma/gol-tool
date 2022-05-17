@@ -10,8 +10,6 @@ import com.geodesk.feature.store.ZoomLevels;
 import com.geodesk.core.MercatorToWSG84;
 import com.geodesk.map.Marker;
 import com.geodesk.map.SlippyMap;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.eclipse.collections.api.map.primitive.MutableIntObjectMap;
 import org.eclipse.collections.impl.map.mutable.primitive.IntObjectHashMap;
 
@@ -33,7 +31,7 @@ public class TileIndexBuilder
 	private int minZoom;
 	private STile root;
 
-	private static final Logger log = LogManager.getLogger();
+	//private static final Logger log = LogManager.getLogger();
 
 	public TileIndexBuilder()
 	{
@@ -332,11 +330,11 @@ public class TileIndexBuilder
 		this.zoomLevels = zoomLevels;
 		minZoom = ZoomLevels.minZoom(zoomLevels);
 
-		log.debug("Reading tile densities...");
+		//log.debug("Reading tile densities...");
 		List<STile> tiles = readTileDensities(densityFile);
-		log.debug("Building tile structure...");
+		//log.debug("Building tile structure...");
 		root = addParentTiles(tiles);
-		log.debug("Sorting tiles...");
+		//log.debug("Sorting tiles...");
 		tiles.sort(this::compareTilesByDensity);
 		
 		int tileCount = Math.min(tiles.size(), maxTiles);
@@ -347,9 +345,9 @@ public class TileIndexBuilder
 		}
 		tiles.subList(tileCount, tiles.size()).clear();
 
-		log.debug("{} tiles", tiles.size());
+		// log.debug("{} tiles", tiles.size());
 		
-		log.debug("Finishing tile structure...");
+		// log.debug("Finishing tile structure...");
 		
 		for(STile t: tiles) t.parent.addChild(t);
 		for(STile t: tiles) t.build();

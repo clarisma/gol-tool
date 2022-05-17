@@ -139,8 +139,10 @@ public class SRelation extends SFeature
 
                 if(memberBounds.minX() == 0 && memberBounds.minY() == 0)
                 {
+                    /*
                     Compiler.log.warn("Suspicious bbox of {} (foreign={}, missing={}, quad={}",
                         mf, mf.isForeign(), mf.isMissing(), TileQuad.toString(mf.tileQuad()));
+                     */
                 }
                 bbox.expandToInclude(memberBounds);
                 int memberQuad = m.member.tileQuad();

@@ -7,6 +7,7 @@ import com.clarisma.common.index.IntIndex;
 import com.clarisma.common.io.PileFile;
 import com.clarisma.common.pbf.PbfOutputStream;
 import com.clarisma.common.text.Format;
+import com.clarisma.common.util.Log;
 import com.geodesk.feature.FeatureId;
 import com.geodesk.core.Mercator;
 import com.geodesk.core.Tile;
@@ -17,8 +18,6 @@ import com.geodesk.io.osm.Members;
 import com.geodesk.io.osm.Nodes;
 import com.geodesk.io.osm.OsmPbfReader;
 import com.clarisma.common.io.MappedFile;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.eclipse.collections.api.list.primitive.MutableIntList;
 import org.eclipse.collections.api.list.primitive.MutableLongList;
 import org.eclipse.collections.api.map.primitive.MutableIntObjectMap;
@@ -54,8 +53,6 @@ import java.util.Locale;
 
 public class Sorter extends OsmPbfReader
 {
-    private static final Logger log = LogManager.getLogger();
-
     private final int verbosity;
     private final Path workPath;
     private final PileFile pileFile;
@@ -517,7 +514,7 @@ public class Sorter extends OsmPbfReader
 
             if(memberIds.size() < 2)
             {
-                log.warn("Rejected way/{} because of invalid node count ({})",
+                Log.warn("Rejected way/%d because of invalid node count (%d)",
                     id, memberIds.size());
                 memberIds.clear();
                 memberTiles.clear();
@@ -537,7 +534,7 @@ public class Sorter extends OsmPbfReader
             else if (uniqueNodeTileCount == 0)
             {
                 // TODO: ERROR: All of the way's nodes are missing
-                log.warn("way/{} is missing all nodes", id);
+                Log.warn("way/%d is missing all nodes", id);
             }
             else
             {
@@ -549,21 +546,7 @@ public class Sorter extends OsmPbfReader
                 body.reset();
                 if(TileQuad.zoom(wayTQ) < highestZoom)
                 {
-                    try
-                    {
-                        writeGhostWays(id, wayTQ);
-                    }
-                    catch(Error ex)
-                    {
-                        log.debug("Error happened for way/{}", id);
-                        log.debug("Way tile: {}", TileQuad.toString(wayTQ));
-                        log.debug("Node tiles:");
-                        for(int i=0; i<memberTiles.size(); i++)
-                        {
-                            log.debug("- {}", Tile.toString(
-                                tileCatalog.tileOfPile(memberTiles.get(i))));
-                        }
-                    }
+                    writeGhostWays(id, wayTQ);
                 }
                 addIndexed(id, tileCatalog.pileQuadFromTileQuad(wayTQ));
             }
@@ -688,13 +671,15 @@ public class Sorter extends OsmPbfReader
                 {
                     // Write relationship to each of the member's tiles
 
+                    /*
                     if(memberId == FeatureId.ofRelation(3067061) ||
                         memberId == FeatureId.ofRelation(1212338))
                     {
-                        log.debug("  Member {} (int tile {}) references parent relation/{} (in quad {})",
+                        Log.debug("  Member %s (in tile %s) references parent relation/%d (in quad %s)",
                             FeatureId.toString(memberId), Tile.toString(tile),
                             relId, TileQuad.toString(relTQ));
                     }
+                     */
 
                     int pile = tileCatalog.resolvePileOfTile(tile);
                     assert pile > 0;
@@ -727,11 +712,6 @@ public class Sorter extends OsmPbfReader
         // TODO: instead of `highestZoom`, why not use a flag?
         private void addRelation(long id, int relTQ, int highestZoom)
         {
-            if(id == 1212338 || id == 3067061)
-            {
-                log.debug("Adding relation/{}, quad = {}", id,
-                    TileQuad.toString(relTQ));
-            }
 
             // TODO: expecting memberIds and memberTiles filled feels hackish,
             //  because super-relation resolution must copy them in
@@ -768,7 +748,7 @@ public class Sorter extends OsmPbfReader
                 {
                     if (memberId == id)
                     {
-                        log.warn("Removed self-reference in relation/{}", id);
+                        // log.warn("Removed self-reference in relation/{}", id);
                         continue; // ignore self-references
                     }
                     memberTiles.add(0);
@@ -1089,7 +1069,7 @@ public class Sorter extends OsmPbfReader
             superRelations.clear();
             emptyRelations.clear();
 
-            log.debug("Rejected {} unreferenced empty relations", rejectedEmptyRelationCount);
+            Log.warn("Rejected %d unreferenced empty relations", rejectedEmptyRelationCount);
         }
 
         @Override protected void beginNodes()

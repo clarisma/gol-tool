@@ -20,7 +20,7 @@ import java.nio.ByteBuffer;
 //		int len = buf.getChar(p);
 //		if((len & 0x80) != 0)
 //		{
-//			len = (len & 0x7f) | (len >> 1) & 0xff00;
+//			len = (len & 0x7f) | (len >> 1) & 0xff80;
 //			p+=2;
 //		}
 //		else

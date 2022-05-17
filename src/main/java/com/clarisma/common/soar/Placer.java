@@ -1,8 +1,5 @@
 package com.clarisma.common.soar;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-
 import java.util.ArrayDeque;
 import java.util.Queue;
 

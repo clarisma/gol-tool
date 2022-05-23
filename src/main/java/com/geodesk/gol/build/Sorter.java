@@ -233,6 +233,7 @@ public class Sorter extends OsmPbfReader
 
         void setIndex(IntIndex index)
         {
+            assert indexedFeatureCount == 0;
             this.index = index;
         }
 
@@ -483,11 +484,12 @@ public class Sorter extends OsmPbfReader
         @Override protected void way(long id, Tags tags, Nodes nodes)
         {
             /*
-            if(id == 812913817)
+            if(id == 16350354)
             {
-                log.debug("!!!");
+                Log.debug("!!!");
             }
              */
+
             int wayTQ = 0;
             int prevNodePile = 0;
             int highestZoom = 0;
@@ -879,6 +881,10 @@ public class Sorter extends OsmPbfReader
             if(deferredRelationCount == 0) return;
 
             log("Resolving complex relations...");
+
+            // In case this thread has never processed relations before,
+            // set the index for the batch
+            batch.setIndex(relationIndex);
 
             int resolvedRelationCount = 0;
             List<RelationData> deferred = new ArrayList<>();

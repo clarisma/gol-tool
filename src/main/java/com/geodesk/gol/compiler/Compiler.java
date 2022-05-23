@@ -7,6 +7,7 @@ import com.clarisma.common.text.Format;
 import com.geodesk.core.Tile;
 import com.geodesk.core.TileQuad;
 import com.geodesk.core.Box;
+import com.geodesk.feature.store.Tip;
 import com.geodesk.geom.Bounds;
 import com.geodesk.gol.*;
 import com.geodesk.gol.build.*;

@@ -8,8 +8,8 @@ import com.geodesk.core.Tile;
 import com.geodesk.core.TileQuad;
 import com.geodesk.feature.store.ZoomLevels;
 import com.geodesk.core.MercatorToWSG84;
-import com.geodesk.map.Marker;
-import com.geodesk.map.SlippyMap;
+import com.geodesk.util.MapMaker;
+import com.geodesk.util.Marker;
 import org.eclipse.collections.api.map.primitive.MutableIntObjectMap;
 import org.eclipse.collections.impl.map.mutable.primitive.IntObjectHashMap;
 
@@ -400,12 +400,12 @@ public class TileIndexBuilder
 		out.close();
 	}
 	
-	private static void addToMap(SlippyMap map, STile tile, int viewQuad)
+	private static void addToMap(MapMaker map, STile tile, int viewQuad)
 	{
 		if(tile.parent != null)
 		{
 			if(!TileQuad.coversTile(viewQuad, tile.tile)) return;
-			Marker m = map.addRectangle(Tile.bounds(tile.tile)).tooltip(
+			Marker m = map.add(Tile.bounds(tile.tile)).tooltip(
 				String.format("<b>%s</b><br>%,d nodes<br>(%,d total)", 
 					Tile.toString(tile.tile), 
 					tile.totalCount - tile.childCount,
@@ -423,10 +423,10 @@ public class TileIndexBuilder
 	
 	public void createTileMap(Path tileMapFile, int viewQuad) throws IOException
 	{
-		SlippyMap map = new SlippyMap();
-		map.setProjection(new MercatorToWSG84());
+		MapMaker map = new MapMaker();
+		// map.setProjection(new MercatorToWSG84());
 		addToMap(map, root, viewQuad);
-		map.writeHtml(tileMapFile.toFile());
+		map.save(tileMapFile.toString());
 	}
 
 

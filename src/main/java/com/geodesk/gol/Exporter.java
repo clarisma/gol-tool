@@ -4,7 +4,7 @@ package com.geodesk.gol;
 import com.geodesk.feature.store.FeatureStore;
 import com.geodesk.feature.store.TileIndexWalker;
 import com.geodesk.core.Box;
-import com.geodesk.gol.compiler.Tip;
+import com.geodesk.feature.store.Tip;
 
 import java.io.IOException;
 import java.nio.file.Files;

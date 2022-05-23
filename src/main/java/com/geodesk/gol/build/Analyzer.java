@@ -361,6 +361,11 @@ public class Analyzer extends OsmPbfReader
 
         private void flush()
         {
+            if(counters == null)
+            {
+                assert strings.isEmpty();
+                return;
+            }
             try
             {
                 killWeakestStrings();

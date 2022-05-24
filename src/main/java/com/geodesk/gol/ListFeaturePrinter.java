@@ -2,11 +2,16 @@ package com.geodesk.gol;
 
 import com.geodesk.feature.Feature;
 
+import java.io.PrintStream;
 import java.io.PrintWriter;
 
-public class ListFeaturePrinter implements FeaturePrinter
+public class ListFeaturePrinter extends AbstractFeaturePrinter
 {
-    @Override public void print(PrintWriter out, Feature feature)
+    public ListFeaturePrinter(PrintStream out)
+    {
+        super(out);
+    }
+    @Override public void print(Feature feature)
     {
         char letter = switch(feature.type())
         {

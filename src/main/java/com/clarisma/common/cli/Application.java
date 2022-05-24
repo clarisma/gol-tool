@@ -6,12 +6,14 @@ import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.List;
 
-public class Application
+public abstract class Application
 {
     protected Command defaultCommand()
     {
         return new DefaultCommand(this);
     }
+
+    protected abstract String version();
 
     protected Command createCommand(String name)
     {

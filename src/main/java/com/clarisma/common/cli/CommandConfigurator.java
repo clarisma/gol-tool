@@ -36,6 +36,13 @@ public class CommandConfigurator
 
     private static String processAnnotationDescription(Setter setter, String string)
     {
+        /*
+        if(string.startsWith("?"))
+        {
+            setter.optional = true;
+            string = string.substring(1);
+        }
+        */
         int n = string.indexOf(':');
         if (n >= 0)
         {

@@ -4,89 +4,86 @@ import com.geodesk.core.Mercator;
 import com.geodesk.feature.Feature;
 import com.geodesk.feature.Tags;
 
+import java.io.PrintStream;
 import java.io.PrintWriter;
 import java.util.HashMap;
 import java.util.Map;
 
-public class CsvFeaturePrinter implements FeaturePrinter
+public class CsvFeaturePrinter extends AbstractFeaturePrinter
 {
-    private final Map<String,Integer> keyToColumn = new HashMap<>();
-    private final StringBuilder extraTags = new StringBuilder();
-    private String[] columns;
-    private int extraTagsCol;
-    private int lonCol;
-    private int latCol;
-    private int xCol;
-    private int yCol;
-    private int geomCol;
-    private boolean needsCenter;
+    private char colSeparator = '\t';
+    private final StringBuilder buf = new StringBuilder();
+    private Column currentColumn;
 
-    @Override public void useKeys(String[] keys)
+    public CsvFeaturePrinter(PrintStream out)
     {
-        int colCount = 2;
-        for(String key: keys)
+        super(out);
+    }
+
+
+    @Override public void printHeader()
+    {
+        out.print("t");
+        out.print(colSeparator);
+        out.print("id");
+
+        for(Column col: columns)
         {
-            if(key.equals("*")) key="tags";
-            if(keyToColumn.containsKey(key)) continue;
-            switch(key)
-            {
-            case "lon":
-                lonCol = colCount;
-                needsCenter = true;
-                break;
-            case "lat":
-                latCol = colCount;
-                needsCenter = true;
-                break;
-            case "x":
-                xCol = colCount;
-                needsCenter = true;
-                break;
-            case "y":
-                yCol = colCount;
-                needsCenter = true;
-                break;
-            case "tags":
-                extraTagsCol = colCount;
-                break;
-            case "geom":
-                geomCol = colCount;
-                break;
-            }
-            keyToColumn.put(key, colCount);
-            colCount++;
+            out.print(colSeparator);
+            out.print(col.key);
         }
-        columns = new String[colCount];
+        out.println();
     }
 
-    private void resetColumns()
+    @Override public void print(Feature feature)
     {
-        for(int i=0; i<columns.length; i++) columns[i] = "";
-    }
-
-    private void printRow(PrintWriter out)
-    {
-        for(int i=0; i<columns.length; i++)
+        out.print(switch(feature.type())
         {
-            if(i>0) out.print('\t');
-            out.print(columns[i]);
-        }
-        out.print('\n');
+            case NODE -> "N";
+            case WAY -> "W";
+            case RELATION -> "R";
+        });
+        out.print(colSeparator);
+        out.print(feature.id());
+        extractProperties(feature.tags());
+        printProperties();
+        out.println();
     }
 
-    @Override public void printHeader(PrintWriter out)
+    @Override protected void beginColumn(Column column)
     {
-        columns[0] = "t";
-        columns[1] = "id";
-        for(Map.Entry<String,Integer> e: keyToColumn.entrySet())
-        {
-            columns[e.getValue()] = e.getKey();
-        }
-        printRow(out);
-        resetColumns();
+        currentColumn = column;
     }
 
-    @Override public void print(PrintWriter out, Feature feature)
+    @Override protected void endColumn(Column column)
+    {
+        if(buf.length() > 0)
+        {
+            out.print(colSeparator);
+            out.print(buf.toString());       // TODO: escape
+        }
+        buf.setLength(0);
+    }
+
+
+    @Override protected void printProperty(String key, String value)
+    {
+        if(currentColumn.properties != null)
+        {
+            if(buf.length() > 0) buf.append(',');
+            buf.append(key);
+            buf.append('=');
+            buf.append(value);       // TODO: escape
+            return;
+        }
+        out.print(colSeparator);
+        out.print(value);       // TODO: escape
+    }
+
+
+
+    /*
+    @Override public void print(PrintStream out, Feature feature)
     {
         columns[0] = switch(feature.type())
         {
@@ -139,4 +136,5 @@ public class CsvFeaturePrinter implements FeaturePrinter
         printRow(out);
         resetColumns();
     }
+     */
 }

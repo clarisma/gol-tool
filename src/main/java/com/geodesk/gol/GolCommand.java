@@ -1,26 +1,62 @@
 package com.geodesk.gol;
 
+import com.clarisma.common.cli.BasicCommand;
 import com.clarisma.common.cli.Command_old;
+import com.clarisma.common.cli.Option;
+import com.clarisma.common.cli.Parameter;
+import com.geodesk.core.Box;
 import com.geodesk.feature.FeatureLibrary;
+import com.geodesk.gol.build.Utils;
 
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
 
-public abstract class GolCommand extends Command_old
+public abstract class GolCommand extends BasicCommand
 {
+    private Path golPath;
     protected FeatureLibrary features;
+    protected Box bbox;
+    protected Path polygonFilePath;
 
-    public GolCommand(List<String> arguments, Map<String, Object> options)
+    @Option("new,n: create GOL if it does not exist")
+    protected boolean createIfMissing;
+
+    @Parameter("0=gol")
+    public void library(String filename)
     {
-        super(arguments, options);
+        golPath = Utils.golPath(filename);
     }
 
-    protected abstract void perform();
-
-    @Override public void run()
+    @Option("bbox,b=W,S,E,N: bounding box")
+    public void bounds(String bounds)
     {
-        // features = new FeatureStore(Path.of()) // TODO
-        perform();
+        bbox = Box.fromWSEN(bounds);
+    }
+
+    @Option("polygon,p=file: polygon file")
+    public void polygonFile(String file)
+    {
+        polygonFilePath = Paths.get(file);
+    }
+
+    protected abstract void performWithLibrary() throws Exception;
+
+    @Override public int perform()
+    {
+        int result = 0;
+        // TODO: constructor that takes Path
+        features = new FeatureLibrary(golPath.toString());
+        try
+        {
+            performWithLibrary();
+        }
+        catch(Throwable ex)
+        {
+            result = ErrorReporter.report(ex, verbosity);
+        }
         features.close();
+        return result;
     }
 }

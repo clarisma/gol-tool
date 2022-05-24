@@ -10,6 +10,7 @@ import com.geodesk.core.Box;
 import com.geodesk.feature.FeatureLibrary;
 import com.geodesk.gol.build.Utils;
 
+import java.io.PrintStream;
 import java.io.PrintWriter;
 import java.nio.file.Path;
 
@@ -25,7 +26,7 @@ public class QueryCommand extends BasicCommand
 
     private enum ResultFormat
     {
-        LIST, CSV, GEOJSON, XML, COUNT;
+        LIST, CSV, FAB, GEOJSON, XML, WKT, COUNT;
     }
 
     @Option("new,n: create GOL if it does not exist")
@@ -77,16 +78,19 @@ public class QueryCommand extends BasicCommand
         }
          */
 
-        FeaturePrinter printer = switch(format)
+        PrintStream out = System.out;
+        AbstractFeaturePrinter printer = switch(format)
         {
-            case LIST -> new ListFeaturePrinter();
-            case CSV -> new CsvFeaturePrinter();
-            case GEOJSON -> new GeoJsonFeaturePrinter();
+            case LIST -> new ListFeaturePrinter(out);
+            case CSV -> new CsvFeaturePrinter(out);
+            case GEOJSON -> new GeoJsonFeaturePrinter(out);
+            case WKT -> new WktFeaturePrinter(out);
+            case FAB -> new FabFeaturePrinter(out);
             default -> new NullFeaturePrinter();
         };
-        printer.useKeys(tags);
+        printer.columns(tags);
 
-        PrintWriter out = new PrintWriter(System.out);
+
         /*
         PrintWriter out = new PrintWriter(new PrintStream(System.out, false,
             StandardCharsets.UTF_8));
@@ -96,15 +100,15 @@ public class QueryCommand extends BasicCommand
             new OutputStreamWriter(System.out, StandardCharsets.UTF_8));
          */
 
-        printer.printHeader(out);
+        printer.printHeader();
         for(Feature f: features.features(query).in(bbox))
         {
-            printer.print(out, f);
-            out.flush();
+            printer.print(f);
+            // out.flush();
             count++;
             if(count == limit) break;
         }
-        printer.printFooter(out);
+        printer.printFooter();
         out.flush();
 
         if(format == ResultFormat.COUNT)

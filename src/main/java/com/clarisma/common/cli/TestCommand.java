@@ -25,7 +25,10 @@ public class TestCommand extends BasicCommand
     public static void main(String[] args) throws Exception
     {
         long start = System.currentTimeMillis();
-        Application app = new Application();
+        Application app = new Application()
+        {
+            @Override public String version() { return "test"; }
+        };
         app.run(new TestCommand(), args);
         System.out.format("Elapsed time: %d ms", System.currentTimeMillis() - start);
     }

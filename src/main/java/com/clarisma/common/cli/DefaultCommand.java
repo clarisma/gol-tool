@@ -17,6 +17,10 @@ public class DefaultCommand extends BasicCommand
 
     @Override public int perform() throws Exception
     {
+        if(versionRequested)
+        {
+            System.err.println(app.version());
+        }
         return 0;
     }
 }

@@ -1,10 +1,28 @@
 package com.geodesk.gol;
 
-public class GolTool
+import com.clarisma.common.cli.Application;
+import com.clarisma.common.util.Log;
+
+import java.io.PrintWriter;
+
+public class GolTool extends Application
 {
+    public static final String VERSION = "0.1.0";
+
+    @Override public String version()
+    {
+        return "gol " + VERSION;
+    }
+
     public static void main(String[] args) throws Exception
     {
-        GolApplication app = new GolApplication();
+        // for(String arg: args) Log.debug("Arg: '%s'", arg);
+        /*
+        PrintWriter out = new PrintWriter(System.out);
+        out.println("Bavière");
+        out.flush();
+         */
+        GolTool app = new GolTool();
         app.run(null, args);
     }
 }

@@ -2,18 +2,23 @@ package com.geodesk.gol;
 
 import com.geodesk.feature.Feature;
 import com.geodesk.feature.Tags;
-import org.locationtech.jts.geom.Geometry;
-import org.locationtech.jts.geom.Point;
+import org.locationtech.jts.geom.*;
 
+import java.io.PrintStream;
 import java.io.PrintWriter;
 
 // TODO: remember, polygons must have proper winding order!
 
-public class GeoJsonFeaturePrinter implements FeaturePrinter
+public class GeoJsonFeaturePrinter extends AbstractFeaturePrinter
 {
     private boolean firstFeature = true;
 
-    @Override public void printHeader(PrintWriter out)
+    public GeoJsonFeaturePrinter(PrintStream out)
+    {
+        super(out);
+    }
+
+    @Override public void printHeader()
     {
         out.println("{");
         out.println("\t\"type\": \"FeatureCollection\",");
@@ -21,53 +26,108 @@ public class GeoJsonFeaturePrinter implements FeaturePrinter
         out.println("\t\"features\": [");
     }
 
-    protected void printGeometry(PrintWriter out, Geometry geom)
+    protected void printLineString(LineString g)
     {
-        out.println("\t\t\t\"geometry\": {");
-        out.print("\t\t\t\t\"type\": \"");
-        if(geom instanceof Point)
+        CoordinateSequence seq = g.getCoordinateSequence();
+        out.print('[');
+        for(int i=0; i<seq.size(); i++)
         {
-            out.println("Point\",");
+            if(i>0) out.print(',');
+            out.print('[');
+            printX(seq.getOrdinate(i, 0));
+            out.print(',');
+            printY(seq.getOrdinate(i, 1));
+            out.print(']');
         }
-
-        // TODO
-
-        out.println("\t\t\t},");
+        out.print(']');
     }
 
-    @Override public void print(PrintWriter out, Feature feature)
+    protected void printPolygon(Polygon g)
+    {
+        out.print('[');
+        printLineString(g.getExteriorRing());
+        for(int i=0; i<g.getNumInteriorRing(); i++)
+        {
+            out.print(',');
+            printLineString(g.getInteriorRingN(i));
+        }
+        out.print(']');
+    }
+
+
+    protected void printGeometry(Geometry g)
+    {
+        out.print("\"geometry\": {\"type\":");
+        if(g instanceof Point)
+        {
+            out.print("\"Point\",\"coordinates\":[");
+            Point pt= (Point)g;
+            printX(pt.getX());
+            out.print(',');
+            printX(pt.getY());
+            out.print(']');
+        }
+        if(g instanceof LineString)
+        {
+            out.print("\"LineString\",\"coordinates\":");
+            printLineString((LineString)g);
+        }
+        else if(g instanceof Polygon)
+        {
+            out.print("\"Polygon\",\"coordinates\":");
+            printPolygon((Polygon)g);
+        }
+        else if(g instanceof MultiPolygon)
+        {
+            out.print("\"MultiPolygon\",\"coordinates\":[");
+            for(int i=0; i<g.getNumGeometries(); i++)
+            {
+                if(i > 0) out.print(',');
+                printPolygon((Polygon)g.getGeometryN(i));
+            }
+            out.print(']');
+        }
+        else if(g instanceof GeometryCollection)
+        {
+            out.print("\"GeometryCollection\",\"geometries\":[");
+            for(int i=0; i< g.getNumGeometries(); i++)
+            {
+                if(i > 0) out.print(',');
+                printGeometry(g.getGeometryN(i));
+            }
+            out.print(']');
+        }
+        out.print('}');
+    }
+
+    @Override protected void printProperty(String key, String value)
+    {
+        if(propertyNumber > 0) out.print(",\n");
+        out.print("\t\t\t\t\"");
+        out.print(key);
+        out.print("\": \"");
+        out.print(value);       // TODO: escape
+        out.print('\"');
+    }
+
+    @Override public void print(Feature feature)
     {
         if(!firstFeature) out.println("\t\t},");
         out.println("\t\t{");
         out.println("\t\t\t\"type\": \"Feature\",");
-
-        printGeometry(out, feature.toGeometry());
+        out.print("\t\t\t");
+        printGeometry(feature.toGeometry());
+        out.println(",");
+        extractProperties(feature.tags());
 
         out.println("\t\t\t\"properties\": {");
-        Tags tags = feature.tags();
-        boolean firstTag = true;
-        while(tags.next())
-        {
-            if(!firstTag)
-            {
-                out.println("\",");
-            }
-            else
-            {
-                firstTag = false;
-            }
-            String key = tags.key();
-            out.print("\t\t\t\t\"");
-            out.print(key);
-            out.print("\": \"");
-            out.print(tags.value());
-        }
-        out.println("\"");
+        printProperties();
+        out.println();
         out.println("\t\t\t}");
         firstFeature = false;
     }
 
-    @Override public void printFooter(PrintWriter out)
+    @Override public void printFooter()
     {
         if(!firstFeature) out.println("\t\t}");
         out.println("\t]");

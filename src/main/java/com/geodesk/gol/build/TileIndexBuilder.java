@@ -4,6 +4,7 @@ import com.clarisma.common.soar.Archive;
 import com.clarisma.common.soar.SBytes;
 import com.clarisma.common.soar.Struct;
 import com.clarisma.common.soar.StructOutputStream;
+import com.clarisma.common.util.Log;
 import com.geodesk.core.Tile;
 import com.geodesk.core.TileQuad;
 import com.geodesk.feature.store.ZoomLevels;
@@ -336,6 +337,8 @@ public class TileIndexBuilder
 		root = addParentTiles(tiles);
 		//log.debug("Sorting tiles...");
 		tiles.sort(this::compareTilesByDensity);
+
+		Log.debug("%d tiles (raw)", tiles.size());
 		
 		int tileCount = Math.min(tiles.size(), maxTiles);
 		while(tileCount > 0)
@@ -344,6 +347,9 @@ public class TileIndexBuilder
 			tileCount--;
 		}
 		tiles.subList(tileCount, tiles.size()).clear();
+
+		Log.debug("%d tiles that have >%d nodes (smallest: %d nodes)",
+			tiles.size(), minDensity, tiles.get(tiles.size()-1).totalCount);
 
 		// log.debug("{} tiles", tiles.size());
 		
@@ -370,7 +376,7 @@ public class TileIndexBuilder
 
 	private void addToArchive(Archive archive, STile root)
 	{
-		// TODO: make more efficient
+		// TODO: more efficient layout
 		
 		// log.debug("Placing {}", Tile.toString(root.tile));
 		archive.place(root);

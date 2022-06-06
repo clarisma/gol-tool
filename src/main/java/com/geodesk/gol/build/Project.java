@@ -117,7 +117,7 @@ public class Project implements Serializable
 	public void minStringUsage(int count)
 	{
 		checkRange(count, 1, 100_000_000);
-		this.minTileDensity = count;
+		this.minStringUsage = count;
 	}
 
 

@@ -510,6 +510,7 @@ public class Compiler extends Processor<Compiler.Task>
             // ByteBuffer buf = ByteBuffer.allocateDirect(archive.size());
             try
             {
+                // TODO: wrong, should use payload size, not archive size !!!!
                 int page = featureStore.createTile(tip, archive.size());
                 PbfOutputStream imports = new PbfOutputStream();
                 featureStore.writeBlob(page, archive.structs(), imports);

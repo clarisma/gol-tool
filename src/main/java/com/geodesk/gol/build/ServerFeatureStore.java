@@ -19,6 +19,8 @@ import java.nio.file.Path;
 public class ServerFeatureStore extends FeatureStore
 {
     // this needs to be synchronized
+
+    // TODO: wrong, should use payload size, not archive size !!!!
     public synchronized int createTile(int tip, int size)
     {
         int page = allocateBlob(size);

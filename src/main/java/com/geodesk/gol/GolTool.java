@@ -23,6 +23,6 @@ public class GolTool extends Application
         out.flush();
          */
         GolTool app = new GolTool();
-        app.run(null, args);
+        System.exit(app.run(null, args));
     }
 }

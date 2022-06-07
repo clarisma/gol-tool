@@ -1,5 +1,7 @@
 package com.clarisma.common.cli;
 
+import com.geodesk.gol.ErrorReporter;
+
 public class DefaultCommand extends BasicCommand
 {
     protected final Application app;
@@ -22,5 +24,10 @@ public class DefaultCommand extends BasicCommand
             System.err.println(app.version());
         }
         return 0;
+    }
+
+    @Override public int error(Throwable ex)
+    {
+        return ErrorReporter.report(ex, verbosity);
     }
 }

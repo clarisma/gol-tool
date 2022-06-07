@@ -1,6 +1,7 @@
 package com.geodesk.gol;
 
 import com.clarisma.common.cli.Verbosity;
+import com.clarisma.common.store.StoreException;
 import com.geodesk.feature.match.QueryException;
 
 import java.io.IOException;
@@ -32,7 +33,9 @@ public class ErrorReporter
             msg = ex.getMessage();
             result = BAD_ARGUMENTS;
         }
-        else if(ex instanceof IOException)
+        else if(
+            ex instanceof IOException ||
+            ex instanceof StoreException)
         {
             msg = ex.getMessage();
             result = IO_ERROR;

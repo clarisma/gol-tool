@@ -14,10 +14,10 @@ import java.io.PrintStream;
 import java.io.PrintWriter;
 import java.nio.file.Path;
 
-public class QueryCommand extends BasicCommand
+public class QueryCommand extends GolCommand
 {
     private Box bbox = Box.ofWorld();
-    private Path golPath;
+    // private Path golPath;
     private String query;
     private String[] tags;
 
@@ -29,17 +29,21 @@ public class QueryCommand extends BasicCommand
         LIST, CSV, FAB, GEOJSON, XML, WKT, COUNT;
     }
 
+    /*
     @Option("new,n: create GOL if it does not exist")
     protected boolean createIfMissing;
+     */
 
     @Option("limit,l=number: maximum number of features to return")
     protected long limit = Long.MAX_VALUE;
 
+    /*
     @Parameter("0=gol")
     public void library(String filename)
     {
         golPath = Utils.golPath(filename);
     }
+    */
 
     @Parameter("1=query")
     public void query(String... args)
@@ -64,9 +68,9 @@ public class QueryCommand extends BasicCommand
 
     }
 
-    @Override public int perform() throws Exception
+    @Override public void performWithLibrary()
     {
-        FeatureLibrary features = new FeatureLibrary(golPath.toString());
+        // FeatureLibrary features = new FeatureLibrary(golPath.toString());
         long start = System.currentTimeMillis();
         long count = 0;
 
@@ -121,6 +125,5 @@ public class QueryCommand extends BasicCommand
                 Format.formatTimespan(System.currentTimeMillis() - start));
         }
         features.close();
-        return 0;
     }
 }

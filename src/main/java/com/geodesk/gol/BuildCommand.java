@@ -15,6 +15,7 @@ import com.geodesk.gol.compiler.Compiler;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -72,21 +73,28 @@ public class BuildCommand extends BasicCommand
         configPath = Utils.pathWithExtension(filename, ".fab");
     }
 
-    @Override public int perform() throws Exception
+    @Override public int perform() throws Throwable
     {
-        if(configPath == null)
+        if (configPath == null)
         {
             configPath = Path.of(FileUtils.replaceExtension(golPath.toString(), ".fab"));
-            if(!Files.exists(configPath))
-            {
-                // TODO: read it from resource
-                configPath = Path.of("C:\\dev\\deseo2\\core\\data\\foundry-settings.fab");
-            }
+            if (!Files.exists(configPath)) configPath = null;
+        }
+        InputStream configStream;
+        if (configPath == null)
+        {
+            configStream = getClass().getResourceAsStream(
+                "/com/geodesk/gol/default-config.fab");
+        }
+        else
+        {
+            configStream = new FileInputStream(configPath.toFile());
         }
 
         // TODO: unify & simplify
         ProjectReader projectReader = new ProjectReader();
-        projectReader.readFile(configPath);
+        projectReader.read(configStream);
+        configStream.close();
         project = projectReader.project();
 
         if(sourcePath != null)
@@ -105,7 +113,8 @@ public class BuildCommand extends BasicCommand
         }
 
         System.out.format("Building %s from %s using %s...\n",
-            golPath, sourcePath, configPath);
+            golPath, sourcePath, configPath==null ?
+                "default settings" : configPath);
 
         // TODO: respect config setting
         createWorkPath();
@@ -119,35 +128,28 @@ public class BuildCommand extends BasicCommand
         context = new BuildContext(golPath, workPath, project);
 
         int startTask = readState();
-        try
-        {
-            long start = System.currentTimeMillis();
-            if (startTask <= ANALYZE) analyze();
-            if (startTask <= PREPARE) prepare();
-            if (startTask <= VALIDATE) sort();
-                // If Validator fails, restart Sorter, because the Validator
-                // may leave features.bin in inconsistent state
-            if (startTask <= VALIDATE) validate();
-            if (startTask <= COMPILE) compile();
-            if (startTask <= LINK) link();
-            context.close();
-            if(verbosity >= Verbosity.QUIET)
-            {
-                System.err.format("Built %s in %s", golPath, Format.formatTimespan(
-                    System.currentTimeMillis() - start));
-            }
-        }
-        catch(Exception ex)
-        {
-            throw ex;
-        }
-        catch(Throwable ex)
-        {
-            throw new RuntimeException("Sever exception: " + ex.getMessage(), ex);
-        }
-        // TODO: translate exceptions to exit code
 
+        long start = System.currentTimeMillis();
+        if (startTask <= ANALYZE) analyze();
+        if (startTask <= PREPARE) prepare();
+        if (startTask <= VALIDATE) sort();
+            // If Validator fails, restart Sorter, because the Validator
+            // may leave features.bin in inconsistent state
+        if (startTask <= VALIDATE) validate();
+        if (startTask <= COMPILE) compile();
+        if (startTask <= LINK) link();
+        context.close();
+        if(verbosity >= Verbosity.QUIET)
+        {
+            System.err.format("Built %s in %s", golPath, Format.formatTimespan(
+                System.currentTimeMillis() - start));
+        }
         return 0;
+    }
+
+    @Override public int error(Throwable ex)
+    {
+        return ErrorReporter.report(ex, verbosity);
     }
 
     private void createWorkPath() throws IOException

@@ -129,6 +129,9 @@ public class Project implements Serializable
 	public void zoomLevels(String s)
 	{
 		zoomLevels = ZoomLevels.fromString(s);
+		zoomLevels |= 1;
+			// TODO: Zoom level 0 must always be included;
+			//  disable this if we're going to support root grids
 		if(ZoomLevels.zoomSteps(zoomLevels) < 0)
 		{
 			error("Invalid arrangement of zoom levels: %s", s);

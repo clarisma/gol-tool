@@ -79,8 +79,15 @@ public abstract class Application
         }
         if(cmd==null) cmd = defaultCommand();
         if(configurator==null) configurator = new CommandConfigurator(cmd);
-        configurator.setParams(params);
-        return cmd.perform();
+        try
+        {
+            configurator.setParams(params);
+            return cmd.perform();
+        }
+        catch(Throwable ex)
+        {
+            return cmd.error(ex);
+        }
     }
 
 }

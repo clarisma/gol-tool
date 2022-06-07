@@ -330,6 +330,8 @@ public class TileIndexBuilder
 	{
 		this.zoomLevels = zoomLevels;
 		minZoom = ZoomLevels.minZoom(zoomLevels);
+		assert minZoom == 0;
+			// Root grid support has been disabled; root must be zoom 0
 
 		//log.debug("Reading tile densities...");
 		List<STile> tiles = readTileDensities(densityFile);

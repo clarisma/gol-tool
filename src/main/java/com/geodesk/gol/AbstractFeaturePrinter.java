@@ -72,7 +72,7 @@ public abstract class AbstractFeaturePrinter implements FeaturePrinter
 
         if(colSpecs == null || colSpecs.length == 0)
         {
-            anyColumn = new Column("*", null, null);
+            anyColumn = new Column("*", "", "");
             columns.add(anyColumn);
             return;
         }

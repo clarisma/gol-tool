@@ -1,5 +1,7 @@
 package com.clarisma.common.cli;
 
+import com.clarisma.common.util.Log;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -20,6 +22,12 @@ public class TestCommand extends BasicCommand
     {
         System.out.format("Test a=%s x=%s verbosity=%d\n", a, x, verbosity);
         return 0;
+    }
+
+    @Override public int error(Throwable ex)
+    {
+        Log.error(ex.toString());
+        return 1;
     }
 
     public static void main(String[] args) throws Exception

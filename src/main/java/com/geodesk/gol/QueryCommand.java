@@ -64,7 +64,8 @@ public class QueryCommand extends GolCommand
         {
             case LIST -> new ListFeaturePrinter(out);
             case CSV -> new CsvFeaturePrinter(out);
-            case GEOJSON -> new GeoJsonFeaturePrinter(out);
+            case GEOJSON -> new GeoJsonFeaturePrinter(out, false);
+            case GEOJSONL -> new GeoJsonFeaturePrinter(out, true);
             case WKT -> new WktFeaturePrinter(out);
             case FAB -> new FabFeaturePrinter(out);
             default -> new NullFeaturePrinter();

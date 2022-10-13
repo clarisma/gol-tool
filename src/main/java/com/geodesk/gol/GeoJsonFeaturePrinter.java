@@ -14,15 +14,25 @@ import java.io.PrintWriter;
 
 public class GeoJsonFeaturePrinter extends AbstractFeaturePrinter
 {
+    private boolean perLine = false;
     private boolean firstFeature = true;
 
-    public GeoJsonFeaturePrinter(PrintStream out)
+    public GeoJsonFeaturePrinter(PrintStream out, boolean perLine)
     {
         super(out);
+        this.perLine = perLine;
     }
+
+    /*
+    public void perLine(boolean enabled)
+    {
+        perLine = enabled;
+    }
+     */
 
     @Override public void printHeader()
     {
+        if(perLine) return;
         out.println("{");
         out.println("\t\"type\": \"FeatureCollection\",");
         out.println("\t\"generator\": \"geodesk gol/0.1.0\",");     // TODO: version
@@ -60,7 +70,9 @@ public class GeoJsonFeaturePrinter extends AbstractFeaturePrinter
 
     protected void printGeometry(Geometry g)
     {
-        out.print("\"geometry\": {\"type\":");
+        out.print("\"geometry\":");
+        if(!perLine) out.print(" ");
+        out.print("{\"type\":");
         if(g instanceof Point)
         {
             out.print("\"Point\",\"coordinates\":[");
@@ -105,6 +117,15 @@ public class GeoJsonFeaturePrinter extends AbstractFeaturePrinter
 
     @Override protected void printProperty(String key, String value)
     {
+        if(perLine)
+        {
+            out.print(propertyNumber > 0 ? ",\"" : "\"");
+            out.print(key);
+            out.print("\":\"");
+            out.print(value);       // TODO: escape
+            out.print('\"');
+            return;
+        }
         if(propertyNumber > 0) out.print(",\n");
         out.print("\t\t\t\t\"");
         out.print(key);
@@ -115,7 +136,7 @@ public class GeoJsonFeaturePrinter extends AbstractFeaturePrinter
 
     private void printBBox(Bounds bbox)
     {
-        out.print("\"bbox\": [");
+        out.print(perLine ? "\"bbox\":[" : "\"bbox\": [");
         printX(bbox.minX());
         out.print(',');
         printY(bbox.minY());
@@ -123,11 +144,23 @@ public class GeoJsonFeaturePrinter extends AbstractFeaturePrinter
         printX(bbox.maxX());
         out.print(',');
         printY(bbox.maxY());
-        out.println("],");
+        out.print("],");
     }
 
     @Override public void print(Feature feature)
     {
+        if(perLine)
+        {
+            out.print("{\"type\": \"Feature\",");
+            if(bboxColumn != null) printBBox(feature.bounds());
+            printGeometry(feature.toGeometry());
+            out.print(",");
+            extractProperties(feature.tags());
+            out.print("\"properties\":{");
+            printProperties();
+            out.println("}}");
+            return;
+        }
         if(!firstFeature) out.println("\t\t},");
         out.println("\t\t{");
         out.println("\t\t\t\"type\": \"Feature\",");
@@ -135,6 +168,7 @@ public class GeoJsonFeaturePrinter extends AbstractFeaturePrinter
         {
             out.print("\t\t\t");
             printBBox(feature.bounds());
+            out.println();
         }
         printGeometry(feature.toGeometry());
         out.println(",");
@@ -149,6 +183,7 @@ public class GeoJsonFeaturePrinter extends AbstractFeaturePrinter
 
     @Override public void printFooter()
     {
+        if(perLine) return;
         if(!firstFeature) out.println("\t\t}");
         out.println("\t]");
         out.println("}");

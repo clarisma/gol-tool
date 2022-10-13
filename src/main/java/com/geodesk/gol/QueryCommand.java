@@ -17,7 +17,6 @@ import java.nio.file.Path;
 public class QueryCommand extends GolCommand
 {
     private Box bbox = Box.ofWorld();
-    // private Path golPath;
     private String query;
     private String[] tags;
 
@@ -26,24 +25,11 @@ public class QueryCommand extends GolCommand
 
     private enum ResultFormat
     {
-        LIST, CSV, FAB, GEOJSON, XML, WKT, COUNT;
+        LIST, CSV, FAB, GEOJSON, GEOJSONL, XML, WKT, COUNT;
     }
-
-    /*
-    @Option("new,n: create GOL if it does not exist")
-    protected boolean createIfMissing;
-     */
 
     @Option("limit,l=number: maximum number of features to return")
     protected long limit = Long.MAX_VALUE;
-
-    /*
-    @Parameter("0=gol")
-    public void library(String filename)
-    {
-        golPath = Utils.golPath(filename);
-    }
-    */
 
     @Parameter("1=query")
     public void query(String... args)
@@ -70,17 +56,8 @@ public class QueryCommand extends GolCommand
 
     @Override public void performWithLibrary()
     {
-        // FeatureLibrary features = new FeatureLibrary(golPath.toString());
         long start = System.currentTimeMillis();
         long count = 0;
-
-        /*
-        if(verbosity >= Verbosity.NORMAL)
-        {
-            System.err.println("file.encoding: " +
-                System.getProperty("file.encoding"));
-        }
-         */
 
         PrintStream out = System.out;
         AbstractFeaturePrinter printer = switch(format)
@@ -93,16 +70,6 @@ public class QueryCommand extends GolCommand
             default -> new NullFeaturePrinter();
         };
         printer.columns(tags);
-
-
-        /*
-        PrintWriter out = new PrintWriter(new PrintStream(System.out, false,
-            StandardCharsets.UTF_8));
-         */
-        /*
-        PrintWriter out = new PrintWriter(
-            new OutputStreamWriter(System.out, StandardCharsets.UTF_8));
-         */
 
         printer.printHeader();
         for(Feature f: features.features(query).in(bbox))

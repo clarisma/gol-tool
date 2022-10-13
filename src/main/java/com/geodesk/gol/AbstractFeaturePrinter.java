@@ -12,11 +12,12 @@ public abstract class AbstractFeaturePrinter implements FeaturePrinter
     private Map<String,Column> keyToColumn;
     private List<Column> wildcardColumns;
     private Column anyColumn;
-    private Column geomColumn;
-    private Column xColumn;
-    private Column yColumn;
-    private Column lonColumn;
-    private Column latColumn;
+    protected Column bboxColumn;
+    protected Column geomColumn;
+    protected Column xColumn;
+    protected Column yColumn;
+    protected Column lonColumn;
+    protected Column latColumn;
     protected int rowNumber;
     protected int columnNumber;
     protected int propertyNumber;
@@ -99,6 +100,9 @@ public abstract class AbstractFeaturePrinter implements FeaturePrinter
                 col = new Column(colSpec, null, null);
                 switch(colSpec)
                 {
+                case "bbox":
+                    bboxColumn = col;
+                    break;
                 case "geom":
                     geomColumn = col;
                     break;

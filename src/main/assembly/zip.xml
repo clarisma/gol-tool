@@ -10,14 +10,17 @@
     <fileSets>
         <fileSet>
             <directory>${project.basedir}/bin</directory>
+            <fileMode>777</fileMode>    <!-- allow edit & execute -->
         </fileSet>
     </fileSets>
     <files>
         <file>
-            <source> ${project.build.directory}/${project.artifactId}-${project.version}.jar</source>
+            <source> ${project.build.directory}/${project.artifactId}-${project.version}-jar-with-dependencies.jar</source>
+            <destName>gol.jar</destName>
             <outputDirectory>/</outputDirectory>
         </file>
     </files>
+    <!--
     <dependencySets>
         <dependencySet>
             <outputDirectory>lib</outputDirectory>
@@ -26,4 +29,5 @@
             </excludes>
         </dependencySet>
     </dependencySets>
+    -->
 </assembly>

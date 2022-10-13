@@ -2,12 +2,15 @@ package com.geodesk.gol;
 
 import com.geodesk.feature.Feature;
 import com.geodesk.feature.Tags;
+import com.geodesk.geom.Bounds;
 import org.locationtech.jts.geom.*;
 
 import java.io.PrintStream;
 import java.io.PrintWriter;
 
 // TODO: remember, polygons must have proper winding order!
+
+// TODO: support GeoJsonL
 
 public class GeoJsonFeaturePrinter extends AbstractFeaturePrinter
 {
@@ -110,12 +113,29 @@ public class GeoJsonFeaturePrinter extends AbstractFeaturePrinter
         out.print('\"');
     }
 
+    private void printBBox(Bounds bbox)
+    {
+        out.print("\"bbox\": [");
+        printX(bbox.minX());
+        out.print(',');
+        printY(bbox.minY());
+        out.print(',');
+        printX(bbox.maxX());
+        out.print(',');
+        printY(bbox.maxY());
+        out.println("],");
+    }
+
     @Override public void print(Feature feature)
     {
         if(!firstFeature) out.println("\t\t},");
         out.println("\t\t{");
         out.println("\t\t\t\"type\": \"Feature\",");
-        out.print("\t\t\t");
+        if(bboxColumn != null)
+        {
+            out.print("\t\t\t");
+            printBBox(feature.bounds());
+        }
         printGeometry(feature.toGeometry());
         out.println(",");
         extractProperties(feature.tags());

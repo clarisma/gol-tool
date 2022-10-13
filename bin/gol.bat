@@ -1,1 +1,1 @@
-@java -cp C:\dev\gol-tool\target\classes;C:\dev\geodesk\target\classes;C:\Users\md\.m2\repository\org\eclipse\collections\eclipse-collections\9.0.0\eclipse-collections-9.0.0.jar;C:\Users\md\.m2\repository\org\eclipse\collections\eclipse-collections-api\9.0.0\eclipse-collections-api-9.0.0.jar;C:\Users\md\.m2\repository\org\locationtech\jts\jts-core\1.18.2\jts-core-1.18.2.jar;C:\Users\md\.m2\repository\org\ow2\asm\asm\9.0\asm-9.0.jar -Dfile.encoding=UTF-8 com.geodesk.gol.GolTool %*
+@java -cp ..\gol.jar -Dfile.encoding=UTF-8 com.geodesk.gol.GolTool %*

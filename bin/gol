@@ -1,0 +1,1 @@
+java -cp ../gol.jar -Xms1g -Xmx12g com.geodesk.gol.GolTool "$@"

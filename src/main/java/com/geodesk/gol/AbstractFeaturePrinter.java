@@ -127,6 +127,8 @@ public abstract class AbstractFeaturePrinter implements FeaturePrinter
         }
     }
 
+    // Should this method take care of string escaping?
+
     protected void extractProperties(Tags tags)
     {
     loop:

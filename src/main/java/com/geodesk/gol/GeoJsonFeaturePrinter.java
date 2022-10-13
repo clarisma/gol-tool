@@ -1,5 +1,6 @@
 package com.geodesk.gol;
 
+import com.clarisma.common.text.Strings;
 import com.geodesk.feature.Feature;
 import com.geodesk.feature.Tags;
 import com.geodesk.geom.Bounds;
@@ -115,6 +116,8 @@ public class GeoJsonFeaturePrinter extends AbstractFeaturePrinter
         out.print('}');
     }
 
+    // TODO: should string escaping happen in baseclass?
+
     @Override protected void printProperty(String key, String value)
     {
         if(perLine)
@@ -122,7 +125,7 @@ public class GeoJsonFeaturePrinter extends AbstractFeaturePrinter
             out.print(propertyNumber > 0 ? ",\"" : "\"");
             out.print(key);
             out.print("\":\"");
-            out.print(value);       // TODO: escape
+            out.print(Strings.escape(value));
             out.print('\"');
             return;
         }
@@ -130,7 +133,7 @@ public class GeoJsonFeaturePrinter extends AbstractFeaturePrinter
         out.print("\t\t\t\t\"");
         out.print(key);
         out.print("\": \"");
-        out.print(value);       // TODO: escape
+        out.print(Strings.escape(value));
         out.print('\"');
     }
 

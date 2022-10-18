@@ -20,6 +20,7 @@ import java.io.PrintWriter;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -66,6 +67,7 @@ public class Analyzer extends OsmPbfReader
     //
     // Global counters for general statistics.
     //
+    private long totalBytesProcessed;
     private long totalNodeCount;
     private long totalTaggedNodeCount;
     private long totalWayCount;
@@ -78,6 +80,7 @@ public class Analyzer extends OsmPbfReader
     private long globalMaxNodeId;
     private long globalMaxWayId;
     private long globalMaxRelationId;
+    private int percentageReported;
 
     //
     // Node counters
@@ -468,6 +471,16 @@ public class Analyzer extends OsmPbfReader
             if(isSuperRelation) superRelationCount++;
         }
 
+        @Override protected void endBlock(Block block)
+        {
+            // flush(currentPhase());
+            synchronized(Analyzer.this)
+            {
+                totalBytesProcessed += block.length;
+                reportProgress();
+            }
+        }
+
         @Override protected void postProcess()
         {
             flush();
@@ -494,6 +507,17 @@ public class Analyzer extends OsmPbfReader
         }
     }
 
+    protected void reportProgress()
+    {
+        // TODO: verbosity level
+
+        int percentageCompleted = (int)((totalBytesProcessed * 100) / fileSize());
+        if(percentageCompleted != percentageReported)
+        {
+            System.err.format("Analyzing... %d%%\r", percentageCompleted);
+            percentageReported = percentageCompleted;
+        }
+    }
 
     public static String cleanString(String s)
     {
@@ -580,6 +604,11 @@ public class Analyzer extends OsmPbfReader
         writeStatistics(workPath.resolve("stats.txt").toString());
         writeStringSummary(workPath.resolve("string-counts.txt").toString());
         writeNodeDensities(workPath.resolve("node-counts.txt").toString());
+        if(project.verbosity() >= Verbosity.QUIET)
+        {
+            System.err.format("Analyzed %s in %s\n",
+                sourcePath, Format.formatTimespan(timeElapsed()));
+        }
     }
 
 

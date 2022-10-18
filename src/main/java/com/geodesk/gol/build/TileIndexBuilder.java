@@ -340,7 +340,7 @@ public class TileIndexBuilder
 		//log.debug("Sorting tiles...");
 		tiles.sort(this::compareTilesByDensity);
 
-		Log.debug("%d tiles (raw)", tiles.size());
+		// Log.debug("%d tiles (raw)", tiles.size());
 		
 		int tileCount = Math.min(tiles.size(), maxTiles);
 		while(tileCount > 0)
@@ -350,8 +350,10 @@ public class TileIndexBuilder
 		}
 		tiles.subList(tileCount, tiles.size()).clear();
 
+		/*
 		Log.debug("%d tiles that have >%d nodes (smallest: %d nodes)",
 			tiles.size(), minDensity, tiles.get(tiles.size()-1).totalCount);
+		 */
 
 		// log.debug("{} tiles", tiles.size());
 		

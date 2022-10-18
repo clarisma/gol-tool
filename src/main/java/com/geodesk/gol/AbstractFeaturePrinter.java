@@ -1,5 +1,6 @@
 package com.geodesk.gol;
 
+import com.geodesk.core.Mercator;
 import com.geodesk.feature.Tags;
 
 import java.io.PrintStream;
@@ -128,6 +129,7 @@ public abstract class AbstractFeaturePrinter implements FeaturePrinter
     }
 
     // Should this method take care of string escaping?
+    //  But different formats may use different escape approaches
 
     protected void extractProperties(Tags tags)
     {
@@ -209,12 +211,14 @@ public abstract class AbstractFeaturePrinter implements FeaturePrinter
     protected void printX(double x)
     {
         // TODO: projection
+        x = Mercator.lonFromX(x);
         printNumber(x);
     }
 
     protected void printY(double y)
     {
         // TODO: projection
+        y = Mercator.latFromY(y);
         printNumber(y);
     }
 }

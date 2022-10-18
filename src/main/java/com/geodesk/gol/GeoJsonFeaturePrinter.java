@@ -80,7 +80,7 @@ public class GeoJsonFeaturePrinter extends AbstractFeaturePrinter
             Point pt= (Point)g;
             printX(pt.getX());
             out.print(',');
-            printX(pt.getY());
+            printY(pt.getY());
             out.print(']');
         }
         if(g instanceof LineString)

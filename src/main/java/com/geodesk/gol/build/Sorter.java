@@ -360,13 +360,6 @@ public class Sorter extends OsmPbfReader
         // protected void nodexxx(long id, int lon, int lat, Tags tags)
         @Override protected void node(long id, int lon, int lat, Tags tags)
         {
-            /*
-            if(id == 945568320)
-            {
-                Compiler.log.debug("Importing node/945568320");
-            }
-             */
-
             int x = Mercator.xFromLon100nd(lon);
             int y = Mercator.yFromLat100nd(lat);
             int pile = tileCatalog.resolvePileOfXY(x, y);
@@ -483,13 +476,6 @@ public class Sorter extends OsmPbfReader
         // protected void wayxxx(long id, Tags tags, Nodes nodes)
         @Override protected void way(long id, Tags tags, Nodes nodes)
         {
-            /*
-            if(id == 16350354)
-            {
-                Log.debug("!!!");
-            }
-             */
-
             int wayTQ = 0;
             int prevNodePile = 0;
             int highestZoom = 0;
@@ -516,8 +502,11 @@ public class Sorter extends OsmPbfReader
 
             if(memberIds.size() < 2)
             {
-                Log.warn("Rejected way/%d because of invalid node count (%d)",
-                    id, memberIds.size());
+                if(verbosity >= Verbosity.NORMAL)
+                {
+                    Log.warn("Rejected way/%d because of invalid node count (%d)",
+                        id, memberIds.size());
+                }
                 memberIds.clear();
                 memberTiles.clear();
                 // TODO: inc rejected feature count
@@ -536,7 +525,10 @@ public class Sorter extends OsmPbfReader
             else if (uniqueNodeTileCount == 0)
             {
                 // TODO: ERROR: All of the way's nodes are missing
-                Log.warn("way/%d is missing all nodes", id);
+                if(verbosity >= Verbosity.NORMAL)
+                {
+                    Log.warn("way/%d is missing all nodes", id);
+                }
             }
             else
             {
@@ -590,12 +582,6 @@ public class Sorter extends OsmPbfReader
         {
             TileQuad.forEach(relTQ, tile ->
             {
-                /*
-                if(id == 1084731)
-                {
-                    log.debug("Writing relation/1084731 to {}", Tile.toString(tile));
-                }
-                 */
                 int pile = tileCatalog.resolvePileOfTile(tile);
                 assert pile > 0: String.format("relation/%d: Cannot resolve tile %s",
                     id, Tile.toString(tile));
@@ -728,13 +714,6 @@ public class Sorter extends OsmPbfReader
 
         @Override protected void relation(long id, Tags tags, Members members)
         {
-            /*
-            if(id == 1084731)
-            {
-                Compiler.log.debug("Importing relation/1084731");
-            }
-             */
-
             assert tagsOrRoles.isEmpty();
             boolean isSuperRelation = false;
             int relTQ = 0;
@@ -1029,13 +1008,20 @@ public class Sorter extends OsmPbfReader
 
             for(RelationData rel: deferred)
             {
-                log(String.format("  relation/%d (%s -- should be sorted) references circular rels", rel.id,
-                    TileQuad.toString(rel.tileQuad)));
+                if(verbosity >= Verbosity.VERBOSE)
+                {
+                    log(String.format(
+                        "  relation/%d (%s -- should be sorted) references circular rels",
+                        rel.id, TileQuad.toString(rel.tileQuad)));
+                }
                 addResolvedRelation(rel);
                 resolvedRelationCount++;
             }
             flush();
-            log(String.format("Final pass: Resolved %d remaining relations", resolvedRelationCount));
+            if(verbosity >= Verbosity.DEBUG)
+            {
+                log(String.format("Final pass: Resolved %d remaining relations", resolvedRelationCount));
+            }
 
             // Resolve the tiles of empty relations. For regular relations, the
             // tiles of the members determine the relation's tile(s). For
@@ -1075,7 +1061,10 @@ public class Sorter extends OsmPbfReader
             superRelations.clear();
             emptyRelations.clear();
 
-            Log.warn("Rejected %d unreferenced empty relations", rejectedEmptyRelationCount);
+            if(verbosity >= Verbosity.VERBOSE)
+            {
+                Log.warn("Rejected %d unreferenced empty relations", rejectedEmptyRelationCount);
+            }
         }
 
         @Override protected void beginNodes()
@@ -1152,7 +1141,7 @@ public class Sorter extends OsmPbfReader
                 totalWayCount += wayCount;
                 totalRelationCount += relationCount;
                 totalBytesProcessed += block.length;
-                reportProgress();
+                if(verbosity >= Verbosity.NORMAL) reportProgress();
             }
             nodeCount = 0;
             wayCount = 0;

@@ -92,7 +92,7 @@ public abstract class Processor<T> implements Runnable
                 }
             }
             latch.countDown();
-            Log.debug("Worker thread is done.");
+            // Log.debug("Worker thread is done.");
         }
     }
 

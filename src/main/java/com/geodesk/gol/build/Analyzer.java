@@ -474,10 +474,13 @@ public class Analyzer extends OsmPbfReader
         @Override protected void endBlock(Block block)
         {
             // flush(currentPhase());
-            synchronized(Analyzer.this)
+            if(project.verbosity() >= Verbosity.NORMAL)
             {
-                totalBytesProcessed += block.length;
-                reportProgress();
+                synchronized (Analyzer.this)
+                {
+                    totalBytesProcessed += block.length;
+                    reportProgress();
+                }
             }
         }
 

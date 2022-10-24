@@ -25,7 +25,7 @@ public class QueryCommand extends GolCommand
 
     private enum ResultFormat
     {
-        LIST, CSV, FAB, GEOJSON, GEOJSONL, XML, WKT, COUNT;
+        LIST, CSV, FAB, GEOJSON, GEOJSONL, XML, WKT, COUNT, MAP;
     }
 
     @Option("limit,l=number: maximum number of features to return")
@@ -68,6 +68,7 @@ public class QueryCommand extends GolCommand
             case GEOJSONL -> new GeoJsonFeaturePrinter(out, true);
             case WKT -> new WktFeaturePrinter(out);
             case FAB -> new FabFeaturePrinter(out);
+            case MAP -> new MapFeaturePrinter(out);
             default -> new NullFeaturePrinter();
         };
         printer.columns(tags);

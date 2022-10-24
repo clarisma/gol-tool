@@ -139,7 +139,7 @@ public class BuildContext
         return linkerExportFile;
     }
 
-    private void closeLinkerFiles() throws IOException
+    public void closeLinkerFiles() throws IOException
     {
         if(linkerImportFile != null)
         {

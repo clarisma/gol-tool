@@ -7,6 +7,7 @@ import com.clarisma.common.cli.Verbosity;
 import com.clarisma.common.io.FileUtils;
 import com.clarisma.common.io.PileFile;
 import com.clarisma.common.text.Format;
+import com.clarisma.common.util.Log;
 import com.geodesk.core.Tile;
 import com.geodesk.core.TileQuad;
 import com.geodesk.gol.build.*;
@@ -97,6 +98,9 @@ public class BuildCommand extends BasicCommand
         configStream.close();
         project = projectReader.project();
 
+        // Set the verbosity level specified on the command line
+        project.verbosity(verbosity);
+
         if(sourcePath != null)
         {
             project.sourcePath(sourcePath);
@@ -139,6 +143,23 @@ public class BuildCommand extends BasicCommand
         if (startTask <= COMPILE) compile();
         if (startTask <= LINK) link();
         context.close();
+
+        if(!keepWork)
+        {
+            delete(workPath, "state.txt", "stats.txt", "tile-map.html", "tile-index.bin");
+            try
+            {
+                Files.delete(workPath);
+            }
+            catch(IOException ex)
+            {
+                if(verbosity >= Verbosity.NORMAL)
+                {
+                    Log.warn("Unable to remove work folder: %s\n", ex.getMessage());
+                }
+            }
+        }
+
         if(verbosity >= Verbosity.QUIET)
         {
             System.err.format("Built %s in %s", golPath, Format.formatTimespan(
@@ -310,5 +331,11 @@ public class BuildCommand extends BasicCommand
         writeState(LINK);
         Linker linker = new Linker(context);
         linker.linkAll();
+        context.closeLinkerFiles();
+
+        if(!keepWork)
+        {
+            delete(workPath, "imports.bin", "exports.bin");
+        }
     }
 }

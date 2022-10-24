@@ -859,7 +859,7 @@ public class Sorter extends OsmPbfReader
             int deferredRelationCount = superRelations.size() + emptyRelations.size();
             if(deferredRelationCount == 0) return;
 
-            log("Resolving complex relations...");
+            if(verbosity >= Verbosity.DEBUG) Log.debug("Resolving complex relations...");
 
             // In case this thread has never processed relations before,
             // set the index for the batch
@@ -911,7 +911,7 @@ public class Sorter extends OsmPbfReader
             }
             flush();
 
-            log(String.format("Initial Pass: Resolved %d relations", resolvedRelationCount));
+            if(verbosity >= Verbosity.DEBUG) Log.debug("Initial Pass: Resolved %d relations", resolvedRelationCount);
 
             /*
             log.debug("Resolved super-relations: {}", resolvedSuperRelations);
@@ -970,7 +970,7 @@ public class Sorter extends OsmPbfReader
                     if(rel.tileQuad != oldRelTQ) updatedAnyTiles = true;
                 }
                 flush();
-                log(String.format("Pass %d: Resolved %d relations", passCount, resolvedRelationCount));
+                if(verbosity >= Verbosity.DEBUG) Log.debug("Pass %d: Resolved %d relations", passCount, resolvedRelationCount);
                 if(!updatedAnyTiles) break;
                 passCount++;
             }
@@ -1010,9 +1010,9 @@ public class Sorter extends OsmPbfReader
             {
                 if(verbosity >= Verbosity.VERBOSE)
                 {
-                    log(String.format(
+                    Log.warn(
                         "  relation/%d (%s -- should be sorted) references circular rels",
-                        rel.id, TileQuad.toString(rel.tileQuad)));
+                        rel.id, TileQuad.toString(rel.tileQuad));
                 }
                 addResolvedRelation(rel);
                 resolvedRelationCount++;
@@ -1020,7 +1020,7 @@ public class Sorter extends OsmPbfReader
             flush();
             if(verbosity >= Verbosity.DEBUG)
             {
-                log(String.format("Final pass: Resolved %d remaining relations", resolvedRelationCount));
+                Log.debug("Final pass: Resolved %d remaining relations", resolvedRelationCount);
             }
 
             // Resolve the tiles of empty relations. For regular relations, the

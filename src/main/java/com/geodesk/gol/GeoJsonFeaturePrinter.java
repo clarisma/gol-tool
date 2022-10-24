@@ -11,8 +11,6 @@ import java.io.PrintWriter;
 
 // TODO: remember, polygons must have proper winding order!
 
-// TODO: support GeoJsonL
-
 public class GeoJsonFeaturePrinter extends AbstractFeaturePrinter
 {
     private boolean perLine = false;
@@ -36,8 +34,9 @@ public class GeoJsonFeaturePrinter extends AbstractFeaturePrinter
         if(perLine) return;
         out.println("{");
         out.println("\t\"type\": \"FeatureCollection\",");
-        out.println("\t\"generator\": \"geodesk gol/0.1.0\",");     // TODO: version
-        out.println("\t\"features\": [");
+        out.print("\t\"generator\": \"geodesk gol/");
+        out.print(GolTool.VERSION);
+        out.println("\",\n\t\"features\": [");
     }
 
     protected void printLineString(LineString g)
@@ -173,6 +172,7 @@ public class GeoJsonFeaturePrinter extends AbstractFeaturePrinter
             printBBox(feature.bounds());
             out.println();
         }
+        out.print("\t\t\t");
         printGeometry(feature.toGeometry());
         out.println(",");
         extractProperties(feature.tags());

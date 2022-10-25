@@ -1151,23 +1151,21 @@ public class Sorter extends OsmPbfReader
 
     @Override protected void endFile()
     {
-        reportCompleted();
+        if(verbosity >= Verbosity.NORMAL) reportCompleted();
     }
 
     public void sortFeatures (File file) throws IOException
     {
+        /*
         if(verbosity >= Verbosity.VERBOSE)
         {
             System.err.format("Sorting %s...\n", file);
         }
+         */
         long startTime = System.currentTimeMillis();
         read(file);
-        if(verbosity >= Verbosity.NORMAL)
-        {
-            System.err.format("Sorted features from %s in %s\n", file, Format.formatTimespan(
-                System.currentTimeMillis() - startTime));
-        }
-        // TODO: clean this up:
+
+        // TODO: clean this up (avoid ugly cast; we only use MappedFile-based index):
         ((MappedFile)nodeIndex).close();
         ((MappedFile)wayIndex).close();
         ((MappedFile)relationIndex).close();

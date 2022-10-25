@@ -44,48 +44,50 @@ public abstract class Application
         List<String> params = new ArrayList<>();
         parser.parse(args);
 
-        CommandConfigurator configurator = null;
-        while(parser.next())
-        {
-            if (configurator == null)
-            {
-                if (cmd == null)
-                {
-                    String key = parser.key();
-                    if (key == null)
-                    {
-                        String commandName = parser.value();
-                        cmd = createCommand(commandName);
-                        continue;
-                    }
-                    else
-                    {
-                        cmd = defaultCommand();
-                    }
-                }
-                configurator = new CommandConfigurator(cmd);
-            }
-
-            String key = parser.key();
-            String value = parser.value();
-            if (key != null)
-            {
-                configurator.setOption(key, value);
-            }
-            else
-            {
-                params.add(value);
-            }
-        }
-        if(cmd==null) cmd = defaultCommand();
-        if(configurator==null) configurator = new CommandConfigurator(cmd);
         try
         {
+
+            CommandConfigurator configurator = null;
+            while(parser.next())
+            {
+                if (configurator == null)
+                {
+                    if (cmd == null)
+                    {
+                        String key = parser.key();
+                        if (key == null)
+                        {
+                            String commandName = parser.value();
+                            cmd = createCommand(commandName);
+                            continue;
+                        }
+                        else
+                        {
+                            cmd = defaultCommand();
+                        }
+                    }
+                    configurator = new CommandConfigurator(cmd);
+                }
+
+                String key = parser.key();
+                String value = parser.value();
+                if (key != null)
+                {
+                    configurator.setOption(key, value);
+                }
+                else
+                {
+                    params.add(value);
+                }
+            }
+            if(cmd==null) cmd = defaultCommand();
+            if(configurator==null) configurator = new CommandConfigurator(cmd);
             configurator.setParams(params);
             return cmd.perform();
         }
         catch(Throwable ex)
         {
+            if(cmd == null) cmd = new DefaultCommand(this);
             return cmd.error(ex);
         }
     }

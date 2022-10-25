@@ -1,13 +1,8 @@
-package com.geodesk.gol;
+package com.geodesk.gol.query;
 
-import com.geodesk.core.Mercator;
 import com.geodesk.feature.Feature;
-import com.geodesk.feature.Tags;
 
 import java.io.PrintStream;
-import java.io.PrintWriter;
-import java.util.HashMap;
-import java.util.Map;
 
 public class CsvFeaturePrinter extends AbstractFeaturePrinter
 {

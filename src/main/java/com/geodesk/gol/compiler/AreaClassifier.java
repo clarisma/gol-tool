@@ -3,6 +3,12 @@ package com.geodesk.gol.compiler;
 import java.util.HashMap;
 import java.util.Map;
 
+// TODO: make this customizable
+//  Proposed format:
+//    aeroway (except taxiway),
+//    amenity,
+//    barrier (city_wall, ditch, hedge) etc.
+
 // This list may be useful: https://github.com/ideditor/id-area-keys/blob/main/areaKeys.json
 
 public class AreaClassifier 

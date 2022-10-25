@@ -1,4 +1,4 @@
-package com.geodesk.gol;
+package com.geodesk.gol.query;
 
 import com.geodesk.core.Mercator;
 import com.geodesk.feature.Tags;

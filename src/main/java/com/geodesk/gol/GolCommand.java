@@ -14,12 +14,15 @@ import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
 
+// TODO: option "-o": redirect output to file
+
 public abstract class GolCommand extends BasicCommand
 {
     private Path golPath;
     protected FeatureLibrary features;
     protected Box bbox;
     protected Path polygonFilePath;
+    private int result;
 
     @Option("new,n: create GOL if it does not exist")
     protected boolean createIfMissing;
@@ -47,9 +50,13 @@ public abstract class GolCommand extends BasicCommand
 
     protected abstract void performWithLibrary() throws Exception;
 
+    protected void setResult(int result)
+    {
+        this.result = result;
+    }
+
     @Override public int perform() throws Exception
     {
-        int result = 0;
         try
         {
             if(!createIfMissing)

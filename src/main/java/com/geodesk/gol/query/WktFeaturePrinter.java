@@ -1,11 +1,6 @@
-package com.geodesk.gol;
+package com.geodesk.gol.query;
 
 import com.geodesk.feature.Feature;
-import com.geodesk.feature.Tags;
-import com.geodesk.feature.Way;
-import com.geodesk.feature.store.StoredWay;
-import org.locationtech.jts.geom.Geometry;
-import org.locationtech.jts.geom.Point;
 
 import java.io.PrintStream;
 

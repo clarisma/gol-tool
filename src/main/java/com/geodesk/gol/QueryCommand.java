@@ -1,18 +1,14 @@
 package com.geodesk.gol;
 
-import com.clarisma.common.cli.BasicCommand;
 import com.clarisma.common.cli.Option;
 import com.clarisma.common.cli.Parameter;
 import com.clarisma.common.cli.Verbosity;
 import com.clarisma.common.text.Format;
 import com.geodesk.feature.Feature;
 import com.geodesk.core.Box;
-import com.geodesk.feature.FeatureLibrary;
-import com.geodesk.gol.build.Utils;
+import com.geodesk.gol.query.*;
 
 import java.io.PrintStream;
-import java.io.PrintWriter;
-import java.nio.file.Path;
 
 public class QueryCommand extends GolCommand
 {

@@ -26,6 +26,7 @@ public class DefaultCommand extends BasicCommand
         return 0;
     }
 
+    // TODO: ErrorReporter is specific to GOL; method should have more general behavior
     @Override public int error(Throwable ex)
     {
         return ErrorReporter.report(ex, verbosity);

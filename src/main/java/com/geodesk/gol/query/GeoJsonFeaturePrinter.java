@@ -1,13 +1,12 @@
-package com.geodesk.gol;
+package com.geodesk.gol.query;
 
 import com.clarisma.common.text.Strings;
 import com.geodesk.feature.Feature;
-import com.geodesk.feature.Tags;
 import com.geodesk.geom.Bounds;
+import com.geodesk.gol.GolTool;
 import org.locationtech.jts.geom.*;
 
 import java.io.PrintStream;
-import java.io.PrintWriter;
 
 // TODO: remember, polygons must have proper winding order!
 

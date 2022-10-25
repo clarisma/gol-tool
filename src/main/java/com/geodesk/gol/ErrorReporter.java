@@ -8,8 +8,10 @@ import java.io.IOException;
 
 public class ErrorReporter
 {
+    public static final int NO_RESULTS = 1;     // TODO: for "query"
     public static final int BAD_ARGUMENTS = 2;
     public static final int IO_ERROR = 4;
+    public static final int INVALID_GOL_FILE = 5;
     public static final int OUT_OF_MEMORY = 10;
     public static final int INTERNAL_ERROR = 127;
 

@@ -36,13 +36,6 @@ public class CommandConfigurator
 
     private static String processAnnotationDescription(Setter setter, String string)
     {
-        /*
-        if(string.startsWith("?"))
-        {
-            setter.optional = true;
-            string = string.substring(1);
-        }
-        */
         int n = string.indexOf(':');
         if (n >= 0)
         {
@@ -52,7 +45,13 @@ public class CommandConfigurator
         n = string.indexOf('=');
         if (n >= 0)
         {
-            setter.paramName = string.substring(n + 1);
+            String name = string.substring(n + 1);
+            if(name.startsWith("?"))
+            {
+                name = name.substring(1);
+                setter.optional = true;
+            }
+            setter.paramName = name;
             string = string.substring(0, n);
         }
         return string;
@@ -169,6 +168,10 @@ public class CommandConfigurator
             }
             else
             {
+                if(value == null)
+                {
+                    throw new IllegalArgumentException("Expected value (" + setter.paramName + ")");
+                }
                 v = convert(value, type);
             }
             f.setAccessible(true);
@@ -207,7 +210,15 @@ public class CommandConfigurator
         {
             Throwable cause = ex.getCause();
             throw new IllegalArgumentException(
-                "Option " + name + ": " + cause.getMessage(), cause);
+                name + ": " + cause.getMessage(), cause);
+        }
+        catch(IllegalArgumentException ex)
+        {
+            // Create a more informative error message by prepending
+            // the actual option used on the command line
+
+            throw new IllegalArgumentException(
+                name + ": " + ex.getMessage());
         }
     }
 
@@ -249,7 +260,7 @@ public class CommandConfigurator
     {
         int paramPos = 0;
         int argPos = 0;
-        final int paramCount = params.size();
+        int paramCount = params.size();
         final int argCount = args.size();
 
         while (paramPos < paramCount && argPos < argCount)
@@ -293,11 +304,23 @@ public class CommandConfigurator
                 "Extraneous argument(s): " + String.join(" ",
                     args.subList(argPos, argCount)));
         }
+
+        /*
         if(argCount < paramCount)
         {
             // TODO: optionals
             throw new IllegalArgumentException(formatParamName(
                 params.get(paramPos)) + ": Missing argument");
+        }
+         */
+
+        while(argCount < paramCount)
+        {
+            if(!params.get(--paramCount).optional)
+            {
+                throw new IllegalArgumentException(formatParamName(
+                    params.get(paramPos)) + ": Missing argument");
+            }
         }
     }
 }

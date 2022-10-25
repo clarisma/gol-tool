@@ -23,6 +23,10 @@ public class DefaultCommand extends BasicCommand
         {
             System.err.println(app.version());
         }
+        else
+        {
+            System.err.println(app.description());
+        }
         return 0;
     }
 

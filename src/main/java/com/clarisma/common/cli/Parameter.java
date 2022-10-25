@@ -8,6 +8,7 @@ import java.lang.annotation.RetentionPolicy;
  *
  * Its string value has the following format:
  *
+ * <position> = [ ? ] <param-name> [ : <description> ]
  *
  */
 @Retention(RetentionPolicy.RUNTIME)

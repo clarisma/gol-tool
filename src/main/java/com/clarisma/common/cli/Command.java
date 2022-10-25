@@ -14,6 +14,6 @@ public interface Command
     int error(Throwable ex);
     default void setOption(String name, String value)
     {
-        throw new IllegalArgumentException("Unknown option: " + name);
+        throw new IllegalArgumentException("Unknown option");
     }
 }

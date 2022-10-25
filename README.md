@@ -24,12 +24,13 @@ gol build world planet-latest.osm.pbf
 
 to turn a planet file into `world.gol`.
 
-Please note that converting an OpenStreetMap PBF file into a GOL is a resource-intensive process. A multi-core system with at least 24 GB is recommended for larger datasets. On a 10-core workstation with 32 GB RAM and an NVMe SSD, building a GOL from a 60 GB planet file takes about half an hour. A machine with less memory will manage, but may start paging furiously. Nonetheless, even a dual-core notebook with 8 GB RAM converts a country-size extract such as Germany (3.5 GB) in about 20 minutes (a quality SSD clearly helps on such a machine).   
+Please note that converting an OpenStreetMap PBF file into a GOL is a resource-intensive process. A multi-core system with at least 24 GB is recommended for larger datasets. On a 10-core workstation with 32 GB RAM and an NVMe SSD, building a GOL from a 60 GB planet file takes about half an hour. A machine with less memory will manage, but may start paging furiously. Nonetheless, even a dual-core notebook with 8 GB RAM converts a country-size extract such as Germany (3.5 GB) in about 20 minutes (a quality SSD clearly helps on such a machine).
+
 You should have plenty of disk space available, to accommodate the temporary files and the resulting GOL. 3 to 5 times the size of the PBF is a good rule of thumb, though the ratio could be as high as 10:1 for smaller files.
 
 ### Java heap-size settings
 
-If you get an "out of memory" error during the "compile" phase, you should increase the maximum heap settings (`-Xmx`) in the launcher script. When you re-run the `build` command, it will continue compiling, you don't have to re-process the previous phases.
+If you get an "out of memory" error during the "compile" phase, you should increase the maximum heap settings (`-Xmx`) in the launcher script. When you re-run the `build` command, it will continue compiling, you don't have to wait for re-processing of the previous phases.
 
 Conversely, you may get better throughput on a low-end machine (8 GB RAM, or less) by adjusting `-Xmx`) downward, to leave more swap space to the OS. 
 

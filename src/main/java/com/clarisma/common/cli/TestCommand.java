@@ -36,6 +36,7 @@ public class TestCommand extends BasicCommand
         Application app = new Application()
         {
             @Override public String version() { return "test"; }
+            @Override public String description() { return "test app"; }
         };
         app.run(new TestCommand(), args);
         System.out.format("Elapsed time: %d ms", System.currentTimeMillis() - start);

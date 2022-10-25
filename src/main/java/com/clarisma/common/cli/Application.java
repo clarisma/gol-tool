@@ -13,7 +13,9 @@ public abstract class Application
         return new DefaultCommand(this);
     }
 
-    protected abstract String version();
+    public abstract String version();
+
+    public abstract String description();
 
     protected Command createCommand(String name)
     {

@@ -307,7 +307,10 @@ public class BuildCommand extends BasicCommand
     private void validate() throws Throwable
     {
         writeState(VALIDATE);
-        Validator validator = new Validator(context.getTileCatalog(), context.getPileFile());
+        Validator validator = new Validator(
+            context.getTileCatalog(),
+            context.getPileFile(),
+            verbosity);
         validator.validate();
     }
 

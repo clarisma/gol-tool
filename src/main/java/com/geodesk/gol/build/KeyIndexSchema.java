@@ -15,7 +15,7 @@ import java.util.*;
  *
  * - One or more keys are mapped to a *category* (with a number from 1 to 30)
  *
- * - These categories are configured using the `indexed-key` property
+ * - These categories are configured using the `indexed-keys` property
  *
  * - A Feature can belong to more than one category based on its keys
  *   (e.g. a hotel that is also a restaurant could belong to `tourism` as
@@ -35,6 +35,8 @@ import java.util.*;
  *   present in an index bucket, are described using *key bits* (a 32-bit
  *   integer, where bit 0 corresponds to Category 1, etc.; the two topmost
  *   bits are reserved).
+ *
+ * - Only global keys can be indexed (see https://github.com/clarisma/gol-tool/issues/9)
  *
  */
 public class KeyIndexSchema implements Serializable

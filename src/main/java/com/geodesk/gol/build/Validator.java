@@ -1,5 +1,6 @@
 package com.geodesk.gol.build;
 
+import com.clarisma.common.cli.Verbosity;
 import com.clarisma.common.io.PileFile;
 import com.clarisma.common.pbf.PbfBuffer;
 import com.clarisma.common.pbf.PbfOutputStream;
@@ -165,6 +166,7 @@ public class Validator
     private ExecutorService executor;
     private final PileFile pileFile;
     private final TileCatalog tileCatalog;
+    private final ProgressReporter reporter;
 
     private static final int N_X = 2;
     private static final int N_Y = 3;
@@ -210,10 +212,14 @@ public class Validator
         if((len & 1) == 0) decoder.skip(len >> 1);
     }
 
-    public Validator(TileCatalog tileCatalog, PileFile pileFile) throws IOException
+    public Validator(TileCatalog tileCatalog, PileFile pileFile, int verbosity) throws IOException
     {
         this.tileCatalog = tileCatalog;
         this.pileFile = pileFile;
+        reporter = new ProgressReporter(
+            tileCatalog.tileCount(), "tiles",
+            verbosity >= Verbosity.NORMAL ? "Validating" : null,
+            verbosity >= Verbosity.NORMAL ? "Validated" : null);
     }
 
     private void processBatch(int batchCode, List<Task> tasks) throws Throwable
@@ -221,11 +227,13 @@ public class Validator
         if(tasks.size() == 0) return;
         try
         {
+            /*
             Log.debug("Validating %d tiles at zoom %d, %s/%s",
                 tasks.size(),
                 15 - (batchCode >> 2),
                 (batchCode & 1) == 0 ? "even" : "odd",
                 (batchCode & 2) == 0 ? "even" : "odd");
+             */
             List<Future<Boolean>> results = executor.invokeAll(tasks);
             for(Future<Boolean> result: results) result.get();
         }
@@ -299,8 +307,7 @@ public class Validator
         batchTasks();
 
         executor.shutdown();
-        // TODO: proper formatting
-        System.out.format("Validated tiles in %d ms\n", timer.stop());
+        reporter.finished();
     }
 
     // move to db
@@ -1711,6 +1718,8 @@ public class Validator
             // It is important to free all data, because the main thread keeps a list
             // of Task objects that are kept alive until all of them finished
 
+            reporter.progress(1);
+
             return Boolean.TRUE;
         }
     }
@@ -1761,7 +1770,7 @@ public class Validator
         TileCatalog tileCatalog = new TileCatalog(workPath.resolve("tile-catalog.txt"));
         int verbosity = 0; // TODO
         PileFile pileFile = PileFile.openExisiting(workPath.resolve("features.bin"));
-        Validator v = new Validator(tileCatalog, pileFile);
+        Validator v = new Validator(tileCatalog, pileFile, verbosity);
         v.validate();
         pileFile.close();
     }

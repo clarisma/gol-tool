@@ -3,6 +3,7 @@ package com.geodesk.gol.build;
 import com.clarisma.common.soar.SBytes;
 import com.clarisma.common.soar.StructOutputStream;
 import com.clarisma.common.util.Bytes;
+import com.geodesk.feature.store.TagValues;
 import com.geodesk.gol.compiler.SIndexSchema;
 import org.eclipse.collections.api.map.primitive.ObjectIntMap;
 
@@ -139,6 +140,17 @@ public class KeyIndexSchema implements Serializable
         {
             return Integer.compare(keyCode, o.keyCode);
         }
+    }
+
+    public static boolean isGlobalKey(String key, ObjectIntMap<String> strings)
+    {
+        int keyCode = strings.get(key);
+        return keyCode > 0 && keyCode <= TagValues.MAX_COMMON_KEY;
+    }
+
+    public void removeLocalKeys(ObjectIntMap<String> strings)
+    {
+        keysToCategories.entrySet().removeIf(e -> !isGlobalKey(e.getKey(), strings));
     }
 
     public SBytes encode(ObjectIntMap<String> strings)

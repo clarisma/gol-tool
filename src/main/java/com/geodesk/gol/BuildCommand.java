@@ -314,9 +314,30 @@ public class BuildCommand extends BasicCommand
         validator.validate();
     }
 
+    /**
+     * Removes local keys from the KeyIndexSchema.
+     *
+     * This is done to avoid problems as described in
+     * https://github.com/clarisma/gol-tool/issues/9
+     *
+     * This should be refactored, since we are modifying settings in the
+     * Project. We should ideally treat Project as immutable.
+     *
+     * Make sure this step is performed if we split the Compiler into a
+     * separate executable (This will likely read settings in binary form).
+     *
+     * @throws IOException if global string table fails to load
+     */
+    private void normalizeIndexedKeys() throws IOException
+    {
+        KeyIndexSchema schema = context.project().keyIndexSchema();
+        schema.removeLocalKeys(context.getGlobalStringMap());
+    }
+
     private void compile() throws Exception
     {
         writeState(COMPILE);
+        normalizeIndexedKeys();
         ServerFeatureStore.create(context);
         Compiler compiler = new Compiler(context);
         compiler.compileAll();

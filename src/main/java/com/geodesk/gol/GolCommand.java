@@ -5,7 +5,12 @@ import com.clarisma.common.cli.Option;
 import com.clarisma.common.cli.Parameter;
 import com.geodesk.core.Box;
 import com.geodesk.feature.FeatureLibrary;
+import com.geodesk.feature.store.FeatureStore;
+import com.geodesk.feature.store.TileIndexWalker;
 import com.geodesk.gol.build.Utils;
+import org.eclipse.collections.api.list.primitive.IntList;
+import org.eclipse.collections.api.list.primitive.MutableIntList;
+import org.eclipse.collections.impl.list.mutable.primitive.IntArrayList;
 
 import java.io.FileNotFoundException;
 import java.nio.file.Files;
@@ -28,7 +33,7 @@ public abstract class GolCommand extends BasicCommand
     protected boolean createIfMissing;
 
     @Option("url,u: URL of tile repository")
-    private String url;
+    protected String url;
 
     @Parameter("0=gol")
     public void library(String filename)
@@ -76,6 +81,22 @@ public abstract class GolCommand extends BasicCommand
             if(features != null) features.close();
         }
         return result;
+    }
+
+    /**
+     * Obtains a list of tiles (as TIPs) that wholly or partially lie in
+     * the requested bounding box or area.
+     *
+     * @return a list of TIPs
+     */
+    protected IntList getTiles()
+    {
+        MutableIntList tiles = new IntArrayList();
+        FeatureStore store = features.store();
+        TileIndexWalker walker = new TileIndexWalker(store);
+        walker.start(bbox != null ? bbox : Box.ofWorld());
+        while(walker.next()) tiles.add(walker.tip());
+        return tiles;
     }
 
     @Override public int error(Throwable ex)

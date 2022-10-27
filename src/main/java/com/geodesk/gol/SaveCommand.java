@@ -13,7 +13,7 @@ public class SaveCommand extends GolCommand
 {
     private Path exportPath;
 
-    @Parameter("1=gol")
+    @Parameter("1=path")
     public void exportPath(String path)
     {
         exportPath = Paths.get(path);

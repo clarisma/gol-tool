@@ -70,7 +70,7 @@ public class QueryCommand extends GolCommand
         printer.columns(tags);
 
         printer.printHeader();
-        for(Feature f: features.features(query).in(bbox))
+        for(Feature f: features.select(query).in(bbox))
         {
             printer.print(f);
             // out.flush();

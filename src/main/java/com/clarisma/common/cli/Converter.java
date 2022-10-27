@@ -7,17 +7,24 @@ public class Converter
     public static Object convert(String s, Class type)
     {
         if(type==String.class) return s;
-        if(type == Integer.class || type == Integer.TYPE)
+        try
         {
-            return Integer.parseInt(s);
+            if (type == Integer.class || type == Integer.TYPE)
+            {
+                return Integer.parseInt(s);
+            }
+            if (type == Long.class || type == Long.TYPE)
+            {
+                return Long.parseLong(s);
+            }
+            if (type == Double.class || type == Double.TYPE)
+            {
+                return Double.parseDouble(s);
+            }
         }
-        if(type == Long.class || type == Long.TYPE)
+        catch(NumberFormatException ex)
         {
-            return Long.parseLong(s);
-        }
-        if(type == Double.class || type == Double.TYPE)
-        {
-            return Double.parseDouble(s);
+            throw new IllegalArgumentException("Must be a number, not \"" + s + "\"");
         }
         if(type.isEnum())
         {

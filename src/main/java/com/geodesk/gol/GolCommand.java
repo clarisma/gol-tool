@@ -4,20 +4,23 @@ import com.clarisma.common.cli.BasicCommand;
 import com.clarisma.common.cli.Option;
 import com.clarisma.common.cli.Parameter;
 import com.geodesk.core.Box;
+import com.geodesk.core.Tile;
 import com.geodesk.feature.FeatureLibrary;
 import com.geodesk.feature.store.FeatureStore;
 import com.geodesk.feature.store.TileIndexWalker;
 import com.geodesk.gol.build.Utils;
+import com.geodesk.io.PolyReader;
+import com.geodesk.util.CoordinateTransformer;
 import org.eclipse.collections.api.list.primitive.IntList;
 import org.eclipse.collections.api.list.primitive.MutableIntList;
 import org.eclipse.collections.impl.list.mutable.primitive.IntArrayList;
+import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.geom.GeometryFactory;
 
-import java.io.FileNotFoundException;
+import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.List;
-import java.util.Map;
 
 // TODO: option "-o": redirect output to file
 
@@ -26,7 +29,18 @@ public abstract class GolCommand extends BasicCommand
     private Path golPath;
     protected FeatureLibrary features;
     protected Box bbox;
-    protected Path polygonFilePath;
+
+    /**
+     * The file containing the area to which the command should be applied
+     * (user option)
+     */
+    protected Path areaFilePath;
+
+    /**
+     * The area to which the command should be applied, or `null` if `bbox`
+     * should be used.
+     */
+    protected Geometry area;
     private int result;
 
     @Option("new,n: create GOL if it does not exist")
@@ -44,13 +58,24 @@ public abstract class GolCommand extends BasicCommand
     @Option("bbox,b=W,S,E,N: bounding box")
     public void bounds(String bounds)
     {
+        if(bounds.indexOf('/') > 0)
+        {
+            int tile = Tile.fromString(bounds);
+            if(tile == -1 || !Tile.isValid(tile))
+            {
+                throw new IllegalArgumentException("\"" + bounds +
+                    "\" is not a valid tile");
+            }
+            bbox = Tile.bounds(tile);
+            return;
+        }
         bbox = Box.fromWSEN(bounds);
     }
 
-    @Option("polygon,p=file: polygon file")
-    public void polygonFile(String file)
+    @Option("area,a=file: polygon file")
+    public void areaFile(String file)
     {
-        polygonFilePath = Paths.get(file);
+        areaFilePath = Paths.get(file);
     }
 
     protected abstract void performWithLibrary() throws Exception;
@@ -58,6 +83,17 @@ public abstract class GolCommand extends BasicCommand
     protected void setResult(int result)
     {
         this.result = result;
+    }
+
+    private void readAreaFile() throws IOException
+    {
+        if(areaFilePath == null) return;
+        try(BufferedReader in = new BufferedReader(new FileReader(areaFilePath.toFile())))
+        {
+            PolyReader reader = new PolyReader(in, new GeometryFactory(),
+                new CoordinateTransformer.ToMercator());
+            area = reader.read();
+        }
     }
 
     @Override public int perform() throws Exception
@@ -74,6 +110,7 @@ public abstract class GolCommand extends BasicCommand
                 }
             }
             features = new FeatureLibrary(golPath, url);
+            readAreaFile();
             performWithLibrary();
         }
         finally

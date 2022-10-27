@@ -135,6 +135,20 @@ public class GeoJsonFeaturePrinter extends AbstractFeaturePrinter
         out.print('\"');
     }
 
+    private void printId(Feature feature)
+    {
+        out.print(perLine ? "\"id\":\"": "\"id\": \"");
+        char letter = switch(feature.type())
+        {
+            case NODE -> 'N';
+            case WAY -> 'W';
+            case RELATION -> 'R';
+        };
+        out.print(letter);
+        out.print(feature.id());
+        out.print("\",");
+    }
+
     private void printBBox(Bounds bbox)
     {
         out.print(perLine ? "\"bbox\":[" : "\"bbox\": [");
@@ -152,7 +166,8 @@ public class GeoJsonFeaturePrinter extends AbstractFeaturePrinter
     {
         if(perLine)
         {
-            out.print("{\"type\": \"Feature\",");
+            out.print("{\"type\":\"Feature\",");
+            printId(feature);
             if(bboxColumn != null) printBBox(feature.bounds());
             printGeometry(feature.toGeometry());
             out.print(",");
@@ -164,7 +179,9 @@ public class GeoJsonFeaturePrinter extends AbstractFeaturePrinter
         }
         if(!firstFeature) out.println("\t\t},");
         out.println("\t\t{");
-        out.println("\t\t\t\"type\": \"Feature\",");
+        out.print("\t\t\t\"type\": \"Feature\",\n\t\t\t");
+        printId(feature);
+        out.println();
         if(bboxColumn != null)
         {
             out.print("\t\t\t");

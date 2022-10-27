@@ -6,22 +6,27 @@ import com.clarisma.common.cli.Verbosity;
 import com.clarisma.common.text.Format;
 import com.geodesk.feature.Feature;
 import com.geodesk.core.Box;
+import com.geodesk.feature.Features;
+import com.geodesk.feature.Filters;
 import com.geodesk.gol.query.*;
 
 import java.io.PrintStream;
 
 public class QueryCommand extends GolCommand
 {
-    private Box bbox = Box.ofWorld();
+    // private Box bbox = Box.ofWorld();
     private String query;
     private String[] tags;
 
     @Option("format,f=csv|xml|geojson|...: output format")
     protected ResultFormat format = ResultFormat.LIST;
 
+    @Option("precision=0-15: coordinate precision")
+    protected int precision;
+
     private enum ResultFormat
     {
-        LIST, CSV, FAB, GEOJSON, GEOJSONL, XML, WKT, COUNT, MAP;
+        LIST, CSV, FAB, GEOJSON, GEOJSONL, XML, WKT, COUNT, MAP, POLY;
     }
 
     @Option("limit,l=number: maximum number of features to return")
@@ -33,11 +38,13 @@ public class QueryCommand extends GolCommand
         query = String.join(" ", args);
     }
 
+    /*
     @Option("bbox,b=W,S,E,N: bounding box")
     public void bounds(String bounds)
     {
         bbox = Box.fromWSEN(bounds);
     }
+*/
 
     @Option("tags,t=keys: keys of tags to include")
     public void tags(String s)
@@ -60,17 +67,27 @@ public class QueryCommand extends GolCommand
         {
             case LIST -> new ListFeaturePrinter(out);
             case CSV -> new CsvFeaturePrinter(out);
+            case FAB -> new FabFeaturePrinter(out);
             case GEOJSON -> new GeoJsonFeaturePrinter(out, false);
             case GEOJSONL -> new GeoJsonFeaturePrinter(out, true);
-            case WKT -> new WktFeaturePrinter(out);
-            case FAB -> new FabFeaturePrinter(out);
             case MAP -> new MapFeaturePrinter(out);
+            case POLY -> new PolyFeaturePrinter(out);
+            case WKT -> new WktFeaturePrinter(out);
             default -> new NullFeaturePrinter();
         };
         printer.columns(tags);
 
         printer.printHeader();
-        for(Feature f: features.select(query).in(bbox))
+        Features<?> selected = features.select(query);
+        if(area != null)
+        {
+            selected = selected.select(Filters.within(area));  // TODO: intersects
+        }
+        else if(bbox != null)
+        {
+            selected = selected.in(bbox);
+        }
+        for(Feature f: selected)
         {
             printer.print(f);
             // out.flush();

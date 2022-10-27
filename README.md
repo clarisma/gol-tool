@@ -12,7 +12,7 @@ Use the GOL command-line utility to:
 
 The GOL Utility is a cross-platform Java application. You will need to install a 64-bit JVM, Version 16 or above.
 
-Apart from the 64-bit requirement, any reasonable hardware will do. The exception is the `gol build` command, which has higher recommended system configurations for reasonable performance.
+Apart from a 64-bit CPU, hardware requirements are minimal. The exception is the `gol build` command, which has higher recommended system configurations for reasonable performance.
 
 ## Converting OpenStreetMap data into a GOL
 

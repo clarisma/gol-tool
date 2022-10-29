@@ -8,6 +8,7 @@ import com.clarisma.common.soar.StructOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.UUID;
 
 import static com.clarisma.common.store.BlobStoreConstants.*;
 
@@ -37,6 +38,13 @@ public abstract class SBlobStoreHeader extends Struct
 
         buf.putInt(0, MAGIC);
         buf.putInt(VERSION_OFS, VERSION);
+
+        // Generate a GUID for the BlobStore
+        // TODO: this is stored in temporary location (after trunk FT)
+        //  GUID_OFS will change when new file spec is finalized
+        UUID guid = UUID.randomUUID();
+        buf.putLong(GUID_OFS, guid.getLeastSignificantBits());
+        buf.putLong(GUID_OFS + 8, guid.getMostSignificantBits());
 
         int totalPages = (metadataSize + (1 << pageSizeShift) - 1) >> pageSizeShift;
         buf.putInt(TOTAL_PAGES_OFS, totalPages);

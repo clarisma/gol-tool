@@ -106,6 +106,5 @@ public class QueryCommand extends GolCommand
             System.err.format("\nRetrieved %d features in %s\n", count,
                 Format.formatTimespan(System.currentTimeMillis() - start));
         }
-        features.close();
     }
 }

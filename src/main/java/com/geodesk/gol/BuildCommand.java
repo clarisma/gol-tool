@@ -162,7 +162,7 @@ public class BuildCommand extends BasicCommand
 
         if(verbosity >= Verbosity.QUIET)
         {
-            System.err.format("Built %s in %s", golPath, Format.formatTimespan(
+            System.err.format("Built %s in %s\n", golPath, Format.formatTimespan(
                 System.currentTimeMillis() - start));
         }
         return 0;

@@ -6,11 +6,11 @@ retention:			90 days
 import-file:        ../mapdata/de.osm.pbf
 import-page-size:	64K					// the page size of the bootstrap db
 max-tiles:			65535               // 16K
-min-tile-density:	10000
+min-tile-density:	75000
 // tile-zoom-levels:	4,6,8,10,12
 tile-zoom-levels:	0,3,6,9,12
 max-strings:		32000				// the maximum number of strings in GST
-min-string-usage:	1000				// if string is used fewer times, it is not included in GST
+min-string-usage:	300				// if string is used fewer times, it is not included in GST
 excluded-keys:
 	converted_by
 	created_by
@@ -88,7 +88,7 @@ indexed-relation-types:
     route
     restriction
 
-max-key-indexes:             8
+max-key-indexes:             6
 key-index-min-features:    300
 
 properties:

@@ -14,6 +14,30 @@ The GOL Utility is a cross-platform Java application. You will need to install a
 
 Apart from a 64-bit CPU, hardware requirements are minimal. The exception is the `gol build` command, which has higher recommended system configurations for reasonable performance.
 
+### Building from source
+
+To build the latest version from source, you will first need to build and install the [GeoDesk Java library](http://www.github.com/clarisma/geodesk):
+
+```
+git clone https://github.com/clarisma/geodesk.git
+cd geodesk
+mvn install
+```
+
+Then the GOL tool itself:
+
+```
+git clone https://github.com/clarisma/gol-tool.git
+cd gol-tool
+mvn install
+```
+
+A `gol.bat` (for Windows) and a `gol` shell script are supplied.
+
+**Linux users**: You may have to make the launcher script executable using `chmod u+x gol`. To conveniently use the command from any folder, consider creating a symbolic link on your path, e.g. <code>ln -s <i>gol_app_dir</i>/gol ~/bin/gol</code>.
+
+If you experience performance problems or out-of-memory errors, you may need to override the default memory-management settings in the call to `java`. Use option `-Xmx` to explicitly set the maximum heap size, e.g. `-Xmx=4g` to allow Java to use 4 GB of heap space. 
+
 ## Converting OpenStreetMap data into a GOL
 
 Use
@@ -71,6 +95,13 @@ This creates a polygon file, which you can then use to restrict the second query
 ```
 gol query germany na[amenity=pub] -a=bavaria.poly -f=csv -t=lon,lat,name > pubs.csv
 ```
+
+To visualize query results on a [Leaflet](http://www.leafletjs.com)-powered slippy map, use the `map` formatting option and open the resulting file in your browser:
+
+```
+gol query germany na[amenity=pub] -a=bavaria.poly -f=map -t=lon,lat,name > pubs.html
+```
+
 
 See the [full documentation](http://docs.geodesk.com/gol/query) for details. Please note that as the current release is still Early Access, some less-common options are not yet supported.
 

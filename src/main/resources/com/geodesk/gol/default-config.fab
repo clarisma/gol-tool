@@ -5,12 +5,12 @@ updates:			daily
 retention:			90 days
 import-file:        ../mapdata/de.osm.pbf
 import-page-size:	64K					// the page size of the bootstrap db
-max-tiles:			8000               // 16K
-min-tile-density:	75000
+max-tiles:			64000               // 16K
+min-tile-density:	100000
 // tile-zoom-levels:	4,6,8,10,12
 tile-zoom-levels:	0,3,6,9,12
-max-strings:		64000				// the maximum number of strings in GST
-min-string-usage:	100				// if string is used fewer times, it is not included in GST
+max-strings:		32000				// the maximum number of strings in GST
+min-string-usage:	300				// if string is used fewer times, it is not included in GST
 excluded-keys:
 	converted_by
 	created_by

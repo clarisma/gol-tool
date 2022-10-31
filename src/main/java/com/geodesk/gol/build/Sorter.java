@@ -504,7 +504,9 @@ public class Sorter extends OsmPbfReader
             {
                 if(verbosity >= Verbosity.NORMAL)
                 {
-                    Log.warn("Rejected way/%d because of invalid node count (%d)",
+                    // Added extra spaces to overwrite progress message
+                    // TODO: Find better way to address #23
+                    Log.warn("Rejected way/%d because of invalid node count (%d)          ",
                         id, memberIds.size());
                 }
                 memberIds.clear();
@@ -1151,7 +1153,7 @@ public class Sorter extends OsmPbfReader
 
     @Override protected void endFile()
     {
-        if(verbosity >= Verbosity.NORMAL) reportCompleted();
+        if(verbosity >= Verbosity.QUIET) reportCompleted();
     }
 
     public void sortFeatures (File file) throws IOException
@@ -1162,7 +1164,6 @@ public class Sorter extends OsmPbfReader
             System.err.format("Sorting %s...\n", file);
         }
          */
-        long startTime = System.currentTimeMillis();
         read(file);
 
         // TODO: clean this up (avoid ugly cast; we only use MappedFile-based index):

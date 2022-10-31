@@ -184,8 +184,9 @@ public class BuildCommand extends BasicCommand
             }
             catch (IOException ex)
             {
-                throw new IOException(
-                    "Failed to create work directory: " + workPath, ex);
+                throw new IOException(String.format(
+                    "Failed to create work directory %s (%s: %s)",
+                    workPath, ex.getClass().getSimpleName(), ex.getMessage()), ex);
             }
         }
         statePath = workPath.resolve("state.txt");

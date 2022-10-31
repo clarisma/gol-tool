@@ -21,7 +21,6 @@ import org.eclipse.collections.impl.list.mutable.primitive.IntArrayList;
 import org.eclipse.collections.impl.map.mutable.primitive.IntObjectHashMap;
 import org.eclipse.collections.impl.map.mutable.primitive.LongIntHashMap;
 import org.eclipse.collections.impl.map.mutable.primitive.LongLongHashMap;
-import org.locationtech.jts.util.Stopwatch;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -212,14 +211,14 @@ public class Validator
         if((len & 1) == 0) decoder.skip(len >> 1);
     }
 
-    public Validator(TileCatalog tileCatalog, PileFile pileFile, int verbosity) throws IOException
+    public Validator(TileCatalog tileCatalog, PileFile pileFile, int verbosity)
     {
         this.tileCatalog = tileCatalog;
         this.pileFile = pileFile;
         reporter = new ProgressReporter(
             tileCatalog.tileCount(), "tiles",
             verbosity >= Verbosity.NORMAL ? "Validating" : null,
-            verbosity >= Verbosity.NORMAL ? "Validated" : null);
+            verbosity >= Verbosity.QUIET ? "Validated" : null);
     }
 
     private void processBatch(int batchCode, List<Task> tasks) throws Throwable
@@ -298,14 +297,8 @@ public class Validator
 
     public void validate() throws Throwable
     {
-        Stopwatch timer = new Stopwatch();
-        timer.start();
-
         executor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());	// TODO
-        // executor = Executors.newSingleThreadExecutor();
-
         batchTasks();
-
         executor.shutdown();
         reporter.finished();
     }

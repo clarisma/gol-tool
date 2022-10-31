@@ -60,5 +60,17 @@ gol query swiss na[amenity=fire_station] -f=geojson
 
 finds all fire stations in Switzerland and exports the features (nodes or areas) as GeoJSON.
 
+The command-line utility only supports a subset of GeoDesk's query capabilities. For spatial joins, you will have to submit two commands. for example, to extract all pubs in Bavaria from `germany.gol`, use:
+
+```
+gol query germany a[boundary=administrative][admin_level=4][name:en=Bavaria] -f=poly > bavaria.poly
+```
+
+This creates a polygon file, which you can then use to restrict the second query (output as CSV with longitude, latitude and name as columns):
+
+```
+gol query germany na[amenity=pub] -a=bavaria.poly -f=csv -t=lon,lat,name > pubs.csv
+```
+
 See the [full documentation](http://docs.geodesk.com/gol/query) for details. Please note that as the current release is still Early Access, some less-common options are not yet supported.
 

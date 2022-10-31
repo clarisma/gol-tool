@@ -22,6 +22,7 @@ To build the latest version from source, you will first need to build and instal
 git clone https://github.com/clarisma/geodesk.git
 cd geodesk
 mvn install
+cd ..
 ```
 
 Then the GOL tool itself:

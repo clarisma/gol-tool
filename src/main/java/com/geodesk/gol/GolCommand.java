@@ -131,6 +131,8 @@ public abstract class GolCommand extends BasicCommand
      * Obtains a list of tiles (as TIPs) that wholly or partially lie in
      * the requested bounding box or area.
      *
+     * Always includes the Purgatory Tile
+     *
      * @return a list of TIPs
      */
     protected IntList getTiles()
@@ -140,6 +142,7 @@ public abstract class GolCommand extends BasicCommand
         TileIndexWalker walker = new TileIndexWalker(store);
         walker.start(bbox != null ? bbox : Box.ofWorld());
         while(walker.next()) tiles.add(walker.tip());
+        tiles.add(0);   // always add purgatory
         return tiles;
     }
 

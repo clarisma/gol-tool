@@ -8,8 +8,9 @@
 package com.geodesk.gol.build;
 
 import com.clarisma.common.text.Format;
+import com.clarisma.common.util.ProgressListener;
 
-public class ProgressReporter
+public class ProgressReporter implements ProgressListener
 {
     private final String progressVerb;
     private final String resultVerb;
@@ -28,7 +29,7 @@ public class ProgressReporter
         startTime = System.currentTimeMillis();
     }
 
-    public void progress(int units)
+    @Override public void progress(int units)
     {
         if(progressVerb != null)
         {
@@ -45,7 +46,7 @@ public class ProgressReporter
         }
     }
 
-    public void finished()
+    @Override public void finished()
     {
         if(resultVerb != null)
         {

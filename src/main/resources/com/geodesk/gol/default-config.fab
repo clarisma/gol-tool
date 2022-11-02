@@ -6,7 +6,7 @@ retention:			90 days
 import-file:        ../mapdata/de.osm.pbf
 import-page-size:	64K					// the page size of the bootstrap db
 max-tiles:			64000               // 16K
-min-tile-density:	100000
+min-tile-density:	75000
 // tile-zoom-levels:	4,6,8,10,12
 tile-zoom-levels:	0,3,6,9,12
 max-strings:		32000				// the maximum number of strings in GST

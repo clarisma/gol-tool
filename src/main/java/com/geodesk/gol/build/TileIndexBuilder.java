@@ -350,7 +350,7 @@ public class TileIndexBuilder
 		// Log.debug("%d tiles (raw)", tiles.size());
 		
 		int tileCount = Math.min(tiles.size(), maxTiles);
-		while(tileCount > 0)
+		while(tileCount > 1)
 		{
 			if(tiles.get(tileCount-1).totalCount >= minDensity) break;
 			tileCount--;
@@ -408,11 +408,21 @@ public class TileIndexBuilder
 	{
 		PrintWriter out = new PrintWriter(catalogFile.toFile());
 		STile tile = root;
-		int indexStart = root.location();
-		while(tile != null)
+		if(tile.children.length == 1 && tile.children[0].children == null)
 		{
-			tile.writeToCatalog(out, indexStart);
-			tile = (STile)tile.next();
+			// Exception for single-tile
+			out.println("000001\t0/0/0");
+				// TODO: This is ugly, double-check what the TIP should
+				//  for single-tile GOL
+		}
+		else
+		{
+			int indexStart = root.location();
+			while (tile != null)
+			{
+				tile.writeToCatalog(out, indexStart);
+				tile = (STile) tile.next();
+			}
 		}
 		out.close();
 	}

@@ -607,7 +607,11 @@ public class Analyzer extends OsmPbfReader
     public void analyze(Path workPath, Path sourcePath) throws Exception
     {
         globalNodesPerTile = new int[4096 * 4096];      // TODO: delay creation
-        mostRecentString = new StringCounter("yes");
+        mostRecentString = new StringCounter("no");
+        mostRecentString.total = mostRecentString.values = 1_000_000_000;
+            // Ensures that "no" will always be included in the GST
+            //  TODO: This feels ugly; consider assigning fixed entries
+            //   to "no" and other common strings
         globalStrings.put(mostRecentString.string, mostRecentString);
         evictionCandidate = mostRecentString;
         read(sourcePath.toFile());

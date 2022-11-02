@@ -8,8 +8,11 @@
 package com.geodesk.gol.query;
 
 import com.geodesk.core.Mercator;
+import com.geodesk.feature.Feature;
 import com.geodesk.feature.Tags;
+import com.geodesk.util.CoordinateTransformer;
 
+import java.io.IOException;
 import java.io.PrintStream;
 import java.util.*;
 
@@ -19,7 +22,7 @@ public abstract class AbstractFeaturePrinter implements FeaturePrinter
     protected List<Column> columns;
     private Map<String,Column> keyToColumn;
     private List<Column> wildcardColumns;
-    private Column anyColumn;
+    protected Column anyColumn;
     protected Column bboxColumn;
     protected Column geomColumn;
     protected Column xColumn;
@@ -29,10 +32,16 @@ public abstract class AbstractFeaturePrinter implements FeaturePrinter
     protected int rowNumber;
     protected int columnNumber;
     protected int propertyNumber;
+    protected CoordinateTransformer transformer;
 
     protected AbstractFeaturePrinter(PrintStream out)
     {
         this.out = out;
+    }
+
+    public void coordinateTransformer(CoordinateTransformer transformer)
+    {
+        this.transformer = transformer;
     }
 
     static class Property implements Comparable<Property>
@@ -163,6 +172,15 @@ public abstract class AbstractFeaturePrinter implements FeaturePrinter
         }
     }
 
+    protected void setCoordinateProperties(Feature f)
+    {
+        // TODO: respect `--center` option
+        if(lonColumn != null) lonColumn.value = transformer.toString(f.lon());
+        if(latColumn != null) latColumn.value = transformer.toString(f.lat());
+        if(xColumn != null) xColumn.value = transformer.toString(f.x());
+        if(yColumn != null) yColumn.value = transformer.toString(f.y());
+    }
+
     protected void beginColumn(Column column)
     {
         // do nothing
@@ -217,15 +235,35 @@ public abstract class AbstractFeaturePrinter implements FeaturePrinter
 
     protected void printX(double x)
     {
+        try
+        {
+            transformer.writeX(out, x);
+        }
+        catch(IOException ex)
+        {
+            throw new RuntimeException(ex);
+        }
+        /*
         // TODO: projection
         x = Mercator.lonFromX(x);
         printNumber(x);
+         */
     }
 
     protected void printY(double y)
     {
+        try
+        {
+            transformer.writeY(out, y);
+        }
+        catch(IOException ex)
+        {
+            throw new RuntimeException(ex);
+        }
+        /*
         // TODO: projection
         y = Mercator.latFromY(y);
         printNumber(y);
+         */
     }
 }

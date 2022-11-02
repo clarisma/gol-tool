@@ -26,8 +26,7 @@ public class PolyFeaturePrinter extends AbstractFeaturePrinter
 
     @Override public void printHeader()
     {
-        writer = new PolyWriter(out, new CoordinateTransformer.FromMercator(6));
-            // TODO: configurable precision
+        writer = new PolyWriter(out, transformer);
         out.append("from_query\n");
             // TODO: What should the name be? Make it configurable?
     }

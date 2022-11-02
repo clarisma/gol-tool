@@ -16,6 +16,7 @@ import com.geodesk.core.Box;
 import com.geodesk.feature.Features;
 import com.geodesk.feature.Filters;
 import com.geodesk.gol.query.*;
+import com.geodesk.util.CoordinateTransformer;
 
 import java.io.PrintStream;
 
@@ -28,8 +29,14 @@ public class QueryCommand extends GolCommand
     @Option("format,f=csv|xml|geojson|...: output format")
     protected ResultFormat format = ResultFormat.LIST;
 
+    protected int precision = 6;
+
     @Option("precision=0-15: coordinate precision")
-    protected int precision;
+    public void precision(int v)
+    {
+        if(v<0 || v > 15) throw new IllegalArgumentException("Must be between 0 and 15");
+        precision = v;
+    }
 
     private enum ResultFormat
     {
@@ -82,6 +89,7 @@ public class QueryCommand extends GolCommand
             case WKT -> new WktFeaturePrinter(out);
             default -> new NullFeaturePrinter();
         };
+        printer.coordinateTransformer(new CoordinateTransformer.FromMercator(precision));
         printer.columns(tags);
 
         printer.printHeader();

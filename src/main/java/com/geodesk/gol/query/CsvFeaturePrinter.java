@@ -13,7 +13,7 @@ import java.io.PrintStream;
 
 public class CsvFeaturePrinter extends AbstractFeaturePrinter
 {
-    private char colSeparator = '\t';
+    private char colSeparator = ','; // '\t';
     private final StringBuilder buf = new StringBuilder();
     private Column currentColumn;
 
@@ -47,6 +47,7 @@ public class CsvFeaturePrinter extends AbstractFeaturePrinter
         });
         out.print(colSeparator);
         out.print(feature.id());
+        setCoordinateProperties(feature);
         extractProperties(feature.tags());
         printProperties();
         out.println();
@@ -62,11 +63,25 @@ public class CsvFeaturePrinter extends AbstractFeaturePrinter
         if(buf.length() > 0)
         {
             out.print(colSeparator);
-            out.print(buf.toString());       // TODO: escape
+            out.print(escaped(buf.toString()));
         }
         buf.setLength(0);
     }
 
+    private String escaped(String s)
+    {
+        if(s.indexOf('\"') < 0 && s.indexOf(',') <0 && s.indexOf(' ') < 0) return s;
+        StringBuffer buf = new StringBuffer();
+        buf.append('\"');
+        for(int i=0; i<s.length(); i++)
+        {
+            char ch = s.charAt(i);
+            if(ch == '\"') buf.append('\"');
+            buf.append(ch);
+        }
+        buf.append('\"');
+        return buf.toString();
+    }
 
     @Override protected void printProperty(String key, String value)
     {
@@ -75,11 +90,11 @@ public class CsvFeaturePrinter extends AbstractFeaturePrinter
             if(buf.length() > 0) buf.append(',');
             buf.append(key);
             buf.append('=');
-            buf.append(value);       // TODO: escape
+            buf.append(value);  // will be escaped later
             return;
         }
         out.print(colSeparator);
-        out.print(value);       // TODO: escape
+        out.print(escaped(value));
     }
 
 

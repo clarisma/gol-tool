@@ -5,6 +5,14 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+/*
+ * This class is based on https://github.com/tyrasd/osm-polygon-features
+ * by Martin Raifer and Andreas Hubel (Licensed under CC0 1.0 Universal)
+ *
+ * License of original work:
+ * https://github.com/tyrasd/osm-polygon-features/blob/master/LICENSE
+ */
+
 package com.geodesk.gol.compiler;
 
 import java.util.HashMap;

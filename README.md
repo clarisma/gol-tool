@@ -37,7 +37,7 @@ A `gol.bat` (for Windows) and a `gol` shell script are supplied.
 
 **Linux users**: You may have to make the launcher script executable using `chmod u+x gol`. To conveniently use the command from any folder, consider creating a symbolic link on your path, e.g. <code>ln -s <i>gol_app_dir</i>/gol ~/bin/gol</code>.
 
-If you experience performance problems or out-of-memory errors, you may need to override the default memory-management settings in the call to `java`. Use option `-Xmx` to explicitly set the maximum heap size, e.g. `-Xmx=4g` to allow Java to use 4 GB of heap space. 
+If you experience performance problems or out-of-memory errors, you may need to override the default memory-management settings in the call to `java`. Use option `-Xmx` to explicitly set the maximum heap size, e.g. `-Xmx4g` to allow Java to use 4 GB of heap space. 
 
 ## Converting OpenStreetMap data into a GOL
 

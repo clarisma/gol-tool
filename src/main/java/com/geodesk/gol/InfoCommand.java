@@ -36,11 +36,11 @@ public class InfoCommand extends GolCommand
         System.out.format("Tile set ID: %s\n", guid);
         if(loaded == tiles.size())
         {
-            System.out.format("%d tiles (all loaded)\n", tiles.size());
+            System.out.format("%,d tiles (all loaded)\n", tiles.size());
         }
         else
         {
-            System.out.format("%d tiles (%d loaded)\n", tiles.size(), loaded);
+            System.out.format("%,d tiles (%,d loaded)\n", tiles.size(), loaded);
         }
         Map<String,Integer> indexedKeys = store.indexedKeys();
         List<String> keys = new ArrayList<>(indexedKeys.keySet());
@@ -50,6 +50,7 @@ public class InfoCommand extends GolCommand
         if(indexDetails) detailedIndexReport(keys);
     }
 
+    // TODO: respect -a/-b
     private void detailedIndexReport(List<String> keys)
     {
         int widestKey = 0;
@@ -61,10 +62,13 @@ public class InfoCommand extends GolCommand
         String padding = " ".repeat(40);
         int pad = Math.max(0, widestKey-14);
 
+        System.err.format("\nGathering statistics...\r");
+
         long totalFeatures = features.select("*").count();
-        System.out.format("\nTotal features:  %s%,14d\n", padding.substring(0, pad), totalFeatures);
+        System.out.format("Total features:  %s%,14d\n", padding.substring(0, pad), totalFeatures);
         for(String key: keys)
         {
+            if(key.isEmpty()) continue; // TODO: should never happen
             String query = String.format("*[%s]", key);
             long count = features.select(query).count();
             pad = Math.max(0, widestKey - key.length());
@@ -72,5 +76,6 @@ public class InfoCommand extends GolCommand
                 key, padding.substring(0, pad), count,
                 (double)count / totalFeatures * 100);
         }
+        System.err.format("\n");
     }
 }

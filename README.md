@@ -66,12 +66,12 @@ If you just want to experiment with the GOL utility, you can download our exampl
 Use:
 
 ```
-gol load -n swiss http://data.geodesk.com/switzerland
+gol load -n swiss https://data.geodesk.com/switzerland
 ```
 
 This creates `swiss.gol` and populates it with the Switzerland dataset. GOLs are about 30% larger than the compressed tile sets, so be sure to have sufficient disk space.
 
-You can also instruct `gol` to download tiles as-needed, by specifying the tile-set URL as a command-line option (`-u=http://data.geodesk.com/switzerland`).
+You can also instruct `gol` to download tiles as-needed, by specifying the tile-set URL as a command-line option (`-u=https://data.geodesk.com/switzerland`).
 
 ## Querying GOLs
 

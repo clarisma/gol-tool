@@ -24,7 +24,9 @@ public class LoadCommand extends GolCommand
     @Parameter("1=?path|url")
     public void importPath(String path)
     {
-        if(!path.startsWith("http://"))
+        if(!path.startsWith("http://") &&
+            !path.startsWith("file:") &&
+            !path.startsWith("https://"))
         {
             path = "file:" + path;
         }

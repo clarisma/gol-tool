@@ -10,10 +10,26 @@ import java.util.Random;
 import com.clarisma.common.util.Log;
 import org.eclipse.collections.api.set.primitive.MutableLongSet;
 import org.eclipse.collections.impl.factory.primitive.LongSets;
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 
 public class DensePackedIntIndexTest 
 {
+	Path indexFile;
+
+	@Before public void setUp() throws IOException
+	{
+		indexFile = Files.createTempFile("index-test", ".idx");
+		Files.delete(indexFile);
+			// Let MappedFile re-create this file, or else it won't be sparse
+	}
+
+	@After public void tearDown() throws IOException
+	{
+		Files.deleteIfExists(indexFile);
+	}
+
 	@Test
 	public void test() throws IOException 
 	{
@@ -22,7 +38,7 @@ public class DensePackedIntIndexTest
 		int maxValueRange = 1 << (bits-1);
 		int count = 1_000_000;
 		int range = 1;
-		Path indexFile = Files.createTempFile("index-test", ".idx");
+
 		IntIndex index = new DensePackedIntIndex(indexFile, 18);
 		Log.debug("Created %s.", indexFile);
 		
@@ -71,6 +87,8 @@ public class DensePackedIntIndexTest
 			}
 		}
 		Log.debug("Tested %d keys.", usedKeys.size());
+
+		((DensePackedIntIndex)index).close();
 	}
 
 }

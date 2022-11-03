@@ -1,1 +1,2 @@
-java -cp ../gol.jar -Xms1g -Xmx12g com.geodesk.gol.GolTool "$@"
+#!/bin/bash
+java -cp ../lib/gol.jar -Xms1g -Xmx12g com.geodesk.gol.GolTool "$@"

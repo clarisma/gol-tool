@@ -7,6 +7,10 @@
 
 package com.clarisma.common.cli;
 
+/**
+ * A {@link Command} base class that supports setting of verbosity levels
+ * (silent, quiet, verbose, debug)
+ */
 public abstract class BasicCommand implements Command
 {
     protected int verbosity;

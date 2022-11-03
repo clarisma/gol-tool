@@ -15,6 +15,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * An individual command within a command-line application.
+ */
 public interface Command
 {
     int perform() throws Throwable;

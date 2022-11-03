@@ -13,6 +13,9 @@ import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Base class for command-line applications.
+ */
 public abstract class Application
 {
     protected Command defaultCommand()

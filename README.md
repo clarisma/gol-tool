@@ -33,6 +33,8 @@ cd gol-tool
 mvn install
 ```
 
+*If you get weird exceptions during `mvn install`, you should [upgrade Maven](https://maven.apache.org/download.cgi) to version **3.8.5** or above.*
+
 A `gol.bat` (for Windows) and a `gol` shell script are supplied.
 
 **Linux users**: You may have to make the launcher script executable using `chmod u+x gol`. To conveniently use the command from any folder, consider creating a symbolic link on your path, e.g. <code>ln -s <i>gol_app_dir</i>/gol ~/bin/gol</code>.

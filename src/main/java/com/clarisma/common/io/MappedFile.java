@@ -7,6 +7,8 @@
 
 package com.clarisma.common.io;
 
+import com.clarisma.common.store.StoreException;
+
 import static java.nio.file.StandardOpenOption.CREATE_NEW;
 import static java.nio.file.StandardOpenOption.READ;
 import static java.nio.file.StandardOpenOption.SPARSE;
@@ -23,6 +25,7 @@ import java.nio.channels.FileChannel.MapMode;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 
@@ -37,7 +40,11 @@ public class MappedFile
 {
 	protected Path path;
 	private FileChannel channel;
-	private List<MappedByteBuffer> mappings = new ArrayList<>();
+
+	// private List<MappedByteBuffer> mappings = new ArrayList<>();
+	private volatile MappedByteBuffer[] mappings = new MappedByteBuffer[0];
+	private final Object mappingsLock = new Object();
+
 
 	protected static final int MAPPING_SIZE = 1 << 30;
 	
@@ -58,7 +65,91 @@ public class MappedFile
 	{
 		return path;
 	}
-	
+
+	/**
+	 * Gets the ByteBuffer for the requested segment. If the segment is not
+	 * already mapped, a new mapping is created.
+	 *
+	 * Note: The old version is NOT THREADSAFE. This is per design, as this
+	 * is a low-level component, and synchronization is supposed to be
+	 * handled at a higher level. We don't want to synchronize this because
+	 * of the higher number of concurrent reads.
+	 *
+	 * A potential issue arises in Sorter: When writing indexes for
+	 * nodes, ways and relations, access is always synchronized -- only one
+	 * thread writes to the index. After the index has been created, access
+	 * is no longer synchronized, since all further usage is read-only.
+	 * But what if the Sorter tries to look up an element that is NOT in the
+	 * index? Potentially, this element's index position lies in a segment
+	 * that has not yet been mapped; at this point, the list of mapped segments
+	 * is mutated and we've got a race condition. We could prevent this by
+	 * not allowing access to index positions above a "high-water mark"
+	 * established during index creation -- however, the cleaner way is to
+	 * adopt the (safe) double-checked locking approach used in `Store`.
+	 *
+	 * @param n		the segment number
+	 * @return		the MappedByteBuffer for the requested segment
+	 * @throws IOException
+	 */
+
+	// TODO: should make MappedFile a base class of Store, so this code is shared
+	// TODO: map segments lazily?
+	// TODO: consider option to map in read-only mode
+	protected MappedByteBuffer getMapping(int n)
+	{
+		MappedByteBuffer[] a = mappings;
+		MappedByteBuffer buf;
+		if (n < a.length && (buf = a[n]) != null) return buf;
+		return mapSegment(n);
+	}
+
+	// breaking out the mapping method increases the odds that the
+	// hot common-case path of getMapping() gets inlined
+	// TODO: bring this change to Store
+
+	private MappedByteBuffer mapSegment(int n)
+	{
+		synchronized (mappingsLock)
+		{
+			// Read array and perform check again
+			MappedByteBuffer[] a = mappings;
+			MappedByteBuffer buf;
+			int len = a.length;
+			if(n >= len)
+			{
+				a = Arrays.copyOf(a, n + 1);
+			}
+			else
+			{
+				buf = a[n];
+				if (buf != null) return buf;
+				a = Arrays.copyOf(a, a.length);
+			}
+			try
+			{
+				// Log.debug("Mapping segment %d...", i);
+				buf = channel.map(
+					FileChannel.MapMode.READ_WRITE,
+					(long) n * MAPPING_SIZE, MAPPING_SIZE);
+			}
+			catch(IOException ex)
+			{
+				throw new RuntimeException(
+					String.format("%s: Failed to map segment at %X (%s)",
+						path, (long)n * MAPPING_SIZE, ex.getMessage()), ex);
+					// TODO: note that we throw a different exception in
+					//  the code for Store (StoreException)
+			}
+
+			buf.order(ByteOrder.LITTLE_ENDIAN);		// TODO: check!
+			// TODO: better: make it configurable
+			a[n] = buf;
+			mappings = a;
+			return buf;
+		}
+	}
+
+	/*	// OLD VERSION -- read note above
 	protected MappedByteBuffer getMapping(int number) throws IOException
 	{
 		while(number >= mappings.size())
@@ -72,7 +163,54 @@ public class MappedFile
 		}
 		return mappings.get(number);
 	}
+	 */
 
+	private boolean unmapSegments()
+	{
+		// Log.debug("unmapping segments");
+
+		synchronized (mappingsLock)
+		{
+			try
+			{
+				// See https://stackoverflow.com/a/19447758
+
+				Class unsafeClass;
+				try
+				{
+					unsafeClass = Class.forName("sun.misc.Unsafe");
+				}
+				catch (Exception ex)
+				{
+					// jdk.internal.misc.Unsafe doesn't yet have an invokeCleaner() method,
+					// but that method should be added if sun.misc.Unsafe is removed.
+					unsafeClass = Class.forName("jdk.internal.misc.Unsafe");
+				}
+				Method clean = unsafeClass.getMethod("invokeCleaner", ByteBuffer.class);
+				clean.setAccessible(true);
+				Field theUnsafeField = unsafeClass.getDeclaredField("theUnsafe");
+				theUnsafeField.setAccessible(true);
+				Object theUnsafe = theUnsafeField.get(null);
+
+				MappedByteBuffer[] a = mappings;
+				for (int i = 0; i < a.length; i++)
+				{
+					MappedByteBuffer buf = a[i];
+					if(buf != null) clean.invoke(theUnsafe, buf);
+					// TODO: set array entry to null just in case one of the
+					//  cleaner invocations fails?
+				}
+				mappings = new MappedByteBuffer[0];
+				return true;
+			}
+			catch (Exception ex)
+			{
+				return false;
+			}
+		}
+	}
+
+	/*	// OLD VERSION
 	private boolean unmapSegments()
 	{
 		try
@@ -108,6 +246,7 @@ public class MappedFile
 			return false;
 		}
 	}
+	 */
 	
 	public void close() throws IOException
 	{

@@ -31,7 +31,9 @@ public class GolTool extends Application
             "Commands:\n\n" +
             "  build - Create a GOL from an OSM data file\n" +
             "  query - Perform a GOQL query\n" +
-            "  save  - Export tiles\n" +
+            "  info  - Obtain statistics\n" +
+            "  load  - Load an existing tile set\n" +
+            "  save  - Export tiles to a tile set\n" +
             "  check - Verify integrity\n" +
             "\n" +
             "Use \"gol help <command>\" for detailed documentation.";

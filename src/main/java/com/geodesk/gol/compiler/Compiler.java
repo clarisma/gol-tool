@@ -517,8 +517,8 @@ public class Compiler extends Processor<Compiler.Task>
             // ByteBuffer buf = ByteBuffer.allocateDirect(archive.size());
             try
             {
-                // TODO: wrong, should use payload size, not archive size !!!!
-                int page = featureStore.createTile(tip, archive.size());
+                int payloadSize = archive.size() - 4;   // don't include 4-byte header
+                int page = featureStore.createTile(tip, payloadSize);
                 PbfOutputStream imports = new PbfOutputStream();
                 featureStore.writeBlob(page, archive.structs(), imports);
                 writeImports(imports);

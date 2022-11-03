@@ -11,6 +11,7 @@ import com.clarisma.common.pbf.PbfBuffer;
 import com.clarisma.common.pbf.PbfOutputStream;
 import com.clarisma.common.soar.Archive;
 import com.clarisma.common.soar.SBytes;
+import com.clarisma.common.store.BlobStoreConstants;
 import com.clarisma.common.util.Log;
 import com.geodesk.feature.FeatureId;
 import com.geodesk.feature.store.FeatureStore;
@@ -28,6 +29,20 @@ public class ServerFeatureStore extends FeatureStore
     // this needs to be synchronized
 
     // TODO: wrong, should use payload size, not archive size !!!!
+
+    /**
+     * Allocates a blob to store a tile and updates the tile index.
+     *
+     * Note that this operation does not use journaling, as it is
+     * intended to be used only when building new GOLs.
+     *
+     * Note that `size` is the payload size, not the total blob size
+     * (which includes a 4-byte header).
+     *
+     * @param tip       the tile's TIP
+     * @param size      the payload size of the tile
+     * @return          the page of the newly allocated tile
+     */
     public synchronized int createTile(int tip, int size)
     {
         int page = allocateBlob(size);
@@ -39,10 +54,19 @@ public class ServerFeatureStore extends FeatureStore
     // not synchronized, safe as long as each thread works on a different tile
     public void writeBlob(int page, Archive structs, PbfOutputStream imports) throws IOException
     {
-        // TODO: preserve prev_blob_free flag
         ByteBuffer buf = bufferOfPage(page);
         int ofs = offsetOfPage(page);
+
+        // preserve the prev_blob_free flag in the blob's header word,
+        // because Archive.writeToBuffer() will clobber it
+        int oldHeader = buf.getInt(ofs);
+        int prevBlobFreeFlag = oldHeader & BlobStoreConstants.PRECEDING_BLOB_FREE_FLAG;
         structs.writeToBuffer(buf, ofs, imports);
+        // put the flag back in
+        int newHeader = buf.getInt(ofs);
+        buf.putInt(ofs, newHeader | prevBlobFreeFlag);
+        assert (oldHeader & ~BlobStoreConstants.PRECEDING_BLOB_FREE_FLAG) ==
+            (newHeader & ~BlobStoreConstants.PRECEDING_BLOB_FREE_FLAG);
     }
 
     // not synchronized, safe as long as each thread works on a different tile

@@ -1,2 +1,3 @@
 #!/bin/bash
-java -cp ../lib/gol.jar -Xms1g -Xmx12g com.geodesk.gol.GolTool "$@"
+scriptDir=$(dirname -- "$(readlink -f -- "$BASH_SOURCE")")
+java -cp $scriptDir/../lib/gol.jar -Xms1g -Xmx12g com.geodesk.gol.GolTool "$@"

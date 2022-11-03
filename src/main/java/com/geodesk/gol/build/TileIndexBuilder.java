@@ -15,7 +15,6 @@ import com.clarisma.common.util.Log;
 import com.geodesk.core.Tile;
 import com.geodesk.core.TileQuad;
 import com.geodesk.feature.store.ZoomLevels;
-import com.geodesk.core.MercatorToWSG84;
 import com.geodesk.util.MapMaker;
 import com.geodesk.util.Marker;
 import org.eclipse.collections.api.map.primitive.MutableIntObjectMap;
@@ -451,7 +450,6 @@ public class TileIndexBuilder
 	public void createTileMap(Path tileMapFile, int viewQuad) throws IOException
 	{
 		MapMaker map = new MapMaker();
-		// map.setProjection(new MercatorToWSG84());
 		addToMap(map, root, viewQuad);
 		map.save(tileMapFile.toString());
 	}

@@ -118,7 +118,7 @@ public class QueryCommand extends GolCommand
         }
         if(verbosity >= Verbosity.NORMAL)
         {
-            System.err.format("\nRetrieved %d features in %s\n", count,
+            System.err.format("\nRetrieved %,d features in %s\n", count,
                 Format.formatTimespan(System.currentTimeMillis() - start));
         }
     }

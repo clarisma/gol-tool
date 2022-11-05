@@ -12,6 +12,10 @@
             <directory>${project.basedir}/bin</directory>
             <fileMode>777</fileMode>    <!-- allow edit & execute -->
         </fileSet>
+        <fileSet>
+            <directory>${project.basedir}/notices</directory>
+            <outputDirectory>/</outputDirectory>
+        </fileSet>
     </fileSets>
     <files>
         <file>

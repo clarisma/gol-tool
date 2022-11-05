@@ -19,6 +19,8 @@ import java.util.concurrent.LinkedBlockingQueue;
 //  for total. After each task, completedTask(T) is called (synchronized);
 //   this in turn calls work(T) to determine how much work was completed for
 //   this task
+// TODO: rename TaskEngine?
+// TODO: use ProgressListener
 public abstract class Processor<T> implements Runnable
 {
     private int threadCount = Runtime.getRuntime().availableProcessors();

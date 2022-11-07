@@ -96,7 +96,7 @@ public class QueryCommand extends GolCommand
         Features<?> selected = features.select(query);
         if(area != null)
         {
-            selected = selected.select(Filters.within(area));  // TODO: intersects
+            selected = selected.select(Filters.intersects(area));
         }
         else if(bbox != null)
         {

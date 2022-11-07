@@ -54,10 +54,21 @@ public class FileUtils
 		return (n < 0 ? path : path.substring(0,n)) + ext;
 	}
 
+	/**
+	 * Returns the last position of a file path separator (Windows or Unix style),
+	 *
+	 * @param path	the file path
+	 * @return		position of forward or backward slash, or -1 if none found
+	 */
+	private static int indexOfLastSeparator(String path)
+	{
+		return Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\'));
+	}
+
 	private static int indexOfExtension(String path)
 	{
 		int lastDot = path.lastIndexOf('.');
-		int lastSeparator = path.lastIndexOf(File.separatorChar);
+		int lastSeparator = indexOfLastSeparator(path);
 		return lastDot > lastSeparator ? lastDot : -1;
 	}
 

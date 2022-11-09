@@ -61,6 +61,9 @@ public class GeoJsonFeaturePrinter extends AbstractFeaturePrinter
         out.print(']');
     }
 
+
+    // TODO: winding order: Orientation.isCCW
+    //  CoordinateSequences.reverse()
     protected void printPolygon(Polygon g)
     {
         out.print('[');

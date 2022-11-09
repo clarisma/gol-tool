@@ -87,6 +87,7 @@ public class QueryCommand extends GolCommand
             case MAP -> new MapFeaturePrinter(out);
             case POLY -> new PolyFeaturePrinter(out);
             case WKT -> new WktFeaturePrinter(out);
+            case XML -> new OsmXmlFeaturePrinter(out);
             default -> new NullFeaturePrinter();
         };
         printer.coordinateTransformer(new CoordinateTransformer.FromMercator(precision));

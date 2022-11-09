@@ -77,46 +77,64 @@ public class GeoJsonFeaturePrinter extends AbstractFeaturePrinter
     protected void printGeometry(Geometry g)
     {
         out.print("\"geometry\":");
-        if(!perLine) out.print(" ");
+        if (!perLine) out.print(" ");
+        printGeometryValue(g);
+    }
+
+    protected void printGeometryValue(Geometry g)
+    {
         out.print("{\"type\":");
-        if(g instanceof Point)
+        for(;;)
         {
-            out.print("\"Point\",\"coordinates\":[");
-            Point pt= (Point)g;
-            printX(pt.getX());
-            out.print(',');
-            printY(pt.getY());
-            out.print(']');
-        }
-        if(g instanceof LineString)
-        {
-            out.print("\"LineString\",\"coordinates\":");
-            printLineString((LineString)g);
-        }
-        else if(g instanceof Polygon)
-        {
-            out.print("\"Polygon\",\"coordinates\":");
-            printPolygon((Polygon)g);
-        }
-        else if(g instanceof MultiPolygon)
-        {
-            out.print("\"MultiPolygon\",\"coordinates\":[");
-            for(int i=0; i<g.getNumGeometries(); i++)
+            if (g instanceof Point)
             {
-                if(i > 0) out.print(',');
-                printPolygon((Polygon)g.getGeometryN(i));
+                out.print("\"Point\",\"coordinates\":[");
+                Point pt = (Point) g;
+                printX(pt.getX());
+                out.print(',');
+                printY(pt.getY());
+                out.print(']');
             }
-            out.print(']');
-        }
-        else if(g instanceof GeometryCollection)
-        {
-            out.print("\"GeometryCollection\",\"geometries\":[");
-            for(int i=0; i< g.getNumGeometries(); i++)
+            if (g instanceof LineString)
             {
-                if(i > 0) out.print(',');
-                printGeometry(g.getGeometryN(i));
+                out.print("\"LineString\",\"coordinates\":");
+                printLineString((LineString) g);
             }
-            out.print(']');
+            else if (g instanceof Polygon)
+            {
+                out.print("\"Polygon\",\"coordinates\":");
+                printPolygon((Polygon) g);
+            }
+            else if (g instanceof MultiPolygon)
+            {
+                out.print("\"MultiPolygon\",\"coordinates\":[");
+                for (int i = 0; i < g.getNumGeometries(); i++)
+                {
+                    if (i > 0) out.print(',');
+                    printPolygon((Polygon) g.getGeometryN(i));
+                }
+                out.print(']');
+            }
+            else if (g instanceof GeometryCollection)
+            {
+                if (g.getNumGeometries() == 1)
+                {
+                    // unwrap single-member collections
+                    g = g.getGeometryN(0);
+                    continue;
+                }
+                else
+                {
+                    out.print("\"GeometryCollection\",\"geometries\":[");
+                    for (int i = 0; i < g.getNumGeometries(); i++)
+                    {
+                        if (i > 0) out.print(',');
+                        printGeometryValue(g.getGeometryN(i));
+                    }
+                    out.print(']');
+                }
+            }
+            break;  // important to exit the loop here
         }
         out.print('}');
     }
@@ -130,7 +148,7 @@ public class GeoJsonFeaturePrinter extends AbstractFeaturePrinter
             out.print(propertyNumber > 0 ? ",\"" : "\"");
             out.print(key);
             out.print("\":\"");
-            out.print(Strings.escape(value));
+            out.print(escapeValue(value));
             out.print('\"');
             return;
         }
@@ -138,8 +156,34 @@ public class GeoJsonFeaturePrinter extends AbstractFeaturePrinter
         out.print("\t\t\t\t\"");
         out.print(key);
         out.print("\": \"");
-        out.print(Strings.escape(value));
+        out.print(escapeValue(value));
         out.print('\"');
+    }
+
+    // We can do simplified escaping (only quote and backslash) as all OSM
+    // strings have already been cleaned up during import, with unprintables
+    // turned into spaces
+    private static String escapeValue(String s)
+    {
+        if(Strings.indexOfAny(s, "\"\\") < 0) return s;
+        StringBuilder buf = new StringBuilder();
+        for(int i=0; i<s.length(); i++)
+        {
+            char ch = s.charAt(i);
+            switch(ch)
+            {
+            case '\"':
+                buf.append("\\\"");
+                break;
+            case '\\':
+                buf.append("\\\\");
+                break;
+            default:
+                buf.append(ch);
+                break;
+            }
+        }
+        return buf.toString();
     }
 
     private void printId(Feature feature)

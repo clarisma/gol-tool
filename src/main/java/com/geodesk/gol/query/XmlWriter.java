@@ -15,7 +15,7 @@ public class XmlWriter extends PrintWriter
 {
     private final String indentString = "  ";
     private final Stack<String> elements = new Stack<>();
-    private boolean childElements = false;
+    private boolean childElements = true;
 
     public XmlWriter(OutputStream out)
     {

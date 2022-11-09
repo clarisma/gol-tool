@@ -21,10 +21,12 @@ import java.io.IOException;
 import java.io.PrintStream;
 import java.util.*;
 
+// TODO: Add comment about file not suitable for editing
+// TODO: add query string to comments
+
 public class OsmXmlFeaturePrinter extends AbstractFeaturePrinter
 {
     final MutableLongObjectMap<Node> syntheticNodes = new LongObjectHashMap();
-    final MutableLongObjectMap<long[]> wayNodeIds = new LongObjectHashMap<>();
     final MutableLongObjectMap<Node> nodes = new LongObjectHashMap<>();
     final Set<Way> ways = new HashSet<>();
     final Set<Relation> relations = new HashSet<>();
@@ -114,7 +116,6 @@ public class OsmXmlFeaturePrinter extends AbstractFeaturePrinter
         for(Way way: ways)
         {
             Features<Node> wayNodes = way.nodes();
-            long[] ids = new long[(int)wayNodes.count()];
             int i=0;
             for(Node node: way.nodes())
             {
@@ -135,9 +136,7 @@ public class OsmXmlFeaturePrinter extends AbstractFeaturePrinter
                         syntheticNodes.put(xy, new SyntheticWayNode(nodeId, x, y));
                     }
                 }
-                ids[i] = nodeId;
             }
-            wayNodeIds.put(way.id(), ids);
         }
     }
 
@@ -147,6 +146,7 @@ public class OsmXmlFeaturePrinter extends AbstractFeaturePrinter
         xml.attr("id", node.id());
         xml.attr("lat", transformer.toString(transformer.transformY(node.y())));
         xml.attr("lon", transformer.toString(transformer.transformX(node.x())));
+        xml.attr("version", "1");
         printTags(node);
         xml.end();
     }
@@ -155,6 +155,7 @@ public class OsmXmlFeaturePrinter extends AbstractFeaturePrinter
     {
         xml.begin("way");
         xml.attr("id", way.id());
+        xml.attr("version", "1");
         printTags(way);
         printWayNodes(way);
         xml.end();
@@ -164,6 +165,7 @@ public class OsmXmlFeaturePrinter extends AbstractFeaturePrinter
     {
         xml.begin("relation");
         xml.attr("id", rel.id());
+        xml.attr("version", "1");
         printTags(rel);
         printMembers(rel);
         xml.end();
@@ -177,9 +179,16 @@ public class OsmXmlFeaturePrinter extends AbstractFeaturePrinter
 
     private void printWayNodes(Way way)
     {
-        long[] ids = wayNodeIds.get(way.id());
-        for(long nodeId: ids)
+        for(Node node: way.nodes())
         {
+            long nodeId = node.id();
+            if(nodeId == 0)
+            {
+                long xy = XY.of(node.x(), node.y());
+                node = syntheticNodes.get(xy);
+                assert node != null;
+                nodeId = node.id();
+            }
             xml.begin("nd");
             xml.attr("ref", nodeId);
             xml.end();
@@ -191,7 +200,7 @@ public class OsmXmlFeaturePrinter extends AbstractFeaturePrinter
         for(Feature member: rel.members())
         {
             xml.begin("member");
-            xml.attr("type", member.type());
+            xml.attr("type", FeatureType.toString(member.type()));  // lowercase version
             xml.attr("ref", member.id());
             xml.attr("role", member.role());
             xml.end();
@@ -233,6 +242,7 @@ public class OsmXmlFeaturePrinter extends AbstractFeaturePrinter
         relList = null;
 
         xml.end();
+        xml.flush();
     }
 }
 

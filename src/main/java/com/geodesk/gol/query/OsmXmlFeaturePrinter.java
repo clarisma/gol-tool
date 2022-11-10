@@ -147,6 +147,7 @@ public class OsmXmlFeaturePrinter extends AbstractFeaturePrinter
         xml.attr("lat", transformer.toString(transformer.transformY(node.y())));
         xml.attr("lon", transformer.toString(transformer.transformX(node.x())));
         xml.attr("version", "1");
+        xml.attr("visible", "true");
         printTags(node);
         xml.end();
     }
@@ -156,6 +157,7 @@ public class OsmXmlFeaturePrinter extends AbstractFeaturePrinter
         xml.begin("way");
         xml.attr("id", way.id());
         xml.attr("version", "1");
+        xml.attr("visible", "true");
         printTags(way);
         printWayNodes(way);
         xml.end();
@@ -166,6 +168,7 @@ public class OsmXmlFeaturePrinter extends AbstractFeaturePrinter
         xml.begin("relation");
         xml.attr("id", rel.id());
         xml.attr("version", "1");
+        xml.attr("visible", "true");
         printTags(rel);
         printMembers(rel);
         xml.end();

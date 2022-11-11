@@ -16,7 +16,7 @@ import java.io.PrintWriter;
 
 public class GolTool extends Application
 {
-    public static final String VERSION = "0.1.1a";
+    public static final String VERSION = "0.1.1";
 
     @Override public String version()
     {

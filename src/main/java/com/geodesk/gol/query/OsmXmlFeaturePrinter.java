@@ -91,7 +91,11 @@ public class OsmXmlFeaturePrinter extends AbstractFeaturePrinter
             else
             {
                 Relation memberRel = (Relation)member;
-                if(!relations.contains(memberRel)) loadMembers(memberRel);
+                if(!relations.contains(memberRel))
+                {
+                    relations.add(memberRel);
+                    loadMembers(memberRel);
+                }
             }
         }
     }

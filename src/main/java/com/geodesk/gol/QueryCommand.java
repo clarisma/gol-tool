@@ -12,7 +12,6 @@ import com.clarisma.common.cli.Parameter;
 import com.clarisma.common.cli.Verbosity;
 import com.clarisma.common.text.Format;
 import com.geodesk.feature.Feature;
-import com.geodesk.core.Box;
 import com.geodesk.feature.Features;
 import com.geodesk.feature.Filters;
 import com.geodesk.gol.query.*;

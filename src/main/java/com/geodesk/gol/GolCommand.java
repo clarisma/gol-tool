@@ -13,6 +13,8 @@ import com.clarisma.common.cli.Parameter;
 import com.geodesk.core.Box;
 import com.geodesk.core.Tile;
 import com.geodesk.feature.FeatureLibrary;
+import com.geodesk.feature.Filter;
+import com.geodesk.feature.Filters;
 import com.geodesk.feature.store.FeatureStore;
 import com.geodesk.feature.store.TileIndexWalker;
 import com.geodesk.gol.build.Utils;
@@ -140,7 +142,15 @@ public abstract class GolCommand extends BasicCommand
         MutableIntList tiles = new IntArrayList();
         FeatureStore store = features.store();
         TileIndexWalker walker = new TileIndexWalker(store);
-        walker.start(bbox != null ? bbox : Box.ofWorld());
+        if (area != null)
+        {
+            Filter filter = Filters.intersects(area);
+            walker.start(filter.bounds(), filter);
+        }
+        else
+        {
+            walker.start(bbox != null ? bbox : Box.ofWorld());
+        }
         while(walker.next()) tiles.add(walker.tip());
         tiles.add(0);   // always add purgatory
         return tiles;

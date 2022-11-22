@@ -48,6 +48,8 @@ import java.util.List;
  * or keys that are purely numeric? Should not happen for keys, but possible
  * for roles).
  *
+ * TODO: Put indexed keys first, so they appear before all others in the tag table
+ *  --> quicker to get a hit in queries
  */
 public class StringTableBuilder
 {

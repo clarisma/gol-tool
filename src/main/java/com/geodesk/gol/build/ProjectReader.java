@@ -63,11 +63,5 @@ public class ProjectReader extends FabReader
             break;
         }
     }
-
-    public static void main(String[] args) throws FabException, IOException
-    {
-        ProjectReader reader = new ProjectReader();
-        reader.readFile("C:\\dev\\deseo2\\core\\data\\foundry-settings.fab");
-    }
 }
 

@@ -39,7 +39,7 @@ public class QueryCommand extends GolCommand
 
     private enum ResultFormat
     {
-        LIST, CSV, FAB, GEOJSON, GEOJSONL, XML, WKT, COUNT, MAP, POLY;
+        LIST, CSV, FAB, GEOJSON, GEOJSONL, XML, WKT, COUNT, MAP, POLY, STATS;
     }
 
     @Option("limit,l=number: maximum number of features to return")
@@ -87,6 +87,7 @@ public class QueryCommand extends GolCommand
             case POLY -> new PolyFeaturePrinter(out);
             case WKT -> new WktFeaturePrinter(out);
             case XML -> new OsmXmlFeaturePrinter(out);
+            case STATS -> new StatsFeaturePrinter(out);
             default -> new NullFeaturePrinter();
         };
         printer.coordinateTransformer(new CoordinateTransformer.FromMercator(precision));

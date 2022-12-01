@@ -137,7 +137,7 @@ public class Compiler extends Processor<Compiler.Task>
             return readPackedString(roleStrings);
         }
 
-        // even though 0 is a valid tiole (0/0/0, the root tile),
+        // even though 0 is a valid tile (0/0/0, the root tile),
         // there will never be foreign nodes from this tile, because all
         // referring features would live there as well
         private void readNodes(int foreignTile)

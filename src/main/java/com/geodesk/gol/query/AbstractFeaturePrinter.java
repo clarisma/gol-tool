@@ -227,6 +227,21 @@ public abstract class AbstractFeaturePrinter implements FeaturePrinter
         }
     }
 
+    protected void resetProperties()
+    {
+        for(Column col: columns)
+        {
+            if(col.properties != null)
+            {
+                col.properties.clear();
+            }
+            else
+            {
+                col.value = null;
+            }
+        }
+    }
+
     protected void printNumber(double value)
     {
         long longValue = (long)value;

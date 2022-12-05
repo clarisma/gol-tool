@@ -74,7 +74,7 @@ public class SRelation extends SFeature
     /**
      * Adds this relation to the relation tables of its members.
      *
-     * Note: Perform this tep before the features are built, because
+     * Note: Perform this step before the features are built, because
      * build() normalizes and deduplicates the relation tables, which
      * means they cannot be changed at that point.
      */

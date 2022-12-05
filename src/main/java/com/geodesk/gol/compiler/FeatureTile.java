@@ -297,7 +297,7 @@ public class FeatureTile
             }
              */
 
-            // TODO: what signified "no role" -- make consistent!
+            // TODO: what signifies "no role" -- make consistent!
             m.role = roles[i];
             m.roleCode = globalStrings.getIfAbsent(m.role, -1);
             if (m.roleCode == -1 || m.roleCode > MAX_ROLE_KEY)

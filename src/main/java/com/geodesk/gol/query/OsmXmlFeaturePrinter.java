@@ -111,7 +111,7 @@ public class OsmXmlFeaturePrinter extends AbstractFeaturePrinter
 
         for(Way way: ways)
         {
-            for(Node node: way) addNode(node);
+            for(Feature node: way) addNode((Node)node);
         }
 
         // Now, get all way nodes; create IDs for anonymous nodes
@@ -119,7 +119,6 @@ public class OsmXmlFeaturePrinter extends AbstractFeaturePrinter
         long nextNodeId = 0;
         for(Way way: ways)
         {
-            Features<Node> wayNodes = way.nodes();
             int i=0;
             for(Node node: way.nodes())
             {

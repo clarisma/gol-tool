@@ -15,12 +15,12 @@ public class ProgressReporter implements ProgressListener
     private final String progressVerb;
     private final String resultVerb;
     private final String unitsNoun;
-    private final int totalUnits;
+    private final long totalUnits;
     private final long startTime;
-    private int unitsProcessed;
+    private long unitsProcessed;
     private int percentageReported;
 
-    public ProgressReporter(int totalUnits, String unitsNoun, String progressVerb, String resultVerb)
+    public ProgressReporter(long totalUnits, String unitsNoun, String progressVerb, String resultVerb)
     {
         this.totalUnits = totalUnits;
         this.progressVerb = progressVerb;

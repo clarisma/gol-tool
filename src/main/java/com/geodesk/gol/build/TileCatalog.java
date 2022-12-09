@@ -23,6 +23,7 @@ import java.util.List;
 //  but has no corresponding TIP (we use this to store oversized features)
 // TODO: We need a purgatory pile (always pile 1), which does not correspond
 //  to a tile, but has a TIP (always TIP 0)
+//  (root tile is actually TIP 2)
 
 public class TileCatalog 
 {
@@ -141,7 +142,7 @@ public class TileCatalog
 	 * is returned.
 	 *
 	 * TODO: the returned pile should always be valid, since every tile tree
-	 *  has a root rile (either explicit or implicit)
+	 *  has a root tile (either explicit or implicit)
 	 *
 	 * @param tile		the tile number
 	 * @return

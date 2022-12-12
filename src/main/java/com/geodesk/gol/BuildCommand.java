@@ -149,6 +149,7 @@ public class BuildCommand extends BasicCommand
         if (startTask <= VALIDATE) validate();
         if (startTask <= COMPILE) compile();
         if (startTask <= LINK) link();
+        writeState(DONE);
         context.close();
 
         if(!keepWork)

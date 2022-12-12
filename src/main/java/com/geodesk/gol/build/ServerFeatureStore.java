@@ -143,6 +143,6 @@ public class ServerFeatureStore extends FeatureStore
         header.stringTable = stringTable;
 
         header.setMetadataSize(archive.size());
-        archive.writeFile(ctx.golPath());
+        archive.writeSparseFile(ctx.golPath());
     }
 }

@@ -7,12 +7,10 @@
 
 package com.geodesk.gol.info;
 
-import com.clarisma.common.cli.Verbosity;
-import com.clarisma.common.text.Format;
 import com.clarisma.common.util.ProgressListener;
 import com.geodesk.feature.FeatureType;
 import com.geodesk.feature.Tags;
-import com.geodesk.gol.build.ProgressReporter;
+import com.clarisma.common.util.ProgressReporter;
 import com.geodesk.io.osm.HeaderData;
 import com.geodesk.io.osm.Members;
 import com.geodesk.io.osm.Nodes;

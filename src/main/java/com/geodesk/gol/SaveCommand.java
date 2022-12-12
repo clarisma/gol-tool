@@ -9,15 +9,10 @@ package com.geodesk.gol;
 
 import com.clarisma.common.cli.Parameter;
 import com.clarisma.common.cli.Verbosity;
-import com.geodesk.core.Box;
 import com.geodesk.feature.store.FeatureStore;
 import com.geodesk.feature.store.TileExporter;
-import com.geodesk.geom.Bounds;
-import com.geodesk.gol.build.ProgressReporter;
-import com.geodesk.gol.build.Utils;
+import com.clarisma.common.util.ProgressReporter;
 import org.eclipse.collections.api.list.primitive.IntList;
-import org.eclipse.collections.api.list.primitive.MutableIntList;
-import org.eclipse.collections.impl.list.mutable.primitive.IntArrayList;
 
 import java.io.FileInputStream;
 import java.io.FileOutputStream;

@@ -12,6 +12,7 @@ import com.clarisma.common.io.PileFile;
 import com.clarisma.common.pbf.PbfBuffer;
 import com.clarisma.common.pbf.PbfOutputStream;
 import com.clarisma.common.util.Log;
+import com.clarisma.common.util.ProgressReporter;
 import com.geodesk.feature.FeatureId;
 import com.geodesk.core.Tile;
 import com.geodesk.core.TileQuad;

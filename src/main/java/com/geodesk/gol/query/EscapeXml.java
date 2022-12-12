@@ -6,6 +6,7 @@
  */
 
 package com.geodesk.gol.query;
+// TODO: Move to common
 
 import com.clarisma.common.text.Strings;
 

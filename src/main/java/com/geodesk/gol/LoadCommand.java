@@ -10,14 +10,10 @@ package com.geodesk.gol;
 import com.clarisma.common.cli.Parameter;
 import com.clarisma.common.cli.Verbosity;
 import com.geodesk.feature.store.FeatureStore;
-import com.geodesk.feature.store.FeatureStoreChecker;
-import com.geodesk.gol.build.ProgressReporter;
-import org.eclipse.collections.api.iterator.IntIterator;
+import com.clarisma.common.util.ProgressReporter;
 import org.eclipse.collections.api.list.primitive.IntList;
 import org.eclipse.collections.api.list.primitive.MutableIntList;
 import org.eclipse.collections.impl.list.mutable.primitive.IntArrayList;
-
-import java.nio.file.Paths;
 
 public class LoadCommand extends GolCommand
 {

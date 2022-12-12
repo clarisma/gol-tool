@@ -228,6 +228,7 @@ public class OsmXmlFeaturePrinter extends AbstractFeaturePrinter
         xml.begin("osm");
         xml.attr("version", "0.6");
         xml.attr("generator", "geodesk gol/" + GolTool.VERSION);
+        xml.attr("upload", "never");
     }
 
     @Override public void printFooter()

@@ -17,6 +17,7 @@ import com.geodesk.feature.Filters;
 import com.geodesk.gol.query.*;
 import com.geodesk.util.CoordinateTransformer;
 
+import java.io.BufferedOutputStream;
 import java.io.PrintStream;
 
 public class QueryCommand extends GolCommand
@@ -75,7 +76,10 @@ public class QueryCommand extends GolCommand
         long start = System.currentTimeMillis();
         long count = 0;
 
-        PrintStream out = System.out;
+        // PrintStream out = System.out;
+        // Create a stream with autoflush disabled to increase performance
+        PrintStream out = new PrintStream(
+            new BufferedOutputStream(System.out, 64 * 4096));
         AbstractFeaturePrinter printer = switch(format)
         {
             case LIST -> new ListFeaturePrinter(out);

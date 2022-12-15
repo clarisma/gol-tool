@@ -12,6 +12,7 @@ import com.geodesk.feature.Feature;
 import java.io.PrintStream;
 import java.io.PrintWriter;
 
+// TODO: rename to Formatter
 public interface FeaturePrinter
 {
     default void printHeader() {};

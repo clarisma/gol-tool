@@ -17,6 +17,7 @@ import java.io.IOException;
 import java.io.PrintStream;
 import java.util.*;
 
+// TODO: rename to AbstractFormatter
 public abstract class AbstractFeaturePrinter implements FeaturePrinter
 {
     protected final PrintStream out;

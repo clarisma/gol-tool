@@ -32,6 +32,7 @@ public class StatsFeaturePrinter extends AbstractFeaturePrinter
     private MutableObjectIntMap<String> currentRoles;
     private long currentRelationId;
     private TallyMode tallyMode = TallyMode.COUNT;
+    private Unit unit = Unit.M;
 
     private enum TallyMode
     {
@@ -61,6 +62,9 @@ public class StatsFeaturePrinter extends AbstractFeaturePrinter
             return true;
         case "tally":
             tallyMode = getValue(value, TallyMode.class);
+            return true;
+        case "unit":
+            unit = getValue(value, Unit.class);
             return true;
         }
         return false;
@@ -229,10 +233,10 @@ public class StatsFeaturePrinter extends AbstractFeaturePrinter
             tally = 1;
             break;
         case LENGTH:
-            tally =  feature.length();
+            tally = feature.length() * unit.lengthFactor;
             break;
         case AREA:
-            tally =  feature.area();
+            tally = feature.area() * unit.areaFactor;
             break;
         case ROLES:
             if(feature instanceof Relation rel)
@@ -280,10 +284,10 @@ public class StatsFeaturePrinter extends AbstractFeaturePrinter
         switch(tallyMode)
         {
         case LENGTH:
-            numberSchema += " m";
+            numberSchema += " " + unit.lengthUnit;
             break;
         case AREA:
-            numberSchema += " m²";
+            numberSchema += " " + unit.areaUnit;
             break;
         case ROLES:
             table.column().format(numberSchema + " in").gap(1);

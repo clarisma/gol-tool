@@ -19,12 +19,22 @@ import com.geodesk.util.CoordinateTransformer;
 
 import java.io.BufferedOutputStream;
 import java.io.PrintStream;
+import java.util.ArrayList;
+import java.util.List;
 
 public class QueryCommand extends GolCommand
 {
     // private Box bbox = Box.ofWorld();
     private String query;
     private String[] tags;
+
+    /**
+     * List of formatting options. The list is created lazily, and 3 strings are
+     * stored per option: the full option (e.g. "-f:tally"), the format option
+     * ("tally"), and the option's value ("length"). Value can be null if the
+     * option is merely a flag.
+     */
+    private List<String> formatOptions;
 
     @Option("format,f=csv|xml|geojson|...: output format")
     protected ResultFormat format = ResultFormat.LIST;
@@ -66,9 +76,31 @@ public class QueryCommand extends GolCommand
         tags = s.split(",");
     }
 
-    public void format(String s)
+    @Override public void setOption(String name, String value)
     {
+        if(name.startsWith("f:"))
+        {
+            addFormatOption(name, name.substring(2), value);
+            return;
+        }
+        if(name.startsWith("format:"))
+        {
+            addFormatOption(name, name.substring(2), value);
+            return;
+        }
+        super.setOption(name, value);
+    }
 
+    private void addFormatOption(String fullOption, String formatOption, String value)
+    {
+        if(formatOption.isEmpty())
+        {
+            throw new IllegalArgumentException("Must specify a formatting option");
+        }
+        if(formatOptions == null) formatOptions = new ArrayList<>();
+        formatOptions.add(fullOption);
+        formatOptions.add(formatOption);
+        formatOptions.add(value);
     }
 
     @Override public void performWithLibrary()
@@ -94,6 +126,27 @@ public class QueryCommand extends GolCommand
             case STATS -> new StatsFeaturePrinter(out);
             default -> new NullFeaturePrinter();
         };
+
+        if(formatOptions != null)
+        {
+            for(int i=0; i<formatOptions.size(); i += 3)
+            {
+                String fullOption = formatOptions.get(i);
+                String option = formatOptions.get(i+1);
+                if(!printer.setOption(option, formatOptions.get(i+2)))
+                {
+                    if(!Formatting.containsOption(option))
+                    {
+                        throw new IllegalArgumentException(
+                            fullOption + ": Unknown formatting option");
+                    }
+                    throw new IllegalArgumentException(String.format(
+                        "%s: Option does not apply to format \"%s\"",
+                        fullOption, format.toString().toLowerCase()));
+                }
+            }
+        }
+
         printer.coordinateTransformer(new CoordinateTransformer.FromMercator(precision));
         printer.columns(tags);
 

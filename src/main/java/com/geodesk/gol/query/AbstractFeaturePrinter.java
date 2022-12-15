@@ -281,4 +281,9 @@ public abstract class AbstractFeaturePrinter implements FeaturePrinter
         printNumber(y);
          */
     }
+
+    public boolean setOption(String name, String value)
+    {
+        return false;
+    }
 }

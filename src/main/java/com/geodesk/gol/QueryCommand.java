@@ -17,8 +17,8 @@ import com.geodesk.feature.Filters;
 import com.geodesk.gol.query.*;
 import com.geodesk.util.CoordinateTransformer;
 
-import java.io.BufferedOutputStream;
-import java.io.PrintStream;
+import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -112,6 +112,23 @@ public class QueryCommand extends GolCommand
         // Create a stream with autoflush disabled to increase performance
         PrintStream out = new PrintStream(
             new BufferedOutputStream(System.out, 64 * 4096));
+
+        // TODO: On Windows CLI, this requires switching code page: chcp 65001
+        //  (Using original System.out worked without change codepage, but
+        //  the default autoFlush reuslts in unacceptable performance)
+        /*
+        PrintStream out = null;
+        try
+        {
+            out = new PrintStream(
+                new FileOutputStream(FileDescriptor.out),
+                false, "UTF-8");
+        }
+        catch(UnsupportedEncodingException ex)
+        {
+            throw new RuntimeException(ex);
+        }
+         */
         AbstractFeaturePrinter printer = switch(format)
         {
             case LIST -> new ListFeaturePrinter(out);

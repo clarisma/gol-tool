@@ -8,7 +8,6 @@
 package com.geodesk.gol.query;
 
 import com.clarisma.common.text.Table;
-import com.clarisma.common.util.Log;
 import com.geodesk.feature.Feature;
 
 import java.io.PrintStream;
@@ -23,9 +22,10 @@ public class StatsFeaturePrinter extends AbstractFeaturePrinter
     private long minTally = Long.MIN_VALUE;
     private double minPercentage = 0;
     private boolean alphaSort;
-    private long totalCount;
+    private double totalTally;
+    private TallyMode tallyMode = TallyMode.COUNT;
 
-    private static enum TallyMode
+    private enum TallyMode
     {
         COUNT, LENGTH, AREA, ROLES;
     }
@@ -35,10 +35,7 @@ public class StatsFeaturePrinter extends AbstractFeaturePrinter
         switch(name)
         {
         case "min-tally":
-            if(value == null || value.isEmpty())
-            {
-                throw new IllegalArgumentException("Must provide a value");
-            }
+            checkValue(value);
             if(value.endsWith("%"))
             {
                 minPercentage = Options.parsePercentage(value);
@@ -54,6 +51,9 @@ public class StatsFeaturePrinter extends AbstractFeaturePrinter
             // TODO: value must be null, yes or no
             splitValues = true;
             return true;
+        case "tally":
+            tallyMode = getValue(value, TallyMode.class);
+            return true;
         }
         return false;
     }
@@ -61,12 +61,12 @@ public class StatsFeaturePrinter extends AbstractFeaturePrinter
     private static class Counter implements Comparable<Counter>
     {
         String[] tags;
-        long count;
+        double tally;
         long relCount;
 
         @Override public int compareTo(Counter other)
         {
-            return Long.compare(other.count, count);
+            return Double.compare(other.tally, tally);
         }
         @Override public boolean equals(Object o)
         {
@@ -117,7 +117,7 @@ public class StatsFeaturePrinter extends AbstractFeaturePrinter
         key.tags = new String[columnCount];
     }
 
-    private void addToCounter()
+    private void addToCounter(double tally)
     {
         Counter counter = counters.get(key);
         if(counter == null)
@@ -125,10 +125,10 @@ public class StatsFeaturePrinter extends AbstractFeaturePrinter
             counter = key.copy();
             counters.put(counter, counter);
         }
-        counter.count++;
+        counter.tally += tally;
     }
 
-    private void tally(int n)
+    private void tally(int n, double tally)
     {
         String value = columns.get(n).value;
         if(value == null) value = "-";
@@ -139,11 +139,11 @@ public class StatsFeaturePrinter extends AbstractFeaturePrinter
                 key.tags[n] = valuePart.trim();
                 if (n + 1 < columnCount)
                 {
-                    tally(n + 1);
+                    tally(n + 1, tally);
                 }
                 else
                 {
-                    addToCounter();
+                    addToCounter(tally);
                 }
             }
             return;
@@ -151,19 +151,32 @@ public class StatsFeaturePrinter extends AbstractFeaturePrinter
         key.tags[n] = value;
         if (n + 1 < columnCount)
         {
-            tally(n + 1);
+            tally(n + 1, tally);
         }
         else
         {
-            addToCounter();
+            addToCounter(tally);
         }
     }
 
     @Override public void print(Feature feature)
     {
         extractProperties(feature.tags());
-        tally(0);
-        totalCount++;
+        double tally = 0;
+        switch(tallyMode)
+        {
+        case COUNT:
+            tally = 1;
+            break;
+        case LENGTH:
+            tally =  feature.length();
+            break;
+        case AREA:
+            tally =  feature.area();
+            break;
+        }
+        tally(0, tally);
+        totalTally += tally;
         resetProperties();
     }
 
@@ -172,16 +185,16 @@ public class StatsFeaturePrinter extends AbstractFeaturePrinter
     {
         List<Counter> list = new ArrayList<>(counters.values());
         Collections.sort(list);
-        long totalOmitted = 0;
+        double totalOmitted = 0;
         int omittedRowCount = 0;
         int end;
         for(end = list.size(); end > 0; end--)
         {
             Counter c = list.get(end-1);
-            long count = c.count;
-            double percentage = (double)count / totalCount;
-            if(count >= minTally && percentage >= minPercentage) break;
-            totalOmitted += count;
+            double tally = c.tally;
+            double percentage = tally / totalTally;
+            if(tally >= minTally && percentage >= minPercentage) break;
+            totalOmitted += tally;
             omittedRowCount++;
         }
         list = list.subList(0, end);
@@ -192,7 +205,17 @@ public class StatsFeaturePrinter extends AbstractFeaturePrinter
         {
             table.column();
         }
-        table.column().format("###,###,###,###");
+        String numberSchema = "###,###,###,###";
+        switch(tallyMode)
+        {
+        case LENGTH:
+            numberSchema += " m";
+            break;
+        case AREA:
+            numberSchema += " m²";
+            break;
+        }
+        table.column().format(numberSchema);
         table.column().format("##0.0%");
         for(Column col: columns)
         {
@@ -206,17 +229,23 @@ public class StatsFeaturePrinter extends AbstractFeaturePrinter
             {
                 table.add(tag);
             }
-            table.add(c.count);
-            table.add((double)c.count / totalCount);
+            table.add(c.tally);
+            table.add((double)c.tally / totalTally);
         }
         if(totalOmitted > 0)
         {
-            table.add(String.format("(%d other%s)", omittedRowCount,
+            table.add(String.format("(%,d other%s)", omittedRowCount,
                 omittedRowCount == 1 ? "" : "s"));
             for(int i=1; i<columnCount; i++) table.add("");
             table.add(totalOmitted);
-            table.add((double)totalOmitted / totalCount);
+            table.add((double)totalOmitted / totalTally);
         }
+
+        table.add("Total");
+        for(int i=1; i<columnCount; i++) table.add("");
+        table.add(totalTally);
+        table.add(1);
+
         out.print(table);
     }
 }

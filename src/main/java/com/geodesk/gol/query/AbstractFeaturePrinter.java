@@ -7,6 +7,7 @@
 
 package com.geodesk.gol.query;
 
+import com.clarisma.common.cli.Converter;
 import com.geodesk.core.Mercator;
 import com.geodesk.feature.Feature;
 import com.geodesk.feature.Tags;
@@ -285,5 +286,19 @@ public abstract class AbstractFeaturePrinter implements FeaturePrinter
     public boolean setOption(String name, String value)
     {
         return false;
+    }
+
+    public static void checkValue(String value)
+    {
+        if(value == null || value.isEmpty())
+        {
+            throw new IllegalArgumentException("Must provide a value");
+        }
+    }
+
+    public static <T> T getValue(String value, Class<T> type)
+    {
+        checkValue(value);
+        return (T)Converter.convert(value, type);
     }
 }

@@ -72,6 +72,8 @@ public class MapFeaturePrinter extends AbstractFeaturePrinter
             case "osm":
                 linkSchema = new OsmLinkSchema();
                 break;
+            default:
+                throw new IllegalArgumentException("Custom links are not yet supported.");
             }
             // TODO: custom link schemes
             return true;

@@ -39,7 +39,7 @@ public class QueryCommand extends GolCommand
     @Option("format,f=csv|xml|geojson|...: output format")
     protected ResultFormat format = ResultFormat.LIST;
 
-    protected int precision = 6;
+    protected int precision = 7;
 
     @Option("precision=0-15: coordinate precision")
     public void precision(int v)

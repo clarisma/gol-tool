@@ -33,6 +33,7 @@ public class StatsFeaturePrinter extends AbstractFeaturePrinter
     private long currentRelationId;
     private TallyMode tallyMode = TallyMode.COUNT;
     private Unit unit = Unit.M;
+    private int maxTableWidth = 100;
 
     private enum TallyMode
     {
@@ -43,6 +44,10 @@ public class StatsFeaturePrinter extends AbstractFeaturePrinter
     {
         switch(name)
         {
+        case "max-width":
+            checkValue(value);
+            maxTableWidth = (int)Math.round(Options.parseDouble(value));
+            return true;
         case "min-tally":
             checkValue(value);
             if(value.endsWith("%"))
@@ -67,7 +72,7 @@ public class StatsFeaturePrinter extends AbstractFeaturePrinter
             unit = getValue(value, Unit.class);
             return true;
         }
-        return false;
+        return super.setOption(name, value);
     }
 
     private static class Counter implements Comparable<Counter>
@@ -275,6 +280,7 @@ public class StatsFeaturePrinter extends AbstractFeaturePrinter
         if(alphaSort) list.sort(new TagsComparator());
 
         Table table = new Table();
+        table.maxWidth(maxTableWidth);
         for(Column col: columns)
         {
             table.column();

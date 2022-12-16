@@ -15,8 +15,8 @@ public class Formatting
 
     public static final String[] OPTIONS =
     {
-        "attribution", "basemap", "color", "id", "link", "min-tally",
-        "osm", "sort", "split-values", "tally"
+        "attribution", "basemap", "color", "id", "link", "max-width",
+        "min-tally", "osm", "sort", "split-values", "tally", "unit"
     };
 
     public static boolean containsOption(String opt)

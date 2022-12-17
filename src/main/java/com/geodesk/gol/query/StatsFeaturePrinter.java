@@ -227,6 +227,16 @@ public class StatsFeaturePrinter extends AbstractFeaturePrinter
         }
     }
 
+    private static class SortFrequencyAlphabetic implements Comparator<Counter>
+    {
+        @Override public int compare(Counter a, Counter b)
+        {
+            int compare = a.compareTo(b);
+            if(compare != 0) return compare;
+            return a.compareLexically(b);
+        }
+    }
+
     public StatsFeaturePrinter(PrintStream out)
     {
         super(out);
@@ -388,6 +398,27 @@ public class StatsFeaturePrinter extends AbstractFeaturePrinter
     {
         List<Counter> list = new ArrayList<>(counters.values());
         Collections.sort(list);
+
+        long totalTags = 0;
+        long totalKeys = 0;
+        long totalKeyValues = 0;
+
+        if(tallyMode == TallyMode.KEYS || tallyMode == TallyMode.TAGS)
+        {
+            for(Counter c: list)
+            {
+                if(c.tags[1].isEmpty())
+                {
+                    totalKeys++;
+                }
+                else
+                {
+                    totalKeyValues++;
+                    totalTags += c.tally;
+                }
+            }
+        }
+
         double totalOmitted = 0;
         int omittedRowCount = 0;
         MutableLongSet omittedRelations = new LongHashSet();
@@ -412,6 +443,10 @@ public class StatsFeaturePrinter extends AbstractFeaturePrinter
         else if(tallyMode == TallyMode.KEYS)
         {
             list.sort(new GroupedComparator());
+        }
+        else if(tallyMode == TallyMode.TAGS)
+        {
+            list.sort(new SortFrequencyAlphabetic());
         }
 
         Table table = new Table();
@@ -463,7 +498,9 @@ public class StatsFeaturePrinter extends AbstractFeaturePrinter
         case TAGS:
             table.add("Key");
             table.add("");
-            table.add("Value");
+            table.add("Value   ");  // TODO: min-width should be 8 anyway
+            table.add(totalFeatureCount);
+            table.add("/count");
             break;
         default:
             for (Column col : columns)
@@ -558,22 +595,29 @@ public class StatsFeaturePrinter extends AbstractFeaturePrinter
         }
 
         table.divider("-");
-        table.add("Total");
         switch(tallyMode)
         {
         case KEYS:
+            table.add(String.format("%,d key%s with %,d value%s",
+                totalKeys, totalKeys==1 ? "" : "s",
+                totalKeyValues, totalKeyValues==1 ? "" : "s"));
             break;
         case TAGS:
+            table.add(String.format("%,d key%s", totalKeys, totalKeys==1 ? "" : "s"));
             table.add("");
-            table.add("");
+            table.add(String.format("%,d pair%s", totalKeyValues, totalKeyValues==1 ? "" : "s"));
+            table.add(totalTags);
+            table.add(String.format("%.1f/1", (double)totalTags / totalFeatureCount));
             break;
         default:
+            table.add("Total");
             for(int i=1; i<columnCount; i++) table.add("");
+            table.add(totalTally);
+            if(tallyMode == TallyMode.ROLES) table.add(totalRelationCount);
+            table.add(1);
             break;
         }
-        table.add(totalTally);
-        if(tallyMode == TallyMode.ROLES) table.add(totalRelationCount);
-        table.add(1);
+
 
         System.err.println();
             // No print to stderr so the extra line does not end up in a file

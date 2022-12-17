@@ -68,6 +68,11 @@ public class StatsFeaturePrinter extends AbstractFeaturePrinter
     private long totalRelationCount;
 
     /**
+     * The total number of features analyzed
+     */
+    private long totalFeatureCount;
+
+    /**
      * The roles in the current relation (map of roles to the number of
      * members with this role)
      */
@@ -79,7 +84,7 @@ public class StatsFeaturePrinter extends AbstractFeaturePrinter
 
     private enum TallyMode
     {
-        COUNT, LENGTH, AREA, ROLES;
+        COUNT, LENGTH, AREA, ROLES, KEYS, TAGS;
     }
 
     @Override public boolean setOption(String name, String value)
@@ -197,14 +202,19 @@ public class StatsFeaturePrinter extends AbstractFeaturePrinter
 
     @Override public void printHeader()
     {
-        columnCount = columns.size();
-        if(tallyMode == TallyMode.ROLES)
+        switch(tallyMode)
         {
+        case KEYS, TAGS:
+            columnCount = 2;
+            break;
+        case ROLES:
+            columnCount = columns.size();
+
             // If no tags are specified on the command line,
             // a single column with "*" is created; get rid of that column
             // and just use a single non-tag column (the one for the role)
 
-            if(columns.size() > 1 || !columns.get(0).key.equals("*"))
+            if (columns.size() > 1 || !columns.get(0).key.equals("*"))
             {
                 columnCount++;
             }
@@ -213,6 +223,10 @@ public class StatsFeaturePrinter extends AbstractFeaturePrinter
                 columns.clear();
             }
             currentRoles = new ObjectIntHashMap<>();
+            break;
+        default:
+            columnCount = columns.size();
+            break;
         }
         key.tags = new String[columnCount];
     }
@@ -317,12 +331,28 @@ public class StatsFeaturePrinter extends AbstractFeaturePrinter
                 totalRelationCount++;
             }
             break;
+        case TAGS:
+            totalTally++;
+            // fall through
+        case KEYS:
+            printProperties();
+            totalFeatureCount++;    // TODO: use for other reports as well?
+            return;
         }
         tally(0, tally);
         totalTally += tally;
         resetProperties();
     }
 
+    protected void printProperty(String k, String v)
+    {
+        key.tags[0] = k;
+        key.tags[1] = "";
+        addToCounter(1);
+        key.tags[1] = v;
+        addToCounter(1);
+        if(tallyMode == TallyMode.KEYS) totalTally++;
+    }
 
     @Override public void printFooter()
     {
@@ -343,15 +373,30 @@ public class StatsFeaturePrinter extends AbstractFeaturePrinter
             if(c.relations != null) omittedRelations.addAll(c.relations);
         }
         list = list.subList(0, end);
+
+        // TODO: sorting for KEYS/TAGS report
         if(alphaSort) list.sort(new TagsComparator());
 
         Table table = new Table();
         table.maxWidth(maxTableWidth);
-        for(Column col: columns)
+        switch(tallyMode)
         {
+        case KEYS:
             table.column();
+            break;
+        case TAGS:
+            table.column().gap(1);
+            table.column().gap(1);
+            table.column();
+            break;
+        default:
+            for(Column col: columns)
+            {
+                table.column();
+            }
+            if(tallyMode == TallyMode.ROLES) table.column();
+            break;
         }
-        if(tallyMode == TallyMode.ROLES) table.column();
         String numberSchema = "###,###,###,###";
         switch(tallyMode)
         {
@@ -367,40 +412,118 @@ public class StatsFeaturePrinter extends AbstractFeaturePrinter
         }
         table.column().format(numberSchema);
         table.column().format("##0.0%");
-        for(Column col: columns)
+
+        switch(tallyMode)
         {
-            table.add(col.key);
+        case KEYS:
+            // extra % column, because we track per-key and global %
+            table.column().format("##0.0%");
+            // fall through
+        case TAGS:
+            table.add(String.format("%,d features", totalFeatureCount));
+            // TODO: for TAGS, header should span multiple cells
+            break;
+        default:
+            for (Column col : columns)
+            {
+                table.add(col.key);
+            }
+            if (tallyMode == TallyMode.ROLES)
+            {
+                table.add("Role");
+                table.add("Members in");
+                table.add("Relations");
+            }
+            break;
         }
-        if(tallyMode == TallyMode.ROLES) table.add("role");
         table.divider("=");
 
         for(Counter c: list)
         {
-            for(String tag: c.tags)
+            switch(tallyMode)
             {
-                table.add(tag);
+            case KEYS:
+                String value = c.tags[1];
+                if(value.isEmpty())
+                {
+                    table.add(c.tags[0]);   // key
+                }
+                else
+                {
+                    table.add("  = " + value);
+                }
+                break;
+            case TAGS:
+                table.add(c.tags[0]);   // key
+                table.add("=");
+                value = c.tags[1];
+                table.add(value.isEmpty() ? "*" : value);
+                break;
+            default:
+                for(String tag: c.tags) table.add(tag);
+                break;
             }
             table.add(c.tally);
-            if(tallyMode == TallyMode.ROLES) table.add(c.relCount);
+            switch(tallyMode)
+            {
+            case KEYS:
+                table.add(""); // TODO: per-key percentage
+                break;
+            case ROLES:
+                table.add(c.relCount);
+                break;
+            }
             table.add(c.tally / totalTally);
         }
         if(totalOmitted > 0)
         {
+            // TODO: KEYS/TAGS: break "others" into keys/tags?
             table.add(String.format("(%,d other%s)", omittedRowCount,
                 omittedRowCount == 1 ? "" : "s"));
-            for(int i=1; i<columnCount; i++) table.add("");
+            switch(tallyMode)
+            {
+            case KEYS:
+                break;
+            case TAGS:
+                table.add("");
+                table.add("");
+                break;
+            default:
+                for (int i = 1; i < columnCount; i++) table.add("");
+            }
             table.add(totalOmitted);
-            if(tallyMode == TallyMode.ROLES) table.add(omittedRelations.size());
+            switch(tallyMode)
+            {
+            case KEYS:
+                table.add("");      // (no per-key %)
+                break;
+            case ROLES:
+                table.add(omittedRelations.size());
+                break;
+            }
             table.add(totalOmitted / totalTally);
         }
 
         table.divider("-");
         table.add("Total");
-        for(int i=1; i<columnCount; i++) table.add("");
+        switch(tallyMode)
+        {
+        case KEYS:
+            break;
+        case TAGS:
+            table.add("");
+            table.add("");
+            break;
+        default:
+            for(int i=1; i<columnCount; i++) table.add("");
+            break;
+        }
         table.add(totalTally);
         if(tallyMode == TallyMode.ROLES) table.add(totalRelationCount);
         table.add(1);
 
+        System.err.println();
+            // No print to stderr so the extra line does not end up in a file
         out.print(table);
     }
 }

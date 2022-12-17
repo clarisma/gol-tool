@@ -153,10 +153,42 @@ public class StatsFeaturePrinter extends AbstractFeaturePrinter
          */
         MutableLongSet relations;
 
+        /**
+         * For -f:tally=keys: The counter that tracks all values for this key,
+         * so rows can be properly grouped
+         */
+        Counter parent;
+
         @Override public int compareTo(Counter other)
         {
             return Double.compare(other.tally, tally);
         }
+
+        public int compareGrouped(Counter other)
+        {
+            double parentTally = parent != null ? parent.tally : tally;
+            double otherParentTally = other.parent != null ? other.parent.tally : other.tally;
+
+            int compare = Double.compare(otherParentTally, parentTally);
+            if(compare != 0) return compare;
+            compare = Double.compare(other.tally, tally);
+            if(compare != 0) return compare;
+            return compareLexically(other);
+        }
+
+        public int compareLexically(Counter other)
+        {
+            int tagCount = tags.length;
+            for(int i=0; i<tagCount; i++)
+            {
+                int comp = tags[i].compareTo(other.tags[i]);
+                if (comp != 0) return comp;
+            }
+            return 0;
+            // TODO: In reality, this is an error, as tag permutations
+            //  must be unique
+        }
+
         @Override public boolean equals(Object o)
         {
             if(o instanceof Counter other)
@@ -179,19 +211,19 @@ public class StatsFeaturePrinter extends AbstractFeaturePrinter
         }
     }
 
-    private static class TagsComparator implements Comparator<Counter>
+    private static class LexicalComparator implements Comparator<Counter>
     {
         @Override public int compare(Counter a, Counter b)
         {
-            int tagCount = a.tags.length;
-            for(int i=0; i<tagCount; i++)
-            {
-                int comp = a.tags[i].compareTo(b.tags[i]);
-                if (comp != 0) return comp;
-            }
-            return 0;
-                // TODO: In reality, this is an error, as tag permutations
-                //  must be unique
+            return a.compareLexically(b);
+        }
+    }
+
+    private static class GroupedComparator implements Comparator<Counter>
+    {
+        @Override public int compare(Counter a, Counter b)
+        {
+            return a.compareGrouped(b);
         }
     }
 
@@ -331,12 +363,10 @@ public class StatsFeaturePrinter extends AbstractFeaturePrinter
                 totalRelationCount++;
             }
             break;
-        case TAGS:
-            totalTally++;
-            // fall through
-        case KEYS:
+        case KEYS, TAGS:
             printProperties();
             totalFeatureCount++;    // TODO: use for other reports as well?
+            totalTally++;
             return;
         }
         tally(0, tally);
@@ -348,10 +378,10 @@ public class StatsFeaturePrinter extends AbstractFeaturePrinter
     {
         key.tags[0] = k;
         key.tags[1] = "";
-        addToCounter(1);
+        Counter keyCounter = addToCounter(1);
         key.tags[1] = v;
-        addToCounter(1);
-        if(tallyMode == TallyMode.KEYS) totalTally++;
+        Counter valueCounter = addToCounter(1);
+        if(tallyMode == TallyMode.KEYS) valueCounter.parent = keyCounter;
     }
 
     @Override public void printFooter()
@@ -375,7 +405,14 @@ public class StatsFeaturePrinter extends AbstractFeaturePrinter
         list = list.subList(0, end);
 
         // TODO: sorting for KEYS/TAGS report
-        if(alphaSort) list.sort(new TagsComparator());
+        if(alphaSort)
+        {
+            list.sort(new LexicalComparator());
+        }
+        else if(tallyMode == TallyMode.KEYS)
+        {
+            list.sort(new GroupedComparator());
+        }
 
         Table table = new Table();
         table.maxWidth(maxTableWidth);
@@ -418,10 +455,15 @@ public class StatsFeaturePrinter extends AbstractFeaturePrinter
         case KEYS:
             // extra % column, because we track per-key and global %
             table.column().format("##0.0%");
-            // fall through
-        case TAGS:
             table.add(String.format("%,d features", totalFeatureCount));
-            // TODO: for TAGS, header should span multiple cells
+            table.add(""); // no label needed for count
+            table.add("/key");
+            table.add("/count");
+            break;
+        case TAGS:
+            table.add("Key");
+            table.add("");
+            table.add("Value");
             break;
         default:
             for (Column col : columns)
@@ -438,6 +480,7 @@ public class StatsFeaturePrinter extends AbstractFeaturePrinter
         }
         table.divider("=");
 
+        double parentTally = 0;
         for(Counter c: list)
         {
             switch(tallyMode)
@@ -467,7 +510,17 @@ public class StatsFeaturePrinter extends AbstractFeaturePrinter
             switch(tallyMode)
             {
             case KEYS:
-                table.add(""); // TODO: per-key percentage
+                if(c.parent == null)
+                {
+                    // This counter is for a key
+                    parentTally = c.tally;
+                    table.add("");
+                }
+                else
+                {
+                    // This counter is for a value: add % based on key total
+                    table.add(c.tally / parentTally);
+                }
                 break;
             case ROLES:
                 table.add(c.relCount);
@@ -475,7 +528,7 @@ public class StatsFeaturePrinter extends AbstractFeaturePrinter
             }
             table.add(c.tally / totalTally);
         }
-        if(totalOmitted > 0)
+        if(totalOmitted > 0 && tallyMode != TallyMode.KEYS && tallyMode != TallyMode.TAGS)
         {
             // TODO: KEYS/TAGS: break "others" into keys/tags?
             table.add(String.format("(%,d other%s)", omittedRowCount,

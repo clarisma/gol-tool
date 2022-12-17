@@ -20,15 +20,57 @@ import java.util.*;
 
 public class StatsFeaturePrinter extends AbstractFeaturePrinter
 {
+    /**
+     * A counter for each row in the report.
+     */
     private final Map<Object, Counter> counters = new HashMap<>();
+
+    /**
+     * The number of tag/role columns.
+     */
     private int columnCount;
+
+    /**
+     * A Counter where we accumulate the tags/roles for the current feature.
+     * The actual counters are not used, we only use it to look up the actual
+     * row in `counters`. If the row does not exist, we create a copy of this
+     * counter.
+     */
     private final Counter key = new Counter();
+
+    /**
+     * Whether values like "japanese;sushi;seafood" should be split and tallied
+     * as separate values.
+     * TODO: customize this on a per-key basis?
+     */
     private boolean splitValues = false;
+
+    /**
+     * The minimum tally a row must have in order to be included in the report.
+     */
     private long minTally = Long.MIN_VALUE;
+
+    /**
+     * The minimum percentage of the total tally a row must have in order to
+     * be included in the report.
+     */
     private double minPercentage = 0;
     private boolean alphaSort;
+
+    /**
+     * The total tally for all analyzed features.
+     */
     private double totalTally;
+
+    /**
+     * The total number of relations analyzed (only used for -f:tally=roles)
+     */
     private long totalRelationCount;
+
+    /**
+     * The roles in the current relation (map of roles to the number of
+     * members with this role)
+     */
     private MutableObjectIntMap<String> currentRoles;
     private long currentRelationId;
     private TallyMode tallyMode = TallyMode.COUNT;
@@ -75,11 +117,35 @@ public class StatsFeaturePrinter extends AbstractFeaturePrinter
         return super.setOption(name, value);
     }
 
+    /**
+     * A Counter for each tag permutations (i.e. a row in the report).
+     * The native sort order is the tally (highest first)
+     */
     private static class Counter implements Comparable<Counter>
     {
+        /**
+         * The tag values to which this counter applies (for -f:tally=roles,
+         * the last item is the role)
+         */
         String[] tags;
+
+        /**
+         * The total count, length or area for this row.
+         */
         double tally;
+
+        /**
+         * For -f:tally=roles only: The number of relations that contain
+         * thr role in this row.
+         */
         long relCount;
+
+        /**
+         * For -f:tally=roles only: Tracks the relations that contain the
+         * role in this row (only needed if the number of rows is limited,
+         * so we can properly calculate the number of relations in the
+         * "other" row). If this set is used, its size must equal relCount.
+         */
         MutableLongSet relations;
 
         @Override public int compareTo(Counter other)

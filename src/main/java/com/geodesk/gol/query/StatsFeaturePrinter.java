@@ -168,10 +168,7 @@ public class StatsFeaturePrinter extends AbstractFeaturePrinter
         {
             double parentTally = parent != null ? parent.tally : tally;
             double otherParentTally = other.parent != null ? other.parent.tally : other.tally;
-
             int compare = Double.compare(otherParentTally, parentTally);
-            if(compare != 0) return compare;
-            compare = Double.compare(other.tally, tally);
             if(compare != 0) return compare;
             return compareLexically(other);
         }
@@ -219,6 +216,10 @@ public class StatsFeaturePrinter extends AbstractFeaturePrinter
         }
     }
 
+    /**
+     * Sorts by key-group (based on frequency), then by value frequency.
+     * In case of tie, sort lexically.
+     */
     private static class GroupedComparator implements Comparator<Counter>
     {
         @Override public int compare(Counter a, Counter b)
@@ -227,12 +228,36 @@ public class StatsFeaturePrinter extends AbstractFeaturePrinter
         }
     }
 
+    /**
+     * Sorts by tally, then alphabetically.
+     */
     private static class SortFrequencyAlphabetic implements Comparator<Counter>
     {
         @Override public int compare(Counter a, Counter b)
         {
             int compare = a.compareTo(b);
             if(compare != 0) return compare;
+            return a.compareLexically(b);
+        }
+    }
+
+    /**
+     * Sorts by tally (parents first), then alphabetically.
+     */
+    private static class SortFrequencyParentsAlphabetic implements Comparator<Counter>
+    {
+        @Override public int compare(Counter a, Counter b)
+        {
+            int compare = a.compareTo(b);
+            if(compare != 0) return compare;
+            if(a.parent == null)
+            {
+                if(b.parent != null) return -1;
+            }
+            else if(b.parent == null)
+            {
+                return 1;
+            }
             return a.compareLexically(b);
         }
     }
@@ -397,7 +422,16 @@ public class StatsFeaturePrinter extends AbstractFeaturePrinter
     @Override public void printFooter()
     {
         List<Counter> list = new ArrayList<>(counters.values());
-        Collections.sort(list);
+        if(tallyMode == TallyMode.KEYS)
+        {
+            // For KEYS report, we need to ensure that parents are always
+            // sorted before children
+            list.sort(new SortFrequencyParentsAlphabetic());
+        }
+        else
+        {
+            Collections.sort(list);
+        }
 
         long totalTags = 0;
         long totalKeys = 0;
@@ -618,9 +652,17 @@ public class StatsFeaturePrinter extends AbstractFeaturePrinter
             break;
         }
 
+        // TODO: TAGS: make it clear in header row that the top number is # of features
+        //  Change "Value" to "Value ___ in"
+        //  need to layout table first to determine width of that column
+
+        // Key                Value          in  76,270  /count
+        // ====================================================
+        // operator         = *                  61,695   80.9%
+        // collection_times = *                  51,070   67.0%
 
         System.err.println();
-            // No print to stderr so the extra line does not end up in a file
+            // Print to stderr so the extra line does not end up in a file
         out.print(table);
     }
 }

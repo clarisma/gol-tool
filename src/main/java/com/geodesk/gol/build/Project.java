@@ -199,21 +199,48 @@ public class Project implements Serializable
 		keyIndexMinFeatures = count;
 	}
 
+	public boolean set(String name, String value)
+	{
+		switch(name)
+		{
+		case "source":
+			sourcePath(Path.of(value));
+			return true;
+		case "max-tiles":
+			maxTiles(Integer.parseInt(value));
+			return true;
+		case "min-tile-density":
+			minTileDensity(Integer.parseInt(value));
+			return true;
+		case "tile-zoom-levels":
+			zoomLevels(value);
+			return true;
+		case "category-keys":
+			keyIndexSchema(value);
+			return true;
+		case "min-string-usage":
+			minStringUsage(Integer.parseInt(value));
+			return true;
+		case "max-strings":
+			maxStringCount(Integer.parseInt(value));
+			return true;
+		case "rtree-bucket-size":
+			rtreeBucketSize(Integer.parseInt(value));
+			return true;
+		case "max-key-indexes":
+			maxKeyIndexes(Integer.parseInt(value));
+			return true;
+		case "key-index-min-features":
+			keyIndexMinFeatures(Integer.parseInt(value));
+			return true;
+		}
+		return false;
+	}
+
 	public Map<String,String> properties()
 	{
 		return properties;
 	}
-
-	/*
-	private int checkRange(int value, String key, int min, int max)
-	{
-		if(value < min || value > max)
-		{
-			error("%s must be between %d and %d", key, min, max);
-		}
-		return value;
-	}
-	 */
 
 	public static Project read(Path path) throws Exception
 	{

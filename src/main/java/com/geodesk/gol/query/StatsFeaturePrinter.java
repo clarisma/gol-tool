@@ -18,6 +18,8 @@ import org.eclipse.collections.impl.set.mutable.primitive.LongHashSet;
 import java.io.PrintStream;
 import java.util.*;
 
+// TODO: keys report: sort values by frequency, not by value name!!!
+
 public class StatsFeaturePrinter extends AbstractFeaturePrinter
 {
     /**
@@ -166,11 +168,19 @@ public class StatsFeaturePrinter extends AbstractFeaturePrinter
 
         public int compareGrouped(Counter other)
         {
-            double parentTally = parent != null ? parent.tally : tally;
-            double otherParentTally = other.parent != null ? other.parent.tally : other.tally;
-            int compare = Double.compare(otherParentTally, parentTally);
+            // first, sort by parent (tally; by key if there is a tie)
+            Counter thisParent = (parent != null) ? parent : this;
+            Counter otherParent = (other.parent != null) ? other.parent : other;
+            int compare = Double.compare(otherParent.tally, thisParent.tally);
             if(compare != 0) return compare;
-            return compareLexically(other);
+            compare = thisParent.tags[0].compareTo(otherParent.tags[0]);
+            if(compare != 0) return compare;
+
+            // Both belong to same parent, or one is parent of the other
+            compare = Double.compare(other.tally, tally);
+            if(compare != 0) return compare;
+
+            return tags[1].compareTo(other.tags[1]);
         }
 
         public int compareLexically(Counter other)

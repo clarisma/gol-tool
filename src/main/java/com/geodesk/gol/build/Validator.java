@@ -234,13 +234,6 @@ public class Validator
         if(tasks.size() == 0) return;
         try
         {
-            /*
-            Log.debug("Validating %d tiles at zoom %d, %s/%s",
-                tasks.size(),
-                15 - (batchCode >> 2),
-                (batchCode & 1) == 0 ? "even" : "odd",
-                (batchCode & 2) == 0 ? "even" : "odd");
-             */
             List<Future<Boolean>> results = executor.invokeAll(tasks);
             for(Future<Boolean> result: results) result.get();
         }
@@ -251,8 +244,6 @@ public class Validator
         }
         catch (ExecutionException ex)
         {
-            // TODO Auto-generated catch block
-            // e.printStackTrace();
             throw ex.getCause();
         }
     }
@@ -413,17 +404,14 @@ public class Validator
                 {
                     if(featureType==NODES)
                     {
-                        // log.debug("Reading nodes in {}", Tile.toString(sourceTile));
                         readNodes();
                     }
                     else if(featureType==WAYS)
                     {
-                        // log.debug("Reading ways in {}", Tile.toString(sourceTile));
                         readWays();
                     }
                     else if(featureType==RELATIONS)
                     {
-                        // log.debug("Reading relations in {}", Tile.toString(sourceTile));
                         readRelations();
                     }
                     else
@@ -509,13 +497,6 @@ public class Validator
 
         private void addNodeTiles(int pNode, int tileQuad)
         {
-            /*
-            if(getId(nodes, pNode) == 4288247522L)
-            {
-                log.debug("Adding tile quad {} to node/4288247522",
-                    TileQuad.toString(tileQuad));
-            }
-             */
             assert pNode > 0;
             int ppFirstTile = pNode + N_TILE_PTR;
             int prevFirstTile = nodes.get(ppFirstTile);
@@ -670,13 +651,6 @@ public class Validator
                 int ptr;
                 byte tileLocator;
 
-                /*
-                if(id==798487056 || id==812913817)
-                {
-                    log.debug("way of interest");
-                }
-                 */
-
                 if(multiTileFlag != 0)
                 {
                     tileLocator = sourceData.readByte();
@@ -813,12 +787,6 @@ public class Validator
          */
         private void readRelation(long id)
         {
-            /*
-            if(id == 448327 || id == 2674702 || id == 2674703)
-            {
-                log.debug("Reading relation/{}...", id);
-            }
-             */
             byte tileLocator = sourceData.readByte();
             int relQuad = TileQuad.fromDenseParentLocator(tileLocator, sourceTile);
             assert relQuad != -1;
@@ -871,12 +839,6 @@ public class Validator
 
             if(hasCompleteGeometry(relQuad))
             {
-                /*
-                if(id == 6392218)
-                {
-                    log.debug("Adding relation/{} to index", id);
-                }
-                 */
                 int pRelation = relations.size();
                 // put tile locator into the highest byte of the id
                 relations.add((int)(id >> 32) | (tileLocator << 24));
@@ -908,14 +870,6 @@ public class Validator
             switch(type)
             {
             case NODE:
-                /*
-                if(memberId == 6806732827L)
-                {
-                    Compiler.log.debug(
-                        "Reading membership for node/{} in relation/{} ({})",
-                        memberId, relId, TileQuad.toString(relQuad));
-                }
-                 */
                 int pNode = nodeIndex.get(memberId);
                 if(pNode != 0)
                 {
@@ -928,13 +882,6 @@ public class Validator
                 addTiles(ways, p, relQuad);
                 break;
             case RELATION:
-                /*
-                if(memberId == 6392218)
-                {
-                    log.debug("relation/{} needs to be exported to {} for parent relation/{}",
-                        memberId, TileQuad.toString(relQuad), relId);
-                }
-                 */
                 p = relationIndex.get(memberId);
                 addTiles(relations, p, relQuad);
                 break;
@@ -993,7 +940,7 @@ public class Validator
          */
         private void readForeignNodes()
         {
-            int donorTile = readDonorTile();
+            int donorTile = readDonorTile();    // keep this
             // log.debug("Reading foreign nodes from Tile {}", Tile.toString(donorTile));
 
 			long prevId = 0;
@@ -1179,6 +1126,10 @@ public class Validator
         /**
          * Returns the area of a feature's bounding box.
          *
+         * This could overflow for extremely large features (covering more than 1/2
+         * of the world), but we only use this method to determine if the bbox
+         * has changed, so this should be ok.
+         *
          * @param pBounds   pointer to the feature's bounds
          * @return  area (width * height of bounding box)
          */
@@ -1216,13 +1167,6 @@ public class Validator
                 dataPtr = relations.get(pRelation + F_DATA_PTR);
             }
             addToBounds(pBounds, bounds);
-            /*
-            if(dataPtr == 0)
-            {
-                log.debug("{}: Reference cycle with relation/{}",
-                    Tile.toString(sourceTile), id);
-            }
-             */
             return dataPtr < 0;
         }
 
@@ -1252,13 +1196,6 @@ public class Validator
 
         private boolean calculateRelationBounds(int pRelation, int pBounds)
         {
-            long xid = getId(relations, pRelation);
-            /*
-            if(xid == 448327 || xid == 2674702 || xid == 2674703)
-            {
-                log.debug("Calculating bounds of relation/{}", xid);
-            }
-             */
             assert pRelation > 0;
             assert pBounds > 0;
             FeatureBounds bounds = new FeatureBounds();
@@ -1276,7 +1213,6 @@ public class Validator
                     // calls to getWayBounds/getRelationBounds might move it
                 FeatureType memberType = FeatureId.type(m);
                 long memberId = FeatureId.id(m);
-                // log.debug("      - member: {}/{}", memberType.toString().toLowerCase(), memberId);
 
                 switch(memberType)
                 {
@@ -1323,12 +1259,6 @@ public class Validator
             storeBounds(pBounds, bounds);
             relations.set(pRelation + F_DATA_PTR, resolved ? -startPos : startPos);
 
-            /*
-            if(!resolved)
-            {
-                log.debug("{}: relation/{} unresolved", Tile.toString(sourceTile), xid);
-            }
-             */
             return resolved;
         }
 
@@ -1372,12 +1302,6 @@ public class Validator
             assert nodeCount > 1: String.format("Invalid node count for way/%d: %d",
                 getId(ways, pWay), nodeCount);
 
-            /*
-            if(getId(ways, pWay) == 812913817)
-            {
-                log.debug("Way 812913817");
-            }
-             */
             for(int i=0; i<nodeCount; i++)
             {
                 long nodeId = sourceData.readSignedVarint() + prevNodeId;
@@ -1400,12 +1324,6 @@ public class Validator
             {
                 Log.error("Could not calculate bounds of way/%d", getId(ways, pWay));
             }
-            /*
-            if(getId(ways, pWay) == 5038215)
-            {
-                log.debug("Quad of way/{} is {}", getId(ways, pWay), TileQuad.toString(bounds.quad));
-            }
-             */
             storeBounds(pBounds, bounds);
         }
 
@@ -1421,13 +1339,6 @@ public class Validator
 
             public void writeForeignNode(int pNode)
             {
-                /*
-                if(getId(nodes, pNode) == 4288247522L)
-                {
-                    log.debug("Writing node/4288247522 to foreign tile...");
-                }
-                 */
-
                 if(prevId==0)
                 {
                     write(FOREIGN_FEATURES | (NODES << 3));
@@ -1445,7 +1356,6 @@ public class Validator
                 int featureFlag =
                     ((flags >>> NODE_HAS_TAGS_BIT) |
                         (flags >>> NODE_IN_RELATION_BIT)) & 1;
-                // featureFlag |= (flags >>> NODE_HAS_TAGS_BIT) & 1;
                 writeVarint(((id - prevId) << 1) | featureFlag);
                 writeSignedVarint(x - prevX);
                 writeSignedVarint(y - prevY);
@@ -1520,7 +1430,6 @@ public class Validator
 
         private void endEncoderGroups()
         {
-            // log.debug("    Ending any open groups...");
             encoders.forEach(encoder -> encoder.endGroup());
         }
 
@@ -1535,31 +1444,11 @@ public class Validator
         private void writeForeignFeatures(int type, long id, int pBounds)
         {
             assert type==WAYS || type==RELATIONS;
-            /*
-            if(id == 5038215)
-            {
-                log.debug("Writing proxy for way/{} ({})", id,
-                    TileQuad.toString(tilesAndBounds.get(pBounds)));
-            }
-             */
+
             int pTile = tilesAndBounds.get(pBounds + B_TILE_PTR);
             while(pTile != 0)
             {
                 int targetTile = tilesAndBounds.get(pTile);
-				/*
-				if(type == RELATIONS && (3840190 == id || 3877571 == id || 3840189 == id || 3981490 == id))
-				{
-					log.debug("Writing proxy for {}/{} to Tile {}",
-						type==WAYS ? "way" : "relation", id, Tile.toString(targetTile));
-				}
-				*/
-
-                /*
-                if(id==6392218 && type==RELATIONS)
-                {
-                    log.debug("Writing proxy for relation/{} to {}", id, Tile.toString(targetTile));
-                }
-                 */
 
                 Encoder encoder = getEncoder(targetTile);
                 encoder.writeForeignFeature(type, id,
@@ -1573,9 +1462,6 @@ public class Validator
             }
         }
 
-        // TODO: use stable-state algo similar to Compiler
-        //  to resolve circular relations
-
         private void writeForeignRelations()
         {
             MutableIntList cyclical = null;
@@ -1586,12 +1472,6 @@ public class Validator
                 if (pBounds != 0)
                 {
                     long id = getId(relations, pRelation);
-                    /*
-                    if(id == 6392218)
-                    {
-                        log.debug("Writing proxies for relation/{}", id);
-                    }
-                    */
                     boolean resolved = relations.get(pRelation + F_DATA_PTR) < 0;
                     if(!resolved)
                     {
@@ -1605,10 +1485,6 @@ public class Validator
                     {
                         if(cyclical == null) cyclical = new IntArrayList();
                         cyclical.add(pRelation);
-                        /*
-                        log.debug("{}: relation/{} is in a ref cycle",
-                            Tile.toString(sourceTile), id);
-                         */
                     }
                 }
                 pRelation += F_LENGTH;
@@ -1625,21 +1501,10 @@ public class Validator
                         int pBounds = relations.get(pRelation + F_BOUNDS_PTR);
                         int prevQuad = getQuad(pBounds);
                         long prevArea = getArea(pBounds);
-                        /*
-                        log.debug("  Recalculating bounds for relation/{} ({})",
-                            getId(relations, pRelation), TileQuad.toString(prevQuad));
-                         */
                         calculateRelationBounds(pRelation, pBounds);
                         if (getQuad(pBounds) != prevQuad || getArea(pBounds) != prevArea)
                         {
                             changes = true;
-                        }
-                        else
-                        {
-                            /*
-                            log.debug("  relation/{} reached a stable state ({}).",
-                                getId(relations, pRelation), TileQuad.toString(prevQuad));
-                             */
                         }
                     }
                     if (!changes) break;
@@ -1678,22 +1543,10 @@ public class Validator
             int pNode = 1;
             while (pNode < nodes.size())
             {
-                /*
-                if(getId(nodes, pNode) == 6806732827L)
-                {
-                    log.debug("Writing node/{} to foreign tiles...", getId(nodes, pNode));
-                }
-                 */
                 int pTile = nodes.get(pNode+N_TILE_PTR);
                 while(pTile != 0)
                 {
                     int targetTile = tilesAndBounds.get(pTile);
-                    /*
-                    if(getId(nodes, pNode) == 6806732827L)
-                    {
-                        log.debug("  Target tile: {}", Tile.toString(targetTile));
-                    }
-                     */
                     getEncoder(targetTile).writeForeignNode(pNode);
                     pTile = tilesAndBounds.get(pTile+1);
                 }
@@ -1708,7 +1561,6 @@ public class Validator
             if(data.length==0) return Boolean.FALSE;
             sourceData = new PbfBuffer(data);
             init();
-            // log.debug("  Validating {}...", Tile.toString(sourceTile));
             readTile();
             writeForeignRelations();
             writeForeignWays();
@@ -1748,19 +1600,6 @@ public class Validator
             }
         });
     }
-
-    /*
-    public static void main(String[] args) throws Exception
-    {
-        Path path = Paths.get("c:\\geodesk\\ftest-de");
-        TileCatalog tileCatalog = new TileCatalog(path.resolve("tile-catalog.txt"));
-        PileFile pileFile = new PileFile(path.resolve("features.bin"),
-            tileCatalog.tileCount(), 1 << 16);  // TODO
-        Validator v = new Validator(pileFile, tileCatalog);
-        v.validate();
-    }
-
-     */
 
     // TODO: turn exception into exit code
 

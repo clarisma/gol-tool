@@ -30,6 +30,11 @@ public class Project implements Serializable
 	private int maxKeyIndexes = 8;
 	private int keyIndexMinFeatures = 300;
 	private Map<String,String> properties;
+	private boolean idIndexing;
+	private boolean tagDuplicateNodes;
+	private boolean tagOrphanNodes;
+	private boolean updatable;
+
 
 	private static void error(String msg, Object... args)
 	{
@@ -199,6 +204,17 @@ public class Project implements Serializable
 		keyIndexMinFeatures = count;
 	}
 
+	public static boolean booleanValue(String value)
+	{
+		switch (value)
+		{
+		case "yes", "true", "on": return true;
+		case "no", "false", "off": return false;
+		default:
+			throw new IllegalArgumentException("Must be yes/no");	// TODO
+		}
+	}
+
 	public boolean set(String name, String value)
 	{
 		switch(name)
@@ -206,32 +222,41 @@ public class Project implements Serializable
 		case "source":
 			sourcePath(Path.of(value));
 			return true;
-		case "max-tiles":
-			maxTiles(Integer.parseInt(value));
-			return true;
-		case "min-tile-density":
-			minTileDensity(Integer.parseInt(value));
-			return true;
-		case "tile-zoom-levels":
-			zoomLevels(value);
-			return true;
-		case "category-keys":
+		case "category-keys":		// indexed-keys
 			keyIndexSchema(value);
 			return true;
-		case "min-string-usage":
-			minStringUsage(Integer.parseInt(value));
-			return true;
-		case "max-strings":
-			maxStringCount(Integer.parseInt(value));
-			return true;
-		case "rtree-bucket-size":
-			rtreeBucketSize(Integer.parseInt(value));
+		case "key-index-min-features":
+			keyIndexMinFeatures(Integer.parseInt(value));
 			return true;
 		case "max-key-indexes":
 			maxKeyIndexes(Integer.parseInt(value));
 			return true;
-		case "key-index-min-features":
-			keyIndexMinFeatures(Integer.parseInt(value));
+		case "max-strings":
+			maxStringCount(Integer.parseInt(value));
+			return true;
+		case "max-tiles":
+			maxTiles(Integer.parseInt(value));
+			return true;
+		case "min-string-usage":
+			minStringUsage(Integer.parseInt(value));
+			return true;
+		case "min-tile-density":
+			minTileDensity(Integer.parseInt(value));
+			return true;
+		case "rtree-bucket-size":
+			rtreeBucketSize(Integer.parseInt(value));
+			return true;
+		case "tag-duplicate-nodes":
+			tagDuplicateNodes = booleanValue(value);
+			return true;
+		case "tag-orphan-nodes":
+			tagOrphanNodes = booleanValue(value);
+			return true;
+		case "tile-zoom-levels":
+			zoomLevels(value);
+			return true;
+		case "updatable":
+			updatable = booleanValue(value);
 			return true;
 		}
 		return false;

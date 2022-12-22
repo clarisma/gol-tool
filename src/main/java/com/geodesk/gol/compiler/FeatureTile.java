@@ -449,7 +449,7 @@ public class FeatureTile
         }
     }
 
-    private static final String[] MISSING_TAG_STRINGS = { "geodesk:error", "missing" };
+    private static final String[] MISSING_TAG_STRINGS = { "geodesk:missing", "yes" };
 
     private <T extends SFeature> void convertMissing(MutableLongObjectMap<T> features, STagTable tags)
     {

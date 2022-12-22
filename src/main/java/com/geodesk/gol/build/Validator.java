@@ -591,6 +591,7 @@ public class Validator
             {
                 pBounds = tilesAndBounds.size();
                 tilesAndBounds.addAll(0,0,0,0,0,0);
+                    // TODO: pre-define these 6 zero-ints as a regular array
                     // TODO: maybe this should be a bbox that can
                     //  be added to another bbox without enlarging it
                     //  (ie. minX = maxInt, maxX = minInt)
@@ -692,8 +693,6 @@ public class Validator
          * the one that is currently being read) to the tile list of each
          * of the way's nodes that live in the current tile (In a later step,
          * these nodes will be copied to those tiles as foreign nodes).
-         *
-         * TODO: We also mark each local node that is used as a way-node.
          *
          * A way will only be stored (and indexed) if its geometry is complete.
          */
@@ -876,6 +875,8 @@ public class Validator
             byte tileLocator = sourceData.readByte();
             int relQuad = TileQuad.fromDenseParentLocator(tileLocator, sourceTile);
             assert relQuad != -1;
+            int relTileCount = TileQuad.tileCount(relQuad);
+            boolean hasMissingMembers = false;
 
             int bodyLen = (int)sourceData.readVarint();
             int ptr = sourceData.pos();
@@ -892,16 +893,45 @@ public class Validator
                     if(pNode != 0)
                     {
                         markNode(pNode, NODE_IN_RELATION | NODE_IS_FEATURE);
-                        if(TileQuad.tileCount(relQuad) > 1)
+                        if(relTileCount > 1)
                         {
                             // For a multi-tile relation, add node proxies to all
                             // tiles (except the one containing the node)
                             addTilesToMemberNode(pNode, relQuad);
                         }
                     }
+                    else
+                    {
+                        hasMissingMembers = true;
+                    }
                 }
-                else if(TileQuad.tileCount(relQuad) > 1)
+                else if(relTileCount > 1)
                 {
+                    MutableIntList memberFeatures;
+                    LongIntMap memberFeatureIndex;
+
+
+                    if(memberType == FeatureType.WAY)
+                    {
+                        memberFeatures = ways;
+                        memberFeatureIndex = wayIndex;
+                    }
+                    else
+                    {
+                        memberFeatures = relations;
+                        memberFeatureIndex = relationIndex;
+                    }
+                    int pMember = memberFeatureIndex.get(memberId);
+                    if(pMember > 0)
+                    {
+                        addTilesToMember(memberFeatures, pMember, relQuad);
+                    }
+                    else if(pMember == 0)
+                    {
+                        hasMissingMembers = true;
+                    }
+
+                    /*
                     if(memberType == FeatureType.WAY)
                     {
                         int pWay = wayIndex.get(memberId);
@@ -919,6 +949,7 @@ public class Validator
                             addTilesToMember(relations, pChildRel, relQuad);
                         }
                     }
+                     */
                 }
             }
             sourceData.seek(ptr + bodyLen);
@@ -933,6 +964,16 @@ public class Validator
                 relations.add(ptr);
                 assertDoesNotExist(relationIndex, "relation", id);
                 relationIndex.put(id, pRelation);
+
+                if(hasMissingMembers && relTileCount == 4)
+                {
+                    int pBounds = getBounds(relations, pRelation);
+                    tilesAndBounds.set(pBounds + B_TILE_PTR, tilesAndBounds.size());
+                    tilesAndBounds.add(TileCatalog.PURGATORY_TILE);
+                    tilesAndBounds.add(0);
+                        // At this point, the purgatory tile is the first
+                        // foreign tile of this relation
+                }
             }
         }
 

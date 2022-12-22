@@ -41,8 +41,40 @@ import static com.geodesk.gol.build.ProtoGol.*;
 import static com.geodesk.gol.build.Utils.SETTINGS_FILE;
 import static com.geodesk.gol.build.Utils.readSettings;
 
-// TODO: mark nodes used in ways?
 
+// TODO:
+//  - To support `tag-orphan-nodes`, need to read the node IDs of *all* ways
+//    (not just multi-tile or ghosts) and set each node's NODE_USED_IN_WAY flag
+//  - Later, we need to scan the node table for nodes without this flag, and
+//    generate local-node records with a synthetic tag (geodesk:orphan=yes)
+//    for those nodes that are not tagged or a relation member
+//  - To support `tag-duplicate-nodes`, we need to build a map that tracks
+//    which x/y is used more than once, then check each *untagged* node against
+//    this map and generate a synthetic tag (geodesk:duplicate=yes)
+//  - We need to combine synthetic tag generation, because a node can be both
+//    orphan and duplicate
+//  - We need to generate re-tagged nodes as local nodes, written back into the
+//    source tile -- does this violate constraints on proto-gol rules?
+//    (same node written more than once, nodes come after ways)
+//  - We need to perform orphahn/duplicate check before exporting foreign nodes,
+//    because the feature flag changes due to re-tagging (only matters for
+//    duplicate nodes, as orphan nodes by definition are never exported,
+//    because they are not referenced by a way or relation)
+
+// TODO: Issue #76
+//  - Relations that live in a sparse quad and have missing members can lead
+//    to linker errors, because the features in the purgatory may back-link
+//    to an unoccupied tile in the dense quad (because membership records
+//    only contain dense quads). In this case, we need to calculate the
+//    relation's true quad and export it to the purgatory tile.
+//  - Need to maintain a list of relations (pointers into `relations`) that
+//    have missing features (tracked during call to `readRelation()`)
+//  - before call to writeForeignRelations(), need to calculate bounds of
+//    these relations and add purgatory tile as a foreign tile for any
+//    sparse-quad relation
+//  - Better approach: always add purgatory pile to relation in readRelation()
+//    if it has missing members AND its dense quad is 2x2; we'll write more
+//    proxies than strictly necessary but processing is simplified
 
 /**
  * The Validator prepares the piles for the Compiler.
@@ -443,7 +475,6 @@ public class Validator
                     break;
                 }
             }
-            // log.debug("Done reading");
         }
 
         private void readNodes()
@@ -1337,6 +1368,13 @@ public class Validator
             private int prevX;		// TODO: base off tile's minX?
             private int prevY;		// TODO: base off tile's minY?
 
+            /**
+             * Writes the ID and coordinates of a node to this Encoder, and also
+             * includes a flag that indicates whether the node is a feature.
+             * Starts a ForeignFeatures block (for nodes) if needed.
+             *
+             * @param pNode     pointer to the node's entry in `nodes`
+             */
             public void writeForeignNode(int pNode)
             {
                 if(prevId==0)
@@ -1364,7 +1402,22 @@ public class Validator
                 prevY = y;
             }
 
-            // TODO: take a pointer to tilesAndBounds instead?
+            /**
+             * Writes a proxy for way or relation to this Encoder: the feature's
+             * ID, sparse quad (encoded as a sparse sibling locator) and bbox.
+             *
+             * Starts a ForeignFeatures block (for the given type) if needed.
+             *
+             * TODO: take a pointer to tilesAndBounds instead?
+             *
+             * @param type      WAYS or RELATIONS
+             * @param id        the feature's ID
+             * @param quad      sparse quad
+             * @param x1
+             * @param y1
+             * @param x2
+             * @param y2
+             */
             public void writeForeignFeature(int type, long id, int quad, int x1, int y1, int x2, int y2)
             {
                 assert type == WAYS || type == RELATIONS;
@@ -1404,6 +1457,9 @@ public class Validator
                 prevY = y1;
             }
 
+            /**
+             * If the Encoder has an open group, closes it, otherwise does nothing.
+             */
             public void endGroup()
             {
                 if(prevId != 0)
@@ -1416,6 +1472,12 @@ public class Validator
             }
         }
 
+        /**
+         * Returns an Encoder for the given tile, creating one if necessary.
+         *
+         * @param targetTile    tile number
+         * @return              the Encoder
+         */
         private Encoder getEncoder(int targetTile)
         {
             // assert targetTile > 0;		// TODO: ok in theory, root tile 0/0/0
@@ -1428,6 +1490,9 @@ public class Validator
             return encoder;
         }
 
+        /**
+         * Closes the open groups of all Encoders.
+         */
         private void endEncoderGroups()
         {
             encoders.forEach(encoder -> encoder.endGroup());
@@ -1441,6 +1506,15 @@ public class Validator
             // we need to convert to long first and mask it off the top 32 bits
         }
 
+        /**
+         * Writes the quad/bbox of a way or relation into all foreign tiles
+         * where this information is needed.
+         *
+         * @param type      WAYS or RELATIONS
+         * @param id        the feature's ID
+         * @param pBounds   pointer to the feature's quad/bbox/tilePtr record
+         *                  in `tilesAndBounds`
+         */
         private void writeForeignFeatures(int type, long id, int pBounds)
         {
             assert type==WAYS || type==RELATIONS;

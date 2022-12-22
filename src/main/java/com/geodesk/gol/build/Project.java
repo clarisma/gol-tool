@@ -132,6 +132,15 @@ public class Project implements Serializable
 		this.minStringUsage = count;
 	}
 
+	public boolean tagDuplicateNodes()
+	{
+		return tagDuplicateNodes;
+	}
+
+	public boolean tagOrphanNodes()
+	{
+		return tagOrphanNodes;
+	}
 
 	public int zoomLevels()
 	{

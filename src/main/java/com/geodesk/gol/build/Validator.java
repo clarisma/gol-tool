@@ -21,25 +21,19 @@ import com.geodesk.feature.FeatureType;
 import com.geodesk.core.Box;
 import org.eclipse.collections.api.list.primitive.IntList;
 import org.eclipse.collections.api.list.primitive.MutableIntList;
-import org.eclipse.collections.api.map.primitive.IntObjectMap;
-import org.eclipse.collections.api.map.primitive.MutableIntObjectMap;
-import org.eclipse.collections.api.map.primitive.MutableLongIntMap;
-import org.eclipse.collections.api.map.primitive.MutableLongLongMap;
+import org.eclipse.collections.api.map.primitive.*;
 import org.eclipse.collections.impl.list.mutable.primitive.IntArrayList;
 import org.eclipse.collections.impl.map.mutable.primitive.IntObjectHashMap;
 import org.eclipse.collections.impl.map.mutable.primitive.LongIntHashMap;
 import org.eclipse.collections.impl.map.mutable.primitive.LongLongHashMap;
 
 import java.io.IOException;
-import java.nio.file.Path;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.*;
 import static com.geodesk.gol.build.ProtoGol.*;
-import static com.geodesk.gol.build.Utils.SETTINGS_FILE;
-import static com.geodesk.gol.build.Utils.readSettings;
 
 
 // TODO:
@@ -206,6 +200,11 @@ public class Validator
     private final PileFile pileFile;
     private final TileCatalog tileCatalog;
     private final ProgressReporter reporter;
+    private final boolean tagOrphanNodes;
+    private final boolean tagDuplicateNodes;
+    private final byte[] KEY_ORPHAN;
+    private final byte[] KEY_DUPLICATE;
+    private final byte[] VALUE_YES;
 
     private static final int N_X = 2;
     private static final int N_Y = 3;
@@ -226,6 +225,9 @@ public class Validator
     private static final int B_LENGTH_FOREIGN = 5;
 
     // flags for nodes
+
+    private static final int NODE_IS_FEATURE_BIT	= 28;
+    private static final int NODE_IS_FEATURE  		= (1 << NODE_IS_FEATURE_BIT);
     private static final int NODE_HAS_TAGS_BIT 		= 29;
     private static final int NODE_HAS_TAGS     		= (1 << NODE_HAS_TAGS_BIT);
     private static final int NODE_USED_IN_WAY  		= (1 << 30);
@@ -251,14 +253,40 @@ public class Validator
         if((len & 1) == 0) decoder.skip(len >> 1);
     }
 
-    public Validator(TileCatalog tileCatalog, PileFile pileFile, int verbosity)
+    private static byte[] createPackedString(String s) throws IOException
     {
-        this.tileCatalog = tileCatalog;
-        this.pileFile = pileFile;
+        byte[] encodedChars = s.getBytes(StandardCharsets.UTF_8);
+        int len = encodedChars.length;
+        assert len < 64;
+            // one bit used for code/string discriminator,
+            // another bit is used for the varint continuation marker
+        byte[] ba = new byte[len + 1];
+        ba[0] = (byte)(len << 1);
+        System.arraycopy(encodedChars, 1, ba, 0, len);
+        return ba;
+    }
+
+    public Validator(BuildContext ctx, int verbosity) throws IOException
+    {
+        this.tileCatalog = ctx.getTileCatalog();
+        this.pileFile = ctx.getPileFile();
+        tagDuplicateNodes = ctx.project().tagDuplicateNodes();
+        tagOrphanNodes = ctx.project().tagOrphanNodes();
         reporter = new ProgressReporter(
             tileCatalog.tileCount(), "tiles",
             verbosity >= Verbosity.NORMAL ? "Validating" : null,
             verbosity >= Verbosity.QUIET ? "Validated" : null);
+
+        // We could use the string tables for these keys and values, but
+        // this would require loading them (the Validator does not use tags
+        // in any other way). Since problem nodes are so rare, we can use the
+        // less efficient way of storing these tags and values as strings
+        // (Unlike GOLs, the proto-gol format does not mandate use of a string
+        // code if a string is in a string table)
+
+        KEY_DUPLICATE = createPackedString("geodesk:duplicate");
+        KEY_ORPHAN    = createPackedString("geodesk:orphan");
+        VALUE_YES     = createPackedString("yes");
     }
 
     private void processBatch(int batchCode, List<Task> tasks) throws Throwable
@@ -491,7 +519,10 @@ public class Validator
                 int x = (int)sourceData.readSignedVarint() + prevX;
                 int y = (int)sourceData.readSignedVarint() + prevY;
                 int pos = nodes.size();
-                nodes.add((int)(id >> 32) | (tagsFlag << NODE_HAS_TAGS_BIT));
+                int nodeFlags = (NODE_HAS_TAGS | NODE_IS_FEATURE) * tagsFlag;
+                    // since tagsFlags is either 1 or 0, sets or clears both flags
+                    // without need for branching
+                nodes.add((int)(id >> 32) | nodeFlags);
                 nodes.add((int)id);
                 nodes.add(x);
                 nodes.add(y);
@@ -715,8 +746,11 @@ public class Validator
                     {
                         long nodeId = sourceData.readSignedVarint() + prevNodeId;
                         int pNode = nodeIndex.get(nodeId);
-                        if(pNode != 0) addNodeTiles(pNode, foreignQuad);
-                        // TODO: mark node as used?
+                        if(pNode != 0)
+                        {
+                            addNodeTiles(pNode, foreignQuad);
+                            markNode(pNode, NODE_USED_IN_WAY);
+                        }
                         prevNodeId = nodeId;
                     }
                     sourceData.seek(ptr + bodyLen);
@@ -732,7 +766,28 @@ public class Validator
                     tileLocator = TileQuad.toDenseParentLocator(sourceTile | TileQuad.NW, sourceTile);
                     bodyLen = (int)sourceData.readVarint();
                     ptr = sourceData.pos();
-                    sourceData.skip(bodyLen);
+                    if(tagOrphanNodes)
+                    {
+                        // If the option to identify and retain orphan nodes is enabled,
+                        // we need to scan the node IDs of *all* ways, and set the flag
+                        // that indicates that a node is used in a way
+
+                        int nodeCount = (int)sourceData.readVarint();
+                        assert (nodeCount & 1) == 0: "Single-tile way: Partial flag must be clear";
+                        nodeCount >>>= 1;
+                        long prevNodeId = 0;
+                        for(;nodeCount>0; nodeCount--)
+                        {
+                            long nodeId = sourceData.readSignedVarint() + prevNodeId;
+                            int pNode = nodeIndex.get(nodeId);
+                            if(pNode != 0) markNode(pNode, NODE_USED_IN_WAY);
+                            prevNodeId = nodeId;
+                        }
+                    }
+                    else
+                    {
+                        sourceData.skip(bodyLen);
+                    }
                 }
                 int pWay = ways.size();
 
@@ -836,7 +891,7 @@ public class Validator
                     int pNode = nodeIndex.get(memberId);
                     if(pNode != 0)
                     {
-                        markNode(pNode, NODE_IN_RELATION);
+                        markNode(pNode, NODE_IN_RELATION | NODE_IS_FEATURE);
                         if(TileQuad.tileCount(relQuad) > 1)
                         {
                             // For a multi-tile relation, add node proxies to all
@@ -904,7 +959,7 @@ public class Validator
                 int pNode = nodeIndex.get(memberId);
                 if(pNode != 0)
                 {
-                    markNode(pNode, NODE_IN_RELATION);
+                    markNode(pNode, NODE_IN_RELATION | NODE_IS_FEATURE);
                     addNodeTiles(pNode, relQuad);
                 }
                 break;
@@ -1391,9 +1446,7 @@ public class Validator
                 // A node is a feature if it has tags or is a member of
                 // a relation
 
-                int featureFlag =
-                    ((flags >>> NODE_HAS_TAGS_BIT) |
-                        (flags >>> NODE_IN_RELATION_BIT)) & 1;
+                int featureFlag = (flags >>> NODE_IS_FEATURE_BIT) & 1;
                 writeVarint(((id - prevId) << 1) | featureFlag);
                 writeSignedVarint(x - prevX);
                 writeSignedVarint(y - prevY);
@@ -1468,6 +1521,66 @@ public class Validator
                     prevId = 0;
                     prevX = 0;			// TODO: base off source tile bounds?
                     prevY = 0;			// TODO: base off source tile bounds?
+                }
+            }
+
+            /**
+             * Generates geodesk:duplicate or geodesk:orphan tags (or both) for
+             * a previously untagged node.
+             *
+             * @param pNode                 pointer to the node
+             * @param tagNodeAsDuplicate
+             * @param tagNodeAsOrphan
+             */
+            public void writeProblemNode(int pNode, boolean tagNodeAsDuplicate, boolean tagNodeAsOrphan)
+            {
+                assert (nodes.get(pNode) & NODE_HAS_TAGS) == 0:
+                    "Node must not have been previously tagged";
+
+                if(prevId==0)
+                {
+                    write(LOCAL_FEATURES | (NODES << 3));
+                    writeVarint(sourcePile);
+                }
+
+                long id = getId(nodes, pNode);
+                assert id != prevId;
+                int x = nodes.get(pNode+N_X);
+                int y = nodes.get(pNode+N_Y);
+
+                writeVarint(((id - prevId) << 1) | 1);  // tagged
+                writeSignedVarint(x - prevX);
+                writeSignedVarint(y - prevY);
+                prevId = id;
+                prevX = x;
+                prevY = y;
+
+                int tagsSize = 1;
+                int tagCount = 0;
+                if(tagNodeAsDuplicate)
+                {
+                    tagsSize += KEY_DUPLICATE.length;
+                    tagsSize += VALUE_YES.length;
+                    tagCount++;
+                }
+                if(tagNodeAsOrphan)
+                {
+                    tagsSize += KEY_ORPHAN.length;
+                    tagsSize += VALUE_YES.length;
+                    tagCount++;
+                }
+                writeVarint(tagsSize);
+                assert tagCount < 128;
+                write(tagCount);        // one-byte tag count
+                if(tagNodeAsDuplicate)
+                {
+                    writeBytes(KEY_DUPLICATE);
+                    writeBytes(VALUE_YES);
+                }
+                if(tagNodeAsOrphan)
+                {
+                    writeBytes(KEY_ORPHAN);
+                    writeBytes(VALUE_YES);
                 }
             }
         }
@@ -1629,6 +1742,61 @@ public class Validator
             endEncoderGroups();
         }
 
+        private long nodeXY(int pNode)
+        {
+            return XY.of(nodes.get(pNode + N_X), nodes.get(pNode + N_Y));
+        }
+
+        private void tagProblemNodes()
+        {
+            if(!tagDuplicateNodes && !tagOrphanNodes) return;
+
+            Encoder encoder = getEncoder(sourceTile);
+
+            boolean duplicateCoords = false;
+            MutableLongIntMap coordsCounts = null;
+
+            if(tagDuplicateNodes)
+            {
+                coordsCounts = new LongIntHashMap();
+                for (int pNode = 1; pNode < nodes.size(); pNode += N_LENGTH)
+                {
+                    long xy = nodeXY(pNode);
+                    if (coordsCounts.addToValue(xy, 1) > 1) duplicateCoords = true;
+                }
+            }
+
+            for (int pNode = 1; pNode < nodes.size(); pNode += N_LENGTH)
+            {
+                boolean tagNode = false;
+                boolean tagNodeAsDuplicate = false;
+                boolean tagNodeAsOrphan = false;
+                int flags = nodes.get(pNode);
+                if((flags & (NODE_HAS_TAGS | NODE_IN_RELATION | NODE_USED_IN_WAY)) == 0)
+                {
+                    tagNode = tagNodeAsOrphan = tagOrphanNodes;
+                }
+                if(duplicateCoords)
+                {
+                    if((flags & NODE_HAS_TAGS) == 0)
+                    {
+                        if(coordsCounts.get(nodeXY(pNode)) > 1)
+                        {
+                            tagNodeAsDuplicate = true;
+                            tagNode = true;
+                        }
+                    }
+                }
+                if(tagNode)
+                {
+                    encoder.writeProblemNode(pNode,
+                        tagNodeAsDuplicate, tagNodeAsOrphan);
+                    markNode(pNode, NODE_IS_FEATURE);
+                }
+            }
+            encoder.endGroup();
+        }
+
         public Boolean call()
         {
             byte[] data = loadTileData(sourcePile);
@@ -1677,6 +1845,7 @@ public class Validator
 
     // TODO: turn exception into exit code
 
+    /*
     public static void main(String[] args) throws Throwable
     {
         Path workPath = Path.of(args[0]);
@@ -1688,4 +1857,5 @@ public class Validator
         v.validate();
         pileFile.close();
     }
+     */
 }

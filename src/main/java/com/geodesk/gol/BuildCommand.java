@@ -7,10 +7,7 @@
 
 package com.geodesk.gol;
 
-import com.clarisma.common.cli.BasicCommand;
-import com.clarisma.common.cli.Option;
-import com.clarisma.common.cli.Parameter;
-import com.clarisma.common.cli.Verbosity;
+import com.clarisma.common.cli.*;
 import com.clarisma.common.io.FileUtils;
 import com.clarisma.common.io.PileFile;
 import com.clarisma.common.text.Format;
@@ -27,6 +24,8 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Properties;
 
 import static com.geodesk.gol.build.Utils.*;
@@ -61,6 +60,7 @@ public class BuildCommand extends BasicCommand
     private Path statePath;
     private Project project;
     private BuildContext context;
+    private List<String> buildSettings;
 
     @Parameter("0=gol")
     public void library(String filename)
@@ -108,6 +108,8 @@ public class BuildCommand extends BasicCommand
         // Set the verbosity level specified on the command line
         project.verbosity(verbosity);
 
+        if(buildSettings != null) applyBuildSettings();
+
         if(sourcePath != null)
         {
             project.sourcePath(sourcePath);
@@ -131,7 +133,7 @@ public class BuildCommand extends BasicCommand
         createWorkPath();
         project.workPath(workPath);
 
-        Path projectPath = workPath.resolve("project.bin");
+        // Path projectPath = workPath.resolve("project.bin");
         // project.write(projectPath);
             // TODO: can't serialize Path objects
             //  use another serialization method
@@ -200,44 +202,6 @@ public class BuildCommand extends BasicCommand
         statePath = workPath.resolve("state.txt");
     }
 
-    /*
-    private Settings createSettings()
-    {
-        Settings s = new Settings();
-
-        s.property(NO_REBUILD, "keep-work", false);
-
-        s.property(ANALYZE, "source", null);
-        s.property(ANALYZE, "source-timestamp", null);
-
-        s.property(PREPARE, "max-tiles",
-            NumberValidator.ofInteger(1, 16 * 1024 * 1024), 16 * 1024);
-        s.property(PREPARE, "min-tile-density",
-            NumberValidator.ofInteger(1, 10_000_000), 10_000);
-        s.property(PREPARE, "max-strings",
-            NumberValidator.ofInteger(256, 64 * 1024), 16 * 1024);
-        s.property(PREPARE, "min-string-usage",
-            NumberValidator.ofInteger(1, 100_000_000), 1000);
-        s.property(PREPARE, "category-keys", String[].class);
-
-        // TODO: We should store the page size in the pile file,
-        //  so we don't have to rebuild
-
-        // No! Page size must be power of 2, not modulo!
-        s.property(SORT, "sort-page-size",
-            new NumberValidator(4096, 1024 * 1024).modulo(4096), 64 * 1024);
-
-        s.property(COMPILE, "rtree-bucket-size",
-            NumberValidator.ofInteger(4, 256), 16);
-        s.property(COMPILE, "max-key-indexes",
-            NumberValidator.ofInteger(0, 32), 8);
-        s.property(COMPILE, "key-index-min-features",
-            NumberValidator.ofInteger(1, 1_000_000), 300);
-
-
-        return s;
-    }
-     */
 
     private int readState() throws IOException
     {
@@ -316,10 +280,7 @@ public class BuildCommand extends BasicCommand
     private void validate() throws Throwable
     {
         writeState(VALIDATE);
-        Validator validator = new Validator(
-            context.getTileCatalog(),
-            context.getPileFile(),
-            verbosity);
+        Validator validator = new Validator(context, verbosity);
         validator.validate();
     }
 
@@ -369,6 +330,37 @@ public class BuildCommand extends BasicCommand
         if(!keepWork)
         {
             delete(workPath, "imports.bin", "exports.bin");
+        }
+    }
+
+    @Override public void setOption(String name, String value)
+    {
+        if(buildSettings == null) buildSettings = new ArrayList<>();
+        buildSettings.add(name);
+        buildSettings.add(value);
+    }
+
+    /**
+     * Overrides the build settings with options specified on the command line.
+     */
+    private void applyBuildSettings()
+    {
+        for(int i=0; i<buildSettings.size(); i+=2)
+        {
+            String name = buildSettings.get(i);
+            String value = buildSettings.get(i+1);
+            try
+            {
+                if(!project.set(name, value))
+                {
+                    throw new IllegalArgumentException("Unknown option");
+                }
+            }
+            catch(Exception ex)
+            {
+                throw new IllegalArgumentException(String.format("%s :%s",
+                    name, ex.getMessage()));
+            }
         }
     }
 }

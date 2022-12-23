@@ -358,7 +358,7 @@ public class BuildCommand extends BasicCommand
             }
             catch(Exception ex)
             {
-                throw new IllegalArgumentException(String.format("%s :%s",
+                throw new IllegalArgumentException(String.format("%s: %s",
                     name, ex.getMessage()));
             }
         }

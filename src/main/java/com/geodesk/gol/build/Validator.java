@@ -262,7 +262,7 @@ public class Validator
             // another bit is used for the varint continuation marker
         byte[] ba = new byte[len + 1];
         ba[0] = (byte)(len << 1);
-        System.arraycopy(encodedChars, 1, ba, 0, len);
+        System.arraycopy(encodedChars, 0, ba, 1, len);
         return ba;
     }
 
@@ -772,6 +772,12 @@ public class Validator
                         // that indicates that a node is used in a way
 
                         int nodeCount = (int)sourceData.readVarint();
+                        /*
+                        if((nodeCount & 1) != 0)
+                        {
+                            Log.debug("way/%d", id);
+                        }
+                         */
                         assert (nodeCount & 1) == 0: "Single-tile way: Partial flag must be clear";
                         nodeCount >>>= 1;
                         long prevNodeId = 0;
@@ -783,10 +789,7 @@ public class Validator
                             prevNodeId = nodeId;
                         }
                     }
-                    else
-                    {
-                        sourceData.skip(bodyLen);
-                    }
+                    sourceData.seek(ptr + bodyLen);
                 }
                 int pWay = ways.size();
 
@@ -1581,7 +1584,6 @@ public class Validator
                 if(prevId==0)
                 {
                     write(LOCAL_FEATURES | (NODES << 3));
-                    writeVarint(sourcePile);
                 }
 
                 long id = getId(nodes, pNode);
@@ -1830,9 +1832,9 @@ public class Validator
                 }
                 if(tagNode)
                 {
+                    markNode(pNode, NODE_IS_FEATURE);
                     encoder.writeProblemNode(pNode,
                         tagNodeAsDuplicate, tagNodeAsOrphan);
-                    markNode(pNode, NODE_IS_FEATURE);
                 }
             }
             encoder.endGroup();
@@ -1845,6 +1847,7 @@ public class Validator
             sourceData = new PbfBuffer(data);
             init();
             readTile();
+            tagProblemNodes();
             writeForeignRelations();
             writeForeignWays();
             writeForeignNodes();

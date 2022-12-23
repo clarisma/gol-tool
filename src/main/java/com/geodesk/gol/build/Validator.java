@@ -1821,8 +1821,11 @@ public class Validator
                 }
                 if(duplicateCoords)
                 {
-                    if((flags & NODE_HAS_TAGS) == 0)
+                    if((flags & NODE_IS_FEATURE) == 0)
                     {
+                        // Untagged nodes that are part of relations are *not*
+                        // tagged as geodesk:duplicate
+                        
                         if(coordsCounts.get(nodeXY(pNode)) > 1)
                         {
                             tagNodeAsDuplicate = true;

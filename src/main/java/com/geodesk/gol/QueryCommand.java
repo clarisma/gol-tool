@@ -122,7 +122,7 @@ public class QueryCommand extends GolCommand
         {
             out = new PrintStream(
                 new FileOutputStream(FileDescriptor.out),
-                false, "UTF-8");
+                false, StandardCharsets.UTF_8);
         }
         catch(UnsupportedEncodingException ex)
         {

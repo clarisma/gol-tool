@@ -39,6 +39,7 @@ import org.eclipse.collections.impl.map.mutable.primitive.LongObjectHashMap;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -329,7 +330,7 @@ public class Sorter extends OsmPbfReader
             {
                 try
                 {
-                    byte[] bytes = val.getBytes("UTF-8");
+                    byte[] bytes = val.getBytes(StandardCharsets.UTF_8);
                     body.writeVarint(bytes.length << 1);
                     body.write(bytes);
                 }

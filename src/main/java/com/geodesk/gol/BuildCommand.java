@@ -60,7 +60,7 @@ public class BuildCommand extends BasicCommand
     private Path statePath;
     private Project project;
     private BuildContext context;
-    private List<String> buildSettings;
+    private List<String> buildOptions;
 
     @Parameter("0=gol")
     public void library(String filename)
@@ -108,7 +108,7 @@ public class BuildCommand extends BasicCommand
         // Set the verbosity level specified on the command line
         project.verbosity(verbosity);
 
-        if(buildSettings != null) applyBuildSettings();
+        if(buildOptions != null) applyBuildOptions();
 
         if(sourcePath != null)
         {
@@ -335,20 +335,20 @@ public class BuildCommand extends BasicCommand
 
     @Override public void setOption(String name, String value)
     {
-        if(buildSettings == null) buildSettings = new ArrayList<>();
-        buildSettings.add(name);
-        buildSettings.add(value);
+        if(buildOptions == null) buildOptions = new ArrayList<>();
+        buildOptions.add(name);
+        buildOptions.add(value);
     }
 
     /**
      * Overrides the build settings with options specified on the command line.
      */
-    private void applyBuildSettings()
+    private void applyBuildOptions()
     {
-        for(int i=0; i<buildSettings.size(); i+=2)
+        for(int i = 0; i< buildOptions.size(); i+=2)
         {
-            String name = buildSettings.get(i);
-            String value = buildSettings.get(i+1);
+            String name = buildOptions.get(i);
+            String value = buildOptions.get(i+1);
             try
             {
                 if(!project.set(name, value))

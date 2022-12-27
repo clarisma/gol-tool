@@ -311,7 +311,7 @@ public class Validator
     private void batchTasks() throws Throwable
     {
         int tileCount = tileCatalog.tileCount();
-        long[] sorted = new long[tileCount-2];
+        long[] sorted = new long[tileCount-1];
 
         // Sort piles by zoom level (highest level first), then by quadrant
         // (odd/even row/column)
@@ -320,10 +320,14 @@ public class Validator
         //  - 1 contains the Purgatory
         //  - 2 is the root tile (no validation needed)
 
+        // Change for tagOrphanNodes/tagDuplicateNodes
+        // Since root tile may contain nodes (especially for small extracts),
+        // we need to validate the root tile as well
+
         assert Tile.zoom(tileCatalog.tileOfPile(2)) == 0:
             "Expected Pile #2 to be the root tile";
 
-        for(int pile=3; pile <= tileCount; pile++)
+        for(int pile=2; pile <= tileCount; pile++)
         {
             int tile = tileCatalog.tileOfPile(pile);
             int zoom = Tile.zoom(tile);
@@ -333,7 +337,7 @@ public class Validator
             // TODO: why bother including row & col?
             int sortKey = ((15-zoom) << 26) | (quadrant << 24) |
                 (row << 12) | col;
-            sorted[pile-3] = ((long)sortKey << 32) | pile;
+            sorted[pile-2] = ((long)sortKey << 32) | pile;
         }
         Arrays.sort(sorted);
 
@@ -1825,7 +1829,7 @@ public class Validator
                     {
                         // Untagged nodes that are part of relations are *not*
                         // tagged as geodesk:duplicate
-                        
+
                         if(coordsCounts.get(nodeXY(pNode)) > 1)
                         {
                             tagNodeAsDuplicate = true;

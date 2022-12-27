@@ -215,6 +215,8 @@ public class Project implements Serializable
 
 	public static boolean booleanValue(String value)
 	{
+		// Allow setting on command line to be used as a flag
+		if(value == null) value = "yes";
 		switch (value)
 		{
 		case "yes", "true", "on": return true;

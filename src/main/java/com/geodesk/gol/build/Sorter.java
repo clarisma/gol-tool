@@ -76,7 +76,7 @@ public class Sorter extends OsmPbfReader
     private long totalWayCount;
     private long totalRelationCount;
     private long totalBytesProcessed;
-    private final int batchSize = 8192; // TODO
+    private final int batchSize = 8192; // TODO: configurable
 
     private static final int DEFAULT_SORT_DB_PAGE_SIZE = 1 << 16; // TODO: configurable
 

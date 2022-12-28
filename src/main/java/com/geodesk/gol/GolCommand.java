@@ -129,6 +129,21 @@ public abstract class GolCommand extends BasicCommand
         return result;
     }
 
+    protected TileIndexWalker getTileIndexWalker()
+    {
+        TileIndexWalker walker = new TileIndexWalker(features.store());
+        if (area != null)
+        {
+            Filter filter = Filters.intersects(area);
+            walker.start(filter.bounds(), filter);
+        }
+        else
+        {
+            walker.start(bbox != null ? bbox : Box.ofWorld());
+        }
+        return walker;
+    }
+
     /**
      * Obtains a list of tiles (as TIPs) that wholly or partially lie in
      * the requested bounding box or area.
@@ -140,17 +155,7 @@ public abstract class GolCommand extends BasicCommand
     protected IntList getTiles()
     {
         MutableIntList tiles = new IntArrayList();
-        FeatureStore store = features.store();
-        TileIndexWalker walker = new TileIndexWalker(store);
-        if (area != null)
-        {
-            Filter filter = Filters.intersects(area);
-            walker.start(filter.bounds(), filter);
-        }
-        else
-        {
-            walker.start(bbox != null ? bbox : Box.ofWorld());
-        }
+        TileIndexWalker walker = getTileIndexWalker();
         while(walker.next()) tiles.add(walker.tip());
         tiles.add(0);   // always add purgatory
         return tiles;

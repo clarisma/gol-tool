@@ -7,49 +7,54 @@
 
 package com.geodesk.gol.build;
 
-import com.clarisma.common.parser.Parser;
+import com.clarisma.common.parser.SimpleParser;
 
-import java.util.regex.Pattern;
-
-public class TagFilterParser extends Parser
+public class TagFilterParser extends SimpleParser
 {
-    private static final String COMMA = ",";
-    private static final String EXCLAMATION_MARK = "!";
-    private static final String LPAREN = "(";
-    private static final String RPAREN = ")";
-    private static final String EXCEPT = "except";
-    private static final String ONLY = "only";
+    public TagFilterParser(String s)
+    {
+        super(s);
+    }
 
-    private final static Pattern KEY_IDENTIFIER_PATTERN =
-        Pattern.compile("\\p{L}[[\\p{L}\\p{N}]:_]*");
+    private static final SimpleParser.Schema KEY_SCHEMA = new SimpleParser.Schema(
+        0b11111111111000000000000000000000000000000000000000000000000L,
+       0b11111111111111111111111111010000111111111111111111111111110L,
+        0b11111111111000000000000000000000000000000000000000000000000L,
+        0b11111111111111111111111111010000111111111111111111111111110L);
+
+    private String keyOrValue(String type)
+    {
+        String kv = identifier(KEY_SCHEMA);
+        if(kv == null)
+        {
+            kv = rawString();
+            if (kv == null) error("Expected " + type);
+        }
+        return kv;
+    }
 
     private void clause()
     {
-        expect(IDENTIFIER);
-        String key = stringValue();
-        nextToken();
-        if(acceptAndConsume(LPAREN))
+        String key = keyOrValue("key");
+        if(literal('('))
         {
             boolean exclude;
-            if(accept(EXCEPT))
+            if(literal("except"))
             {
                 exclude = true;
             }
             else
             {
-                expect(ONLY);
+                if(!literal("only")) error ("Expected 'except' or 'only'");
                 exclude = false;
             }
-            nextToken();
             for(;;)
             {
-                expect(IDENTIFIER);
-                String value = stringValue();
-                nextToken();
-                if(acceptAndConsume(RPAREN)) break;
-                acceptAndConsume(COMMA);        // comma is optional
+                String value = keyOrValue("value");
+                if(literal(')')) break;
+                literal(',');          // comma is optional
             }
-            acceptAndConsume(COMMA);        // comma is optional
+            literal(',');          // comma is optional
         }
     }
 }

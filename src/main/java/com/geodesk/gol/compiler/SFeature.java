@@ -215,13 +215,6 @@ public abstract class SFeature extends SharedStruct implements FeatureFlags //, 
     // oversize should always set both multitile flags
     protected void calculateMultitileFlags(FeatureTile tile)
     {
-        /*
-        if(id == 4544515 && this instanceof SRelation)
-        {
-            Compiler.log.debug("Calculating multitile flags for relation/4544515 (Quad: {})",
-                TileQuad.toString(tileQuad));
-        }
-         */
         int multitileFlags = 0;
         Bounds bounds = bounds();
         Bounds tileBounds = tile.bounds();
@@ -249,13 +242,6 @@ public abstract class SFeature extends SharedStruct implements FeatureFlags //, 
         {
             if(tags == null) tags = ft.getTags(null);
             if(relations != null) relations = ft.getRelationTable(relations);
-            /*
-            if(id == 506308649 && this instanceof SWay)
-            {
-                Compiler.log.debug("{} has {} relations", this,
-                    relations == null ? 0 : relations.relationCount());
-            }
-             */
         }
     }
 
@@ -329,13 +315,6 @@ public abstract class SFeature extends SharedStruct implements FeatureFlags //, 
 
     public void export(FeatureTile ft)
     {
-        /*
-        if(id == 6806732827L && type()==FeatureType.NODE)
-        {
-            Compiler.log.debug("Exporting node/{}", id);
-        }
-         */
-
         if(relations == null || isForeign()) return;
         MutableIntSet tiles = new IntHashSet();
         for(SRelation rel: relations)

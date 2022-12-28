@@ -112,14 +112,6 @@ public class SRelation extends SFeature
 
     private boolean calculateBounds(FeatureTile ft)
     {
-        /*
-        if(id == 1212338)
-        {
-            Compiler.log.debug("Tile {}: Calculating bounds of relation/{}",
-                Tile.toString(ft.tile()), id);
-        }
-         */
-
         setFlag(RELATION_IS_MEASURING_FLAG);
         Box bbox = new Box();
         int quad = 0;
@@ -144,13 +136,6 @@ public class SRelation extends SFeature
                     String.format("Missing memberBounds for %s, can't calculate bounds for %s",
                         mf, this);
 
-                if(memberBounds.minX() == 0 && memberBounds.minY() == 0)
-                {
-                    /*
-                    Compiler.log.warn("Suspicious bbox of {} (foreign={}, missing={}, quad={}",
-                        mf, mf.isForeign(), mf.isMissing(), TileQuad.toString(mf.tileQuad()));
-                     */
-                }
                 bbox.expandToInclude(memberBounds);
                 int memberQuad = m.member.tileQuad();
                 if(memberQuad != -1)
@@ -171,26 +156,11 @@ public class SRelation extends SFeature
         }
         clearFlag(RELATION_IS_MEASURING_FLAG);
 
-        /*
-        if(id == 1212338)
-        {
-            Compiler.log.debug("  Assigned relation/{} to quad {}, resolved = {}",
-                id, TileQuad.toString(tileQuad), resolved);
-        }
-         */
-
         return resolved;
     }
 
     @Override public void build(FeatureTile ft)
     {
-        /*
-        if(id == 3283229)
-        {
-            Compiler.log.debug("Building relation/{}", id);
-        }
-         */
-        // TODO: empty relations
         boolean resolvable = true;
         if(members != null)
         {
@@ -206,10 +176,6 @@ public class SRelation extends SFeature
         {
             if (!TileQuad.containsTile(tileQuad, ft.tile()))
             {
-                /*
-                Compiler.log.debug("Because {} does not contain {}, we mark {} as foreign.",
-                    TileQuad.toString(tileQuad), Tile.toString(ft.tile()), this);
-                 */
                 markAsForeign();
             }
             else
@@ -240,35 +206,6 @@ public class SRelation extends SFeature
         super.calculateUsage();
     }
 
-    /*
-    @Override public Iterator<SFeature> iterator()
-    {
-        if(members == null) return Collections.emptyIterator();
-        return new Iterator<>()
-        {
-            int pos;
-
-            @Override public boolean hasNext()
-            {
-                return pos < members.length;
-            }
-
-            @Override public SFeature next()
-            {
-                return members[pos++].member;
-            }
-        };
-    }
-     */
-
-    /*
-    private int commonTip(int q1, int q2)
-    {
-        int tq1 = f1.tileQuad();
-
-    }
-
-     */
 
     // TODO: repurpose this method to set empty roles to "outer" if relations is an area
     private void assignTips(TileCatalog tileCatalog)
@@ -283,20 +220,6 @@ public class SRelation extends SFeature
             SFeature mf = m.member;
             if(mf.isLocal()) continue;
             int mq = mf.tileQuad();
-            /*
-            if(TileQuad.tileCount(mq) == 1)
-            {
-                m.tip = tileCatalog.tipOfTile(TileQuad.northWestTile(mq));
-            }
-             */
-            /*
-            if(mf.id() == 5038215 && mf.type() == FeatureType.WAY)
-            {
-                Compiler.log.debug("relation/{}: Quad of {} {} is {}",
-                    id, mf.isForeign() ? "foreign" : "local",
-                    mf, TileQuad.toString(mf.tileQuad()));
-            }
-             */
             m.tip = tileCatalog.tipOfTile(TileQuad.blackTile(mq));
             // TODO: better algo: Ideally, choose a tip common with prev, next,
             //  or first member feature
@@ -481,20 +404,12 @@ public class SRelation extends SFeature
         if(isForeign()) return;
         super.export(ft);
 
-        /*
-        if(id == 3283229)
-        {
-            Compiler.log.debug("Exporting relation/{}", id);
-        }
-         */
-        // TODO: empty relations
         MutableIntSet tiles = new IntHashSet();
         for(Member m: members)
         {
             SFeature mf = m.member;
             if(mf.isMissing())
             {
-                // Compiler.log.debug("Exporting relation/{} to purgatory", id);
                 tiles.add(TileCatalog.PURGATORY_TILE);
             }
             else
@@ -519,5 +434,4 @@ public class SRelation extends SFeature
         body = new SRelationBody();
         // setFlag(BUILT_FLAG);   // already done by SFeature.buildInvalid()
     }
-
 }

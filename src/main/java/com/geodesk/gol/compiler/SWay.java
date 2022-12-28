@@ -109,24 +109,6 @@ public class SWay extends SFeature
 
         public SWayBody(int[] coords, FeatureTile ft)
         {
-
-            /*
-            if(featureNodes != null)
-            {
-                featureNodeCount = featureNodes.length;
-                if(featureNodeCount > 0 && isArea())
-                {
-                    SNode firstNode = featureNodes[0];
-                    if(firstNode.x() == coords[0] &&
-                        firstNode.y() == coords[1])
-                    {
-                        assert(firstNode == featureNodes[featureNodes.length-1]);
-                        featureNodeCount--;
-                    }
-                }
-            }
-             */
-
             int featureNodeSize = featureNodes.length * 4;
             int prevTip = -1;
             for(int i=0; i<featureNodes.length; i++)
@@ -404,15 +386,6 @@ public class SWay extends SFeature
 
     @Override public void export(FeatureTile ft)
     {
-        /*
-        if(id == 234844556)
-        {
-            Compiler.log.debug("Exporting {} way/{} in {}",
-                isLocal() ? "local" : "foreign",
-                id, Tile.toString(ft.tile()));
-        }
-         */
-
         if(isForeign())
         {
             // For a ghost way, we export all local nodes to the way's tiles

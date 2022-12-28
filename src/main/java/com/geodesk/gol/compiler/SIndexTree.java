@@ -262,21 +262,6 @@ public abstract class SIndexTree extends StructGroup<SFeature> implements Bounds
     private static String groupName(int keyBits, String[] categories)
     {
         return IndexBits.toString(keyBits, categories, "+", "uncat");
-        /*
-        if(keyBits == 0) return "uncat";
-        StringBuilder buf = new StringBuilder();
-        int cat = -2;
-        while(keyBits != 0)
-        {
-            // topmost bit is unused (reserved)
-            int zeroes = Integer.numberOfLeadingZeros(keyBits);
-            cat += zeroes+1;
-            if(buf.length() > 0) buf.append('+');
-            buf.append(categories[cat]);
-            keyBits <<= zeroes+1;
-        }
-        return buf.toString();
-         */
     }
 
     /**
@@ -370,8 +355,6 @@ public abstract class SIndexTree extends StructGroup<SFeature> implements Bounds
 
         if (mixed != null) mixed.features = new ArrayList<>(mixed.featureCount);
         Collections.sort(buckets, (a, b) -> Integer.compare(b.keyBits, a.keyBits));
-
-        // Compiler.log.debug("{} buckets", buckets.size());
 
         return buckets;
     }

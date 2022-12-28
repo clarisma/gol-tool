@@ -208,13 +208,6 @@ public class FeatureTile
 
     public SRelation getRelation(long id)
     {
-        /*
-        if(id == 1084731)
-        {
-            Compiler.log.debug("Getting relation/1084731");
-        }
-         */
-
         SRelation rel = relations.get(id);
         if (rel == null)
         {
@@ -281,22 +274,6 @@ public class FeatureTile
             SRelation.Member m = new SRelation.Member();
             m.member = getFeature(memberIds[i]);
 
-            /*
-            if(m.member.id() == 395470399)
-            {
-                Compiler.log.debug("Setting role for member way/{}", m.member.id());
-            }
-            */
-
-            /*
-            if(m.member.id() == 1212338 && m.member instanceof SRelation)
-            {
-                Compiler.log.debug(
-                    "Tile {}: {} is part of {}",
-                        Tile.toString(tile), m.member, rel);
-            }
-             */
-
             // TODO: what signifies "no role" -- make consistent!
             m.role = roles[i];
             m.roleCode = globalStrings.getIfAbsent(m.role, -1);
@@ -360,17 +337,11 @@ public class FeatureTile
             List<SRelation> stillUnresolved = new ArrayList<>();
             for (SRelation rel: unresolved)
             {
-                // Compiler.log.debug("Resolving deferred {}", rel);
                 long prevArea = rel.areaCovered();
                 rel.build(this);
                 if(rel.areaCovered() != prevArea)
                 {
-                    // Compiler.log.debug("  Made progress on {}", rel);
                     changedCount++;
-                }
-                else
-                {
-                    // Compiler.log.debug("  {} stayed the same", rel);
                 }
                 if(!rel.isBuilt()) stillUnresolved.add(rel);
             }
@@ -406,36 +377,14 @@ public class FeatureTile
     {
         long typedId = FeatureId.of(f.type(), f.id());
 
-        /*
-        if(typedId == FeatureId.ofWay(705988446))
-        {
-            Compiler.log.debug("Exporting {}: Pos {} in {}",
-                FeatureId.toString(typedId), f.location(),
-                Tip.toString(tileCatalog.tipOfTile(tile)));
-        }
-         */
-
         buf.writeFixed64(typedId);
         buf.writeFixed32(f.anchorLocation());
             // always use anchor location, because this is where the
             // pointer points (i.e. not necessarily the start of the object)
-        /*
-        list.add((int)typedId);
-        list.add((int)(typedId >>> 32));
-        list.add(f.location());
-         */
     }
 
     void exportFeature(int targetTile, SFeature f)
     {
-        /*
-        if(f.id() == 6806732827L && f.type() == FeatureType.NODE)
-        {
-            Compiler.log.debug("- Exporting {} to {}", f,
-                Tile.toString(targetTile));
-        }
-         */
-
         addExport(getExportList(targetTile), f);
     }
 
@@ -463,33 +412,8 @@ public class FeatureTile
         });
     }
 
-    /*
-    private void buildPurgatoryFeatures()
-    {
-        STagTable missingTags = getTags(MISSING_TAG_STRINGS);
-        convertMissing(nodes, missingTags);
-        convertMissing(ways, missingTags);
-        convertMissing(relations, missingTags);
-
-        // we must convert missing features to local features first,
-        // because addToMembers won't add a relation to a foreign feature
-
-        relations.forEach(SRelation::addToMembers);
-        nodes.forEach(node -> node.buildInvalid(this));
-        ways.forEach(way -> way.buildInvalid(this));
-        relations.forEach(rel -> rel.buildInvalid(this));
-
-        Compiler.log.info(
-            "Purgatory includes {} nodes, {} ways, {} relations (incl. foreign refs)",
-            nodes.size(), ways.size(), relations.size());
-    }
-
-     */
-
     public void build()
     {
-        // Compiler.log.debug("Building {}...", Tile.toString(tile));
-
         List<SFeature> nodeList = new ArrayList<>();
         List<SFeature> wayList = new ArrayList<>();
         List<SFeature> areaList = new ArrayList<>();
@@ -551,12 +475,6 @@ public class FeatureTile
             });
             ways.forEach(way ->
             {
-                /*
-                if(way.id() == 711043332)
-                {
-                    Compiler.log.debug("way/{}", way.id());
-                }
-                 */
                 assert way.isLocal();
                 way.buildInvalid(this);
                 wayList.add(way);
@@ -569,12 +487,6 @@ public class FeatureTile
                     relationList.add(rel);
                 }
             });
-
-            /*
-            Compiler.log.info(
-                "Purgatory includes {} nodes, {} ways, {} relations (incl. foreign refs)",
-                nodes.size(), ways.size(), relations.size());
-             */
         }
 
         for(SRelationTable rt: relationTables.values()) rt.build(this);

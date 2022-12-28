@@ -30,8 +30,6 @@ import static com.geodesk.gol.build.ProtoGol.*;
 
 public class Compiler extends Processor<Compiler.Task>
 {
-    // public static final Logger log = LogManager.getLogger();
-
     private final ServerFeatureStore featureStore;
     private final Path rootPath;
     private final TileCatalog tileCatalog;
@@ -68,30 +66,6 @@ public class Compiler extends Processor<Compiler.Task>
         roleStrings = Files.readAllLines(rootPath.resolve("roles.txt"));
         globalStrings = ctx.getGlobalStringMap();
     }
-
-    /*
-    private static ObjectIntMap<String> loadGlobalStringTable(Path file) throws IOException
-    {
-        List<String> strings = Files.readAllLines(file);
-        MutableObjectIntMap<String> stringMap = ObjectIntMaps.mutable.empty();
-        for(int i=0; i<strings.size(); i++)
-        {
-            stringMap.put(strings.get(i), i+1);	// 1-based index
-        }
-        stringMap.put("", 0);       // TODO: is this correct?
-        return stringMap;
-    }
-     */
-
-    /*
-    private void loadStrings() throws IOException
-    {
-        keyStrings = Files.readAllLines(rootPath.resolve("keys.txt"));
-        valueStrings = Files.readAllLines(rootPath.resolve("values.txt"));
-        roleStrings = Files.readAllLines(rootPath.resolve("roles.txt"));
-        globalStrings = loadGlobalStringTable(rootPath.resolve("global.txt"));
-    }
-     */
 
     protected class Task implements Runnable
     {
@@ -151,14 +125,6 @@ public class Compiler extends Processor<Compiler.Task>
                 if (id == 0) break;
                 int featureFlag = (int) id & 1;
                 id = prevId + (id >> 1);
-
-                /*
-                if(id == 6806732827L)
-                {
-                    Compiler.log.debug("Reading node/{}", id);
-                }
-                 */
-
                 int x = (int) sourceData.readSignedVarint() + prevX;
                 int y = (int) sourceData.readSignedVarint() + prevY;
                 if (featureFlag != 0)
@@ -221,12 +187,6 @@ public class Compiler extends Processor<Compiler.Task>
                 }
                 else
                 {
-                    /*
-                    if(id == 156415093 || id == 572163176)
-                    {
-                        Compiler.log.debug("Adding ghost way/{}", id);
-                    }
-                     */
                     archive.addForeignWay(tileQuad, id, nodeIds);
                 }
                 prevId = id;
@@ -235,13 +195,6 @@ public class Compiler extends Processor<Compiler.Task>
 
         private void readRelation(long id)
         {
-            /*
-            if(id == 1212338)
-            {
-                Compiler.log.debug("Reading relation/{} ({})", id, Tile.toString(sourceTile));
-            }
-             */
-
             byte tileLocator = sourceData.readByte();
             // TODO: full locator: readQuadLocator() ???
             int quad = TileQuad.fromDenseParentLocator(tileLocator, sourceTile);
@@ -283,14 +236,6 @@ public class Compiler extends Processor<Compiler.Task>
                 int multiTileFlag = (int) id & 1;
                 id = prevId + (id >> 1);
 
-                /*
-                if(id == 1212338 && featureType == 2)
-                {
-                    log.debug("Tile {}: Reading proxy for relation/{} from {}",
-                        Tile.toString(sourceTile), id, Tile.toString(donorTile));
-                }
-                 */
-
                 int tileQuad;
                 if (multiTileFlag != 0)
                 {
@@ -301,14 +246,6 @@ public class Compiler extends Processor<Compiler.Task>
                 {
                     tileQuad = TileQuad.fromSingleTile(donorTile);
                 }
-
-                /*
-                if(id == 5038215 && featureType == 1)
-                {
-                    Compiler.log.debug("Foreign way/{}: Quad is {}",
-                        id, TileQuad.toString(tileQuad));
-                }
-                 */
 
                 int x1 = (int) sourceData.readSignedVarint() + prevX;
                 int y1 = (int) sourceData.readSignedVarint() + prevY;
@@ -359,14 +296,6 @@ public class Compiler extends Processor<Compiler.Task>
             int relQuad = readQuadLocator();
             long typedMemberId = sourceData.readVarint();
 
-            /*
-            if(typedMemberId == FeatureId.ofWay(711043332))
-            {
-                Compiler.log.debug("Reading membership for {}",
-                    FeatureId.toString(typedMemberId));
-            }
-             */
-
             assert TileQuad.isValid(relQuad) : "Invalid quad for relation/" + relationId;
             SRelation rel = archive.addForeignRelation(relQuad, relationId);
             SFeature member = archive.getFeature(typedMemberId);
@@ -376,7 +305,6 @@ public class Compiler extends Processor<Compiler.Task>
             // A node that only serves as way coordinates
             // needs to be upgraded to a feature node once
             // it is a member of a relation
-            // TODO: check
         }
 
         private void readRelations()
@@ -514,7 +442,6 @@ public class Compiler extends Processor<Compiler.Task>
             archive = new FeatureTile(sourceTile, globalStrings, tileCatalog, project);
             readTile();
             archive.build();
-            // ByteBuffer buf = ByteBuffer.allocateDirect(archive.size());
             try
             {
                 int payloadSize = archive.size() - 4;   // don't include 4-byte header
@@ -532,14 +459,6 @@ public class Compiler extends Processor<Compiler.Task>
             completed(1);
         }
     }
-
-
-    /*
-    @Override protected Worker createWorker()
-    {
-        return null;
-    }
-     */
 
     @Override protected void feed() throws IOException
     {

@@ -11,7 +11,6 @@ import com.clarisma.common.soar.Archive;
 import com.clarisma.common.soar.SBytes;
 import com.clarisma.common.soar.Struct;
 import com.clarisma.common.soar.StructOutputStream;
-import com.clarisma.common.util.Log;
 import com.geodesk.core.Tile;
 import com.geodesk.core.TileQuad;
 import com.geodesk.feature.store.ZoomLevels;
@@ -32,13 +31,14 @@ import java.util.*;
 //  efficient since the addressable range includes 0 (= no tile)
 //  e.g. 8 bits can store 256 values: 255 tiles + 0-entry
 
+// TODO: What guarantees can we make about the order of tiles in the Tile Catalog?
+//  Are TIPs always in ascending order?
+
 public class TileIndexBuilder 
 {
 	private int zoomLevels;
 	private int minZoom;
 	private STile root;
-
-	//private static final Logger log = LogManager.getLogger();
 
 	public TileIndexBuilder()
 	{
@@ -48,36 +48,6 @@ public class TileIndexBuilder
 	{
 		return root;
 	}
-
-	/*
-	private static class BlobHeader extends Struct
-	{
-		int fileSize;
-		STile tileIndex;
-		int zoomLevels;
-		
-		public BlobHeader ()
-		{
-			setSize(1920);  // TODO
-		}
-		
-		public void writeTo(StructOutputStream out) throws IOException 
-		{
-			int pageSize = 4096;  // TODO
-			out.writeInt(0);  // TODO: magic number
-			out.writeInt((fileSize + pageSize - 1) / pageSize);		// file size (in pages)
-			out.writeInt(0); // TODO: metadata length; page size
-			out.writeInt(0); // free pages (initially none)
-			out.writeInt(0); // reserved 1
-			out.writeInt(0); // reserved 2
-			out.writeInt(zoomLevels);
-			out.writeInt(0);				// TODO: version
-			out.writePointer(tileIndex);	// TODO: should this be absolute?
-			out.writeBlank(1884);
-		}
-		
-	}
-*/
 
 	private static class STile extends Struct implements Comparable<STile>
 	{
@@ -95,7 +65,6 @@ public class TileIndexBuilder
 		
 		void addChild(STile child)
 		{
-			// log.debug("Adding {} to {}...", Tile.toString(child.tile), Tile.toString(tile));
 			int childZoom = Tile.zoom(child.tile);
 			int step = childZoom - Tile.zoom(tile);
 			assert step > 0 || childZoom==0;  // TODO: double-check when we add 0/0/0
@@ -170,24 +139,6 @@ public class TileIndexBuilder
 			{
 				if(child != null) writeTile(out, child);
 			}
-
-			/*
-			if(tile == Tile.fromString("4/8/5"))
-			{
-				log.debug("Tile {} starts at {}, childTileMask = {}",
-					Tile.toString(tile), location(), tilesUsed);
-			}
-			if(tile == Tile.fromString("6/33/22"))
-			{
-				log.debug("Tile {} starts at {}, childTileMask = {}",
-					Tile.toString(tile), location(), tilesUsed);
-			}
-			if(tile == Tile.fromString("8/134/88"))
-			{
-				log.debug("Tile {} starts at {}, childTileMask = {}",
-					Tile.toString(tile), location(), tilesUsed);
-			}
-			 */
 		}
 
 		@Override
@@ -339,15 +290,10 @@ public class TileIndexBuilder
 		assert minZoom == 0;
 			// Root grid support has been disabled; root must be zoom 0
 
-		//log.debug("Reading tile densities...");
 		List<STile> tiles = readTileDensities(densityFile);
-		//log.debug("Building tile structure...");
 		root = addParentTiles(tiles);
-		//log.debug("Sorting tiles...");
 		tiles.sort(this::compareTilesByDensity);
 
-		// Log.debug("%d tiles (raw)", tiles.size());
-		
 		int tileCount = Math.min(tiles.size(), maxTiles);
 		while(tileCount > 1)
 		{
@@ -356,15 +302,6 @@ public class TileIndexBuilder
 		}
 		tiles.subList(tileCount, tiles.size()).clear();
 
-		/*
-		Log.debug("%d tiles that have >%d nodes (smallest: %d nodes)",
-			tiles.size(), minDensity, tiles.get(tiles.size()-1).totalCount);
-		 */
-
-		// log.debug("{} tiles", tiles.size());
-		
-		// log.debug("Finishing tile structure...");
-		
 		for(STile t: tiles) t.parent.addChild(t);
 		for(STile t: tiles) t.build();
 		root.build();
@@ -388,14 +325,12 @@ public class TileIndexBuilder
 	{
 		// TODO: more efficient layout
 		
-		// log.debug("Placing {}", Tile.toString(root.tile));
 		archive.place(root);
 		for(STile child: root.children)
 		{
 			if(child != null)
 			{
-				// log.debug(Tile.toString(child.tile));
-				if(child.children != null) 
+				if(child.children != null)
 				{
 					addToArchive(archive, child);
 				}
@@ -411,7 +346,7 @@ public class TileIndexBuilder
 		{
 			// Exception for single-tile
 			out.println("000001\t0/0/0");
-				// TODO: This is ugly, double-check what the TIP should
+				// TODO: This is ugly, double-check what the TIP should be
 				//  for single-tile GOL
 		}
 		else
@@ -453,35 +388,4 @@ public class TileIndexBuilder
 		addToMap(map, root, viewQuad);
 		map.save(tileMapFile.toString());
 	}
-
-
-	/*
-	public static void main(String[] args) throws Exception
-	{
-		log.debug("Preparing tile indexes...");
-		TileIndexBuilder tib = new TileIndexBuilder();
-		Path rootPath = Path.of("c:\\velojoe");
-		// STile root = tib.buildTileTree(rootPath.resolve("node-counts-new.txt"), 65_535, 30_000);
-		STile root = tib.buildTileTree(rootPath.resolve("node-counts-new.txt"), 1024, 30_000);
-		Archive a = new Archive();
-		BlobHeader header = new BlobHeader(); 
-		a.setHeader(header);
-		tib.addToArchive(a);
-		header.fileSize = a.size();
-		header.tileIndex = root;
-		header.zoomLevels = tib.zoomLevels();
-		Path tileBlobFile = rootPath.resolve("feature-tile-test/world.fs");
-		Path tileBlobZipFile = rootPath.resolve("feature-tile-test/world.fs.gz");
-		a.writeFile(tileBlobFile);
-		a.writeGzipFile(tileBlobZipFile);
-		Path tileCatalogFile = rootPath.resolve("tile-catalog.txt");
-		tib.writeTileCatalog(tileCatalogFile);
-		Path tileMapFile = rootPath.resolve("tile-map.html");
-		// tib.createTileMap(tileMapFile, root, TileQuad.fromSingleTile(
-		//	Tile.fromString("4/8/5")));
-
-		tib.createTileMap(tileMapFile, root, TileQuad.fromSingleTile(
-			Tile.fromString("0/0/0")));
-	}
-*/
 }

@@ -202,6 +202,23 @@ public class BuildCommand extends BasicCommand
         statePath = workPath.resolve("state.txt");
     }
 
+    private void createIndexFolders(Path indexPath) throws IOException
+    {
+        Files.createDirectories(indexPath);
+        int topTip = context.getTileCatalog().topTip();
+        createTipFolders(indexPath.resolve("anodes"), topTip);
+        createTipFolders(indexPath.resolve("wnodes"), topTip);
+    }
+
+    private static void createTipFolders(Path folder, int topTip) throws IOException
+    {
+        int maxFolder = topTip >>> 12;
+        for (int n = 0; n < maxFolder; n++)
+        {
+            Path subFolder = folder.resolve("%03X".formatted(n));
+            Files.createDirectories(subFolder);
+        }
+    }
 
     private int readState() throws IOException
     {
@@ -270,7 +287,7 @@ public class BuildCommand extends BasicCommand
             context.getTileCatalog(), pileFile);
         sorter.sortFeatures(project.sourcePath().toFile());
 
-        if(!keepWork)
+        if(!keepWork && !project.idIndexing())
         {
             delete(workPath,
                 "nodes.idx", "ways.idx", "relations.idx");

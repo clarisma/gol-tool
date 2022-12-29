@@ -24,6 +24,16 @@ public class Utils
         return Path.of(filename);
     }
 
+
+    public static Path peerFolder(Path path, String suffix)
+    {
+        String fileName = path.getFileName().toString();
+        int dot = fileName.lastIndexOf('.');
+        if(dot > 0) fileName = fileName.substring(0, dot);
+        return path.resolveSibling(fileName + suffix);
+    }
+
+
     public static Path golPath(String filename)
     {
         return pathWithExtension(filename, ".gol");

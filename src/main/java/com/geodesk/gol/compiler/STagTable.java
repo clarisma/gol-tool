@@ -21,13 +21,24 @@ import java.util.Map;
 
 import static com.geodesk.gol.compiler.UsageScores.*;
 
-// TODO: If tagtable contains only uncommon keys, and no common keys,
-// we need to write an end marker entry!!
-
 // TODO: cut down memory consumption; instead of Entry array, maybe use:
 //  encoded array of long (one for each k/v pair)
 //  array of Object (one each for each k and each v:
 //    GlobalString, SString, Character, Integer
+//  Current memory consumption (assumes 3 words object overhead):
+//    6 words class + 4 words (array) + 11 x tagCount
+//  Proposed:
+//    8 words class (pointer to FeatureTile + 1 word padding) +
+//      4 words (array) + 2 x tagCount
+//  Assuming avg. 4 tags: 216 bytes (current) vs. 80 bytes (proposed)
+//  store k,v,type in a long
+//
+//  TODO:
+//   Changes:
+//   - would need a ref back to FeatureTile
+//   - FeatureTile would need to maintain a list of local strings
+//   - need an iterator to return local strings used
+//     (for FeatureLayout.placeFeatureBody())
 
 public class STagTable extends SharedStruct implements Iterable<Map.Entry<String,String>>, Comparable<STagTable>
 {

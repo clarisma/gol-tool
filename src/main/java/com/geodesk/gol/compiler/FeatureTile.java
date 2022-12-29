@@ -34,6 +34,17 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+// TODO: split this class
+//  - This class should only serve as a container for the data structures
+//    needed for a Tile.
+//  - The export mechanism for the Linker is messy and cuts across several classes
+//  - Writing waynode indexes requires lists of lineal ways and area ways,
+//    which are temporary (created in build() method), but ideally we should
+//    let the Compiler class write these indexes
+//    - Idea: let FeatureTile create the encoded indexes; Compiler zips and writes them
+//      - but memory consumption would be lower if we create indexes, write them,
+//        then free the memory
+
 public class FeatureTile
 {
     private final int tile;
@@ -53,6 +64,7 @@ public class FeatureTile
 
     // public static final int PURGATORY_TILE = 0x0f00_0000;
 
+    // TODO: move to Tip class?
     public static boolean isWideTipDelta(int tipDelta)
     {
         return (short)(tipDelta << 1) != (tipDelta << 1);
@@ -493,7 +505,7 @@ public class FeatureTile
 
         // Calculate scores for nodes last, as they depend on bonuses
         // awarded based on whether they belong to a way
-        // TODO: should we instead iterate through the lists we buildt for the indexes?
+        // TODO: should we instead iterate through the lists as we build the indexes?
         //  We're only interested in features that are local
         //   but won't work for Purgatory
         relations.forEach(f -> f.calculateUsage());

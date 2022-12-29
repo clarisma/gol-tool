@@ -53,6 +53,11 @@ public class Project implements Serializable
 		}
 	}
 
+	public boolean idIndexing()
+	{
+		return idIndexing;
+	}
+
 	public Path workPath()
 	{
 		return workPath;

@@ -22,6 +22,7 @@ public class BuildContext
 {
     private Path golPath;
     private Path workPath;
+    private Path indexPath;
     private Project project;
     private ServerFeatureStore featureStore;
     private PileFile pileFile;

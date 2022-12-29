@@ -253,4 +253,15 @@ public class TileCatalog
 		}
 		return 0;   // root quad -- no! TODO: should not get here
 	}
+
+	/**
+	 * Returns the highest TIP.
+	 *
+	 * @return
+	 */
+	// TODO: could be more efficient
+	public int topTip()
+	{
+		return tileToTip.values().max();
+	}
 }

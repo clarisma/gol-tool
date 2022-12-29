@@ -35,6 +35,7 @@ public class SRelation extends SFeature
         public SFeature member;
         // TODO: If we kept a list of local strings, we could refer to it by index
         //  Then we could just have one int field to describe role
+        //  compare to proposed change to STagTable
         public String role;
         public int roleCode;
         public SString roleString;
@@ -49,6 +50,8 @@ public class SRelation extends SFeature
         setAnchor(16);
     }
 
+    // TODO: this should accept two arrays: memberIds and roles,
+    //  Member objects should only be used internally
     public void setMembers(Member[] members)
     {
         int localRolesflag = 0;
@@ -207,7 +210,7 @@ public class SRelation extends SFeature
     }
 
 
-    // TODO: repurpose this method to set empty roles to "outer" if relations is an area
+    // TODO: repurpose this method to set empty roles to "outer" if relation is an area
     private void assignTips(TileCatalog tileCatalog)
     {
         int memberCount = members.length;

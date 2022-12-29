@@ -7,8 +7,8 @@
 
 package com.geodesk.gol.compiler;
 
-// TODO: could get rid of coords, cut memory use
-//  could null out nodeIds once SWay is built
+// TODO: could null out nodeIds once SWay is built
+//  Careful: needed to write waynode indexes
 
 import com.clarisma.common.pbf.PbfOutputStream;
 import com.clarisma.common.soar.StructOutputStream;
@@ -106,6 +106,9 @@ public class SWay extends SFeature
 
         // TODO: decide whether to de-duplicate feature nodes
         //  Most common case: closed ring starts and ends with feature node
+        //  Should keep duplicates, but set a flag
+        //  When returning members, return only unique
+        //  But when iterating nodes, return all
 
         public SWayBody(int[] coords, FeatureTile ft)
         {

@@ -56,7 +56,7 @@ public class IndexReport
             categoryToKeys[category] = categoryKeys;
         }
 
-        tables = new StatsTable[4];
+        tables = new StatsTable[5];
         tables[0] = new StatsTable("Nodes (n)");
         tables[1] = new StatsTable("Ways (w)");
         tables[2] = new StatsTable("Areas (a)");
@@ -132,9 +132,11 @@ public class IndexReport
                 if(calculateIQ)
                 {
                     add(hits / c.scannedCount);
-                    add("Boost");
+                    add((double)totalScannedCount / c.scannedCount);
                 }
             }
+
+            super.print(out);
         }
     }
 

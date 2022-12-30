@@ -12,6 +12,7 @@ import com.clarisma.common.util.Log;
 import com.geodesk.feature.store.FeatureStore;
 import com.geodesk.feature.store.TileIndexWalker;
 import com.geodesk.gol.info.FreeBlobReport;
+import com.geodesk.gol.info.IndexReport;
 import com.geodesk.gol.info.TileReport;
 import org.eclipse.collections.api.iterator.IntIterator;
 import org.eclipse.collections.api.list.primitive.IntList;
@@ -22,6 +23,12 @@ public class InfoCommand extends GolCommand
 {
     @Option("index,i: display index details")
     protected boolean indexDetails;
+
+    @Option("tiles,t: display tile statistics")
+    protected boolean tileDetails;
+
+    @Option("free,f: display free-block details")
+    protected boolean freeDetails;
 
     @Override protected void performWithLibrary() throws Exception
     {
@@ -50,13 +57,25 @@ public class InfoCommand extends GolCommand
         Collections.sort(keys);
         System.out.format("Indexes: %s\n", String.join(", ", keys));
 
-        if(indexDetails) detailedIndexReport(keys);
+        // if(indexDetails) detailedIndexReport(keys);
 
-        System.out.println();
-        new FreeBlobReport(features.store()).print(System.out);
+        if(indexDetails)
+        {
+            System.out.println();
+            new IndexReport(features.store(), getTileIndexWalker(), true).print(System.out);
+        }
 
-        System.out.println();
-        new TileReport(features.store(), getTileIndexWalker()).print(System.out);
+        if(freeDetails)
+        {
+            System.out.println();
+            new FreeBlobReport(features.store()).print(System.out);
+        }
+
+        if(tileDetails)
+        {
+            System.out.println();
+            new TileReport(features.store(), getTileIndexWalker()).print(System.out);
+        }
     }
 
     // TODO: respect -a/-b

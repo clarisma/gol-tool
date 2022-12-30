@@ -14,6 +14,9 @@ import com.geodesk.gol.compiler.Compiler;
 import java.io.IOException;
 import java.io.OutputStream;
 
+// TODO: use a byte[8] buffer similar to DataOutputStream; don't
+//  repeatedly call write() for single bytes
+
 public class StructOutputStream extends OutputStream
 {
 	private OutputStream out;

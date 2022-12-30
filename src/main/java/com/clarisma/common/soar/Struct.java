@@ -105,7 +105,7 @@ public abstract class Struct
 	{
 		out.format("%08X  %s\n", location(), dumped());
 	}
-	
+
 	public abstract void writeTo(StructOutputStream out) throws IOException;
 
 	public static <T extends Struct> T addToChain(T last, T s)

@@ -113,6 +113,7 @@ public class SRelation extends SFeature
         return body;
     }
 
+    // TODO: only needs zoom tile of FeatureTile, no need to pass object
     private boolean calculateBounds(FeatureTile ft)
     {
         setFlag(RELATION_IS_MEASURING_FLAG);

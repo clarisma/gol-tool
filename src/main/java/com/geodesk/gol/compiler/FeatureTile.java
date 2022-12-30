@@ -45,6 +45,13 @@ import java.util.Map;
 //      - but memory consumption would be lower if we create indexes, write them,
 //        then free the memory
 
+// TODO: Call it TileInventory?
+//  But we also have TileCatalog
+//  or make it an STile?
+//  or derive from Archive?
+
+// TODO: Put exports into a separate class; pass this class to SFeature.export()
+
 public class FeatureTile
 {
     private final int tile;
@@ -70,6 +77,7 @@ public class FeatureTile
         return (short)(tipDelta << 1) != (tipDelta << 1);
     }
 
+    // TODO: incorporate this class into the parent class?
     private class SHeader extends Struct
     {
         int payloadSize;

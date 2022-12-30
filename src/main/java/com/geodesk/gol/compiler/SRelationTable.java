@@ -69,7 +69,8 @@ public class SRelationTable extends SharedStruct implements Iterable<SRelation>
         }
     }
 
-
+    // TODO: pass localTile, tileCatalog instead of FeatureTile
+    //  This would narrow the scope and decouple from FeatureTile
     public void build(FeatureTile ft)
     {
         assert size() == 0: "Table has already been built";

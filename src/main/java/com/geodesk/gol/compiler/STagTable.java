@@ -32,13 +32,18 @@ import static com.geodesk.gol.compiler.UsageScores.*;
 //      4 words (array) + 2 x tagCount
 //  Assuming avg. 4 tags: 216 bytes (current) vs. 80 bytes (proposed)
 //  store k,v,type in a long
+//  but changes below impose 2 words of overhead per local string
 //
 //  TODO:
 //   Changes:
 //   - would need a ref back to FeatureTile
+//   - need a custom insertion sort
+//     Can use Eclipse Collections:
+//       LongQuickSort.sort(items, 0, items.length - 1, LongComparator);
 //   - FeatureTile would need to maintain a list of local strings
 //   - need an iterator to return local strings used
 //     (for FeatureLayout.placeFeatureBody())
+//   - SString would need a sequence number
 
 public class STagTable extends SharedStruct implements Iterable<Map.Entry<String,String>>, Comparable<STagTable>
 {

@@ -28,7 +28,12 @@ import java.util.Iterator;
 
 // TODO: build and assign unqiue reltables in later step
 
+// TODO: should we include ref back to FeatureTile?
+
 // TODO: make comparable to allow easy sorting
+
+// TODO: create SFeature2D clas that includes bbox
+
 public abstract class SFeature extends SharedStruct implements FeatureFlags //, Iterable<SFeature>
 {
     protected long id;

@@ -28,6 +28,7 @@ public class IndexReport
     private final String[] keys;
     private final int[][] categoryToKeys;
     private final StatsTable[] tables;
+    private int totalTileCount;
 
     public IndexReport(FeatureStore store, TileIndexWalker walker, boolean calculateIQ)
     {
@@ -71,11 +72,13 @@ public class IndexReport
         String key;
         long hitCount;
         long scannedCount;
+        int tileCount;
 
         public void add(Counter other)
         {
             hitCount += other.hitCount;
             scannedCount += other.scannedCount;
+            tileCount += other.tileCount;
         }
     }
 
@@ -106,6 +109,7 @@ public class IndexReport
             {
                 column().format("##0.0%");
                 column().format("x 0.0");
+                column().format("##0.0%");
             }
         }
 
@@ -120,12 +124,13 @@ public class IndexReport
             {
                 add("IQ");
                 add("Boost");
+                add("Tiles");
             }
             divider("-");
             for(Counter c: counters)
             {
                 add("  " + c.key);
-                double hits = c.hitCount;
+                double hits = c.scannedCount; //  c.hitCount;  // TODO !!!!
                 add(hits);
                 add(hits / totalHitCount);
                 add(hits / allTypeTotalHitCount);
@@ -133,6 +138,7 @@ public class IndexReport
                 {
                     add(hits / c.scannedCount);
                     add((double)totalScannedCount / c.scannedCount);
+                    add((double)c.tileCount / totalTileCount);
                 }
             }
 
@@ -151,7 +157,7 @@ public class IndexReport
         private final int[] uncatCounts;
         private int currentType;
         private int currentCategoryBits;
-        private int subTotal;
+        private int scannedSubTotal;
 
         public IndexScanTask(ByteBuffer buf, int pTile)
         {
@@ -169,7 +175,7 @@ public class IndexReport
         {
             currentType = type;
             currentCategoryBits = indexBits;
-            subTotal = 0;
+            scannedSubTotal = 0;
         }
 
         @Override protected void node(int p)
@@ -189,7 +195,7 @@ public class IndexReport
 
         private void tally(int p)
         {
-            subTotal++;
+            scannedSubTotal++;
         }
 
         @Override protected void endIndex()
@@ -198,10 +204,13 @@ public class IndexReport
             {
                 if ((currentCategoryBits & (1 << i)) != 0)
                 {
-                    scannedCounts[currentType * keyCount + i] += subTotal;
+                    for(int k: categoryToKeys[i])
+                    {
+                        scannedCounts[currentType * keyCount + k] += scannedSubTotal;
+                    }
                 }
             }
-            totalScannedCounts[currentType] += subTotal;
+            totalScannedCounts[currentType] += scannedSubTotal;
         }
 
         @Override public void run()
@@ -218,6 +227,7 @@ public class IndexReport
                         Counter counter = table.counters[i];
                         counter.hitCount += hitCounts[slot];
                         counter.scannedCount += scannedCounts[slot];
+                        if(scannedCounts[slot] != 0) counter.tileCount++;
                     }
                     table.totalHitCount += totalHitCounts[type];
                     table.totalScannedCount += totalScannedCounts[type];
@@ -245,6 +255,7 @@ public class IndexReport
                 executor.submit(new IndexScanTask(
                     store.bufferOfPage(tilePage),
                     store.offsetOfPage(tilePage)));
+                totalTileCount++;
             }
         }
         executor.shutdown();

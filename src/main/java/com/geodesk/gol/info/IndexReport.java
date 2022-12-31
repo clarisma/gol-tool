@@ -15,6 +15,7 @@ import com.geodesk.gol.util.TileScanner;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -27,6 +28,9 @@ public class IndexReport
     private final Map<String, Integer> keyToCategory;
     private final String[] keys;
     private final int[][] categoryToKeys;
+    private final Map<Integer,Integer> stringCodeToKey;
+    private final int maxKeyStringCode;
+    private final int valueNoBits;
     private final StatsTable[] tables;
     private int totalTileCount;
 
@@ -34,6 +38,8 @@ public class IndexReport
     {
         this.store = store;
         this.calculateIQ = calculateIQ;
+
+        valueNoBits = (store.codeFromString("no") << 16) | 1;
 
         keyToCategory = store.indexedKeys();
         keys = keyToCategory.keySet().toArray(new String[0]);
@@ -43,11 +49,15 @@ public class IndexReport
         categoryToKeys = new int[32][];     // TODO: max categories
         for (int i = 0; i < categoryToKeys.length; i++) categoryToKeys[i] = EMPTY;
 
+        stringCodeToKey = new HashMap<>(keys.length);
+        int maxKeyStringCode = 0;
+
         // Create mappings of categories to keys
 
         for (int k = 0; k < keys.length; k++)
         {
-            int category = keyToCategory.get(keys[k]);
+            String key = keys[k];
+            int category = keyToCategory.get(key);
             assert category > 0;
             category--;     // category is 1-based, but we want 0-based here
             int[] categoryKeys = categoryToKeys[category];
@@ -55,7 +65,11 @@ public class IndexReport
             categoryKeys = Arrays.copyOf(categoryKeys, n + 1);
             categoryKeys[n] = k;
             categoryToKeys[category] = categoryKeys;
+            int keyStringCode = store.codeFromString(key);
+            if(keyStringCode > maxKeyStringCode) maxKeyStringCode = keyStringCode;
+            stringCodeToKey.put(keyStringCode, k);
         }
+        this.maxKeyStringCode = maxKeyStringCode;
 
         tables = new StatsTable[5];
         tables[0] = new StatsTable("Nodes (n)");
@@ -78,7 +92,7 @@ public class IndexReport
         {
             hitCount += other.hitCount;
             scannedCount += other.scannedCount;
-            tileCount += other.tileCount;
+            tileCount = Math.max(tileCount, other.tileCount);
         }
     }
 
@@ -86,8 +100,7 @@ public class IndexReport
     {
         final String title;
         final Counter[] counters;
-        long totalHitCount;
-        long totalScannedCount;
+        long total;
         long mixedCount;
         long uncatCount;
 
@@ -113,13 +126,24 @@ public class IndexReport
             }
         }
 
+        public void add(StatsTable other)
+        {
+            for(int i=0; i<counters.length; i++)
+            {
+                counters[i].add(other.counters[i]);
+            }
+            total += other.total;
+            mixedCount += other.mixedCount;
+            uncatCount += other.uncatCount;
+        }
+
         @Override public void print(Appendable out) throws IOException
         {
-            long allTypeTotalHitCount = tables[4].totalHitCount;
+            long allTypeTotal = tables[4].total;
             add(title);
-            add(totalHitCount);
+            add(total);
             add("");
-            add((double)totalHitCount / allTypeTotalHitCount);
+            add((double) total / allTypeTotal);
             if(calculateIQ)
             {
                 add("IQ");
@@ -130,17 +154,27 @@ public class IndexReport
             for(Counter c: counters)
             {
                 add("  " + c.key);
-                double hits = c.scannedCount; //  c.hitCount;  // TODO !!!!
+                double hits = c.hitCount;
                 add(hits);
-                add(hits / totalHitCount);
-                add(hits / allTypeTotalHitCount);
+                add(hits / total);
+                add(hits / allTypeTotal);
                 if(calculateIQ)
                 {
                     add(hits / c.scannedCount);
-                    add((double)totalScannedCount / c.scannedCount);
+                    add((double) total / c.scannedCount);
                     add((double)c.tileCount / totalTileCount);
                 }
             }
+            add("  (Multiple)");
+            add(mixedCount);
+            add((double)mixedCount / total);
+            add((double)mixedCount / allTypeTotal);
+            newRow();
+            add("  (Unindexed)");
+            add(uncatCount);
+            add((double)uncatCount / total);
+            add((double)uncatCount / allTypeTotal);
+            divider("=");
 
             super.print(out);
         }
@@ -151,13 +185,12 @@ public class IndexReport
         private final int keyCount;
         private final int[] hitCounts;
         private final int[] scannedCounts;
-        private final int[] totalHitCounts;
         private final int[] totalScannedCounts;
         private final int[] mixedCounts;
         private final int[] uncatCounts;
         private int currentType;
         private int currentCategoryBits;
-        private int scannedSubTotal;
+        private int subTotal;
 
         public IndexScanTask(ByteBuffer buf, int pTile)
         {
@@ -165,7 +198,6 @@ public class IndexReport
             keyCount = keys.length;
             hitCounts = new int[keyCount * 4];
             scannedCounts = new int[keyCount * 4];
-            totalHitCounts = new int[4];
             totalScannedCounts = new int[4];
             mixedCounts = new int[4];
             uncatCounts = new int[4];
@@ -175,7 +207,7 @@ public class IndexReport
         {
             currentType = type;
             currentCategoryBits = indexBits;
-            scannedSubTotal = 0;
+            subTotal = 0;
         }
 
         @Override protected void node(int p)
@@ -193,9 +225,37 @@ public class IndexReport
             tally(p);
         }
 
-        private void tally(int p)
+        private void tally(int pFeature)
         {
-            scannedSubTotal++;
+            int indexedKeyCount = 0;
+            int ppTags = pFeature + 8;
+            int p = (buf.getInt(ppTags) & ~1) + ppTags;
+            for(;;)
+            {
+                int tag = buf.getInt(p);
+                int keyStringCodeWithEndFlag = (tag >>> 2) & 0x3fff;
+                int keyStringCode = keyStringCodeWithEndFlag & 0x1fff;
+                Integer k = stringCodeToKey.get(keyStringCode);
+                if(k != null)
+                {
+                    if((tag & 0xffff_0003) != valueNoBits)  // tag must not be "no"
+                    {
+                        hitCounts[currentType * keyCount + k]++;
+                        indexedKeyCount++;
+                    }
+                }
+                if(keyStringCodeWithEndFlag >= maxKeyStringCode) break;
+                p += 4 + (tag & 2);
+            }
+            if(indexedKeyCount > 1)
+            {
+                mixedCounts[currentType]++;
+            }
+            else if (indexedKeyCount == 0)
+            {
+                uncatCounts[currentType]++;
+            }
+            subTotal++;
         }
 
         @Override protected void endIndex()
@@ -206,11 +266,11 @@ public class IndexReport
                 {
                     for(int k: categoryToKeys[i])
                     {
-                        scannedCounts[currentType * keyCount + k] += scannedSubTotal;
+                        scannedCounts[currentType * keyCount + k] += subTotal;
                     }
                 }
             }
-            totalScannedCounts[currentType] += scannedSubTotal;
+            totalScannedCounts[currentType] += subTotal;
         }
 
         @Override public void run()
@@ -229,8 +289,7 @@ public class IndexReport
                         counter.scannedCount += scannedCounts[slot];
                         if(scannedCounts[slot] != 0) counter.tileCount++;
                     }
-                    table.totalHitCount += totalHitCounts[type];
-                    table.totalScannedCount += totalScannedCounts[type];
+                    table.total += totalScannedCounts[type];
                     table.mixedCount += mixedCounts[type];
                     table.uncatCount += uncatCounts[type];
                 }
@@ -266,6 +325,11 @@ public class IndexReport
         catch (InterruptedException ex)
         {
             // don't care about being interrupted, we're done anyway
+        }
+
+        for(int i=0; i<4; i++)
+        {
+            tables[4].add(tables[i]);
         }
     }
 

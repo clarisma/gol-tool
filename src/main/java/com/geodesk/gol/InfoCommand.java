@@ -8,6 +8,7 @@
 package com.geodesk.gol;
 
 import com.clarisma.common.cli.Option;
+import com.clarisma.common.cli.Verbosity;
 import com.clarisma.common.util.Log;
 import com.geodesk.feature.store.FeatureStore;
 import com.geodesk.feature.store.TileIndexWalker;
@@ -57,12 +58,11 @@ public class InfoCommand extends GolCommand
         Collections.sort(keys);
         System.out.format("Indexes: %s\n", String.join(", ", keys));
 
-        // if(indexDetails) detailedIndexReport(keys);
-
         if(indexDetails)
         {
             System.out.println();
-            new IndexReport(features.store(), getTileIndexWalker(), true).print(System.out);
+            new IndexReport(features.store(), getTileIndexWalker(),
+                verbosity >= Verbosity.VERBOSE).print(System.out);
         }
 
         if(freeDetails)
@@ -76,34 +76,5 @@ public class InfoCommand extends GolCommand
             System.out.println();
             new TileReport(features.store(), getTileIndexWalker()).print(System.out);
         }
-    }
-
-    // TODO: respect -a/-b
-    private void detailedIndexReport(List<String> keys)
-    {
-        int widestKey = 0;
-        for(String key: keys)
-        {
-            int len = key.length();
-            if(len > widestKey) widestKey = len;
-        }
-        String padding = " ".repeat(40);
-        int pad = Math.max(0, widestKey-14);
-
-        System.err.format("\nGathering statistics...\r");
-
-        long totalFeatures = features.select("*").count();
-        System.out.format("Total features:  %s%,14d\n", padding.substring(0, pad), totalFeatures);
-        for(String key: keys)
-        {
-            if(key.isEmpty()) continue; // TODO: should never happen
-            String query = String.format("*[%s]", key);
-            long count = features.select(query).count();
-            pad = Math.max(0, widestKey - key.length());
-            System.out.format("  %s  %s%,14d  %5.1f%%\n",
-                key, padding.substring(0, pad), count,
-                (double)count / totalFeatures * 100);
-        }
-        System.err.format("\n");
     }
 }

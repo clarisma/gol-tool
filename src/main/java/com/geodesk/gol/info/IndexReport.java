@@ -21,7 +21,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
-public class IndexReport
+public class IndexReport extends Table
 {
     private final FeatureStore store;
     private final boolean calculateIQ;
@@ -31,7 +31,7 @@ public class IndexReport
     private final Map<Integer,Integer> stringCodeToKey;
     private final int maxKeyStringCode;
     private final int valueNoBits;
-    private final StatsTable[] tables;
+    private final Stats[] tables;
     private int totalTileCount;
 
     public IndexReport(FeatureStore store, TileIndexWalker walker, boolean calculateIQ)
@@ -71,12 +71,19 @@ public class IndexReport
         }
         this.maxKeyStringCode = maxKeyStringCode;
 
-        tables = new StatsTable[5];
-        tables[0] = new StatsTable("Nodes (n)");
-        tables[1] = new StatsTable("Ways (w)");
-        tables[2] = new StatsTable("Areas (a)");
-        tables[3] = new StatsTable("Relations (r)");
-        tables[4] = new StatsTable("All");
+        tables = new Stats[5];
+        for(int i=0; i<tables.length; i++) tables[i] = new Stats(keys);
+
+        column();
+        column().format("###,###,###,###");
+        column().format("##0.00%");
+        column().format("##0.00%");
+        if (calculateIQ)
+        {
+            column().format("##0.0%");
+            column().format("#,###,##0.0");
+            column().format("##0.0%");
+        }
 
         createReports(walker);
     }
@@ -96,37 +103,27 @@ public class IndexReport
         }
     }
 
-    private class StatsTable extends Table
+    /**
+     * Statistics for one indexed type (or summary for all)
+     */
+    private static class Stats
     {
-        final String title;
         final Counter[] counters;
         long total;
         long mixedCount;
         long uncatCount;
 
-        public StatsTable(String title)
+        public Stats(String[] keys)
         {
-            this.title = title;
             counters = new Counter[keys.length];
             for (int i = 0; i < counters.length; i++)
             {
                 counters[i] = new Counter();
                 counters[i].key = keys[i];
             }
-
-            column();
-            column().format("###,###,###,###");
-            column().format("##0.00%");
-            column().format("##0.00%");
-            if (calculateIQ)
-            {
-                column().format("##0.0%");
-                column().format("x 0.0");
-                column().format("##0.0%");
-            }
         }
 
-        public void add(StatsTable other)
+        public void add(Stats other)
         {
             for(int i=0; i<counters.length; i++)
             {
@@ -135,48 +132,6 @@ public class IndexReport
             total += other.total;
             mixedCount += other.mixedCount;
             uncatCount += other.uncatCount;
-        }
-
-        @Override public void print(Appendable out) throws IOException
-        {
-            long allTypeTotal = tables[4].total;
-            add(title);
-            add(total);
-            add("");
-            add((double) total / allTypeTotal);
-            if(calculateIQ)
-            {
-                add("IQ");
-                add("Boost");
-                add("Tiles");
-            }
-            divider("-");
-            for(Counter c: counters)
-            {
-                add("  " + c.key);
-                double hits = c.hitCount;
-                add(hits);
-                add(hits / total);
-                add(hits / allTypeTotal);
-                if(calculateIQ)
-                {
-                    add(hits / c.scannedCount);
-                    add((double) total / c.scannedCount);
-                    add((double)c.tileCount / totalTileCount);
-                }
-            }
-            add("  (Multiple)");
-            add(mixedCount);
-            add((double)mixedCount / total);
-            add((double)mixedCount / allTypeTotal);
-            newRow();
-            add("  (Unindexed)");
-            add(uncatCount);
-            add((double)uncatCount / total);
-            add((double)uncatCount / allTypeTotal);
-            divider("=");
-
-            super.print(out);
         }
     }
 
@@ -278,7 +233,7 @@ public class IndexReport
             super.run();
             for (int type = 0; type < 4; type++)
             {
-                StatsTable table = tables[type];
+                Stats table = tables[type];
                 synchronized (table)
                 {
                     for (int i = 0; i < keyCount; i++)
@@ -333,12 +288,63 @@ public class IndexReport
         }
     }
 
+    private void addStats(String title, Stats stats) throws IOException
+    {
+        long total = stats.total;
+        long allTypeTotal = tables[4].total;
+        add(title);
+        add(total);
+        add("");
+        add((double) total / allTypeTotal);
+        if(calculateIQ)
+        {
+            add("Hits");
+            add("Boost");
+            add("Tiles");
+        }
+        divider("-");
+        for(Counter c: stats.counters)
+        {
+            add("  " + c.key);
+            double hits = c.hitCount;
+            add(hits);
+            add(hits / stats.total);
+            add(hits / allTypeTotal);
+            if(calculateIQ)
+            {
+                add(hits / c.scannedCount);
+                add((double) total / c.scannedCount);
+                add((double)c.tileCount / totalTileCount);
+            }
+        }
+
+        add("  (Multiple)");
+        double mixedCount = stats.mixedCount;
+        add(mixedCount);
+        add(mixedCount / total);
+        add(mixedCount / allTypeTotal);
+        newRow();
+
+        add("  (Unindexed)");
+        double uncatCount = stats.uncatCount;
+        add(uncatCount);
+        add(uncatCount / total);
+        add(uncatCount / allTypeTotal);
+        divider("=");
+    }
+
+
     public void print(Appendable out) throws IOException
     {
-        for(Table table: tables)
-        {
-            table.print(out);
-            out.append("\n");
-        }
+        addStats("Nodes (n)", tables[0]);
+        divider("");
+        addStats("Ways (w)", tables[1]);
+        divider("");
+        addStats("Areas (a)", tables[2]);
+        divider("");
+        addStats("Relations (r)", tables[3]);
+        divider("");
+        addStats("All", tables[4]);
+        super.print(out);
     }
 }

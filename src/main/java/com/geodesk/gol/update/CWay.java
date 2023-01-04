@@ -9,6 +9,8 @@ package com.geodesk.gol.update;
 
 public class CWay extends CFeature<CWay.Change>
 {
+    // TODO: need current nodeIDs
+
     public CWay(long id)
     {
         super(id);

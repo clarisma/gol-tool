@@ -7,11 +7,9 @@
 
 package com.geodesk.gol.util;
 
-import com.geodesk.feature.FeatureType;
-
 import java.nio.ByteBuffer;
 
-public class TileScanner implements Runnable
+public class TileReaderTask implements Runnable
 {
     protected final ByteBuffer buf;
     protected final int pTile;
@@ -21,7 +19,7 @@ public class TileScanner implements Runnable
     public static final int AREAS = 2;
     public static final int RELATIONS = 3;
 
-    public TileScanner(ByteBuffer buf, int pTile)
+    public TileReaderTask(ByteBuffer buf, int pTile)
     {
         this.buf = buf;
         this.pTile = pTile;

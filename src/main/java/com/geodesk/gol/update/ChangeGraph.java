@@ -10,7 +10,10 @@ package com.geodesk.gol.update;
 import com.geodesk.core.Mercator;
 import com.geodesk.feature.FeatureId;
 import com.geodesk.feature.FeatureType;
+import com.geodesk.feature.store.StoredFeature;
+import com.geodesk.gol.util.TileReaderTask;
 import org.eclipse.collections.api.map.primitive.MutableLongObjectMap;
+import org.eclipse.collections.api.set.primitive.MutableIntSet;
 import org.eclipse.collections.impl.map.mutable.primitive.LongObjectHashMap;
 import org.xml.sax.SAXException;
 
@@ -115,14 +118,38 @@ public class ChangeGraph
         new Reader().read(fileName);
     }
 
-    /*
-    private class FindFeaturesTask extends TileScanner
+    private class FeatureFinderTask extends TileReaderTask
     {
+        final int tip;
 
-        public FindFeaturesTask(ByteBuffer buf, int pTile)
+        public FeatureFinderTask(int tip, ByteBuffer buf, int pTile)
         {
             super(buf, pTile);
+            this.tip = tip;
+        }
+
+        @Override protected void node(int p)
+        {
+            long id = StoredFeature.id(buf, p);
+            CNode node = nodes.get(id);
+            if(node == null) return;
+            // TODO
+        }
+
+        @Override protected void way(int p)
+        {
+            // do nothing
+        }
+
+        @Override protected void relation(int p)
+        {
+            // do nothing
         }
     }
-     */
+
+    private class FeatureFinder
+    {
+        private int tilesRemaining;
+
+    }
 }

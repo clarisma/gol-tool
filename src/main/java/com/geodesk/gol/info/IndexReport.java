@@ -10,7 +10,7 @@ package com.geodesk.gol.info;
 import com.clarisma.common.text.Table;
 import com.geodesk.feature.store.FeatureStore;
 import com.geodesk.feature.store.TileIndexWalker;
-import com.geodesk.gol.util.TileScanner;
+import com.geodesk.gol.util.TileReaderTask;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -135,7 +135,7 @@ public class IndexReport extends Table
         }
     }
 
-    private class IndexScanTask extends TileScanner
+    private class IndexScanTask extends TileReaderTask
     {
         private final int keyCount;
         private final int[] hitCounts;

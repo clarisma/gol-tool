@@ -49,8 +49,8 @@ key-weights:
 	FIXME:			0.1
 	todo:			0.1
 	TODO:			0.1
-// rename to indexed-keys
-category-keys:
+
+indexed-keys:
 	place
 	highway
 	railway

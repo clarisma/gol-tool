@@ -238,7 +238,7 @@ public class Project implements Serializable
 		case "source":
 			sourcePath(Path.of(value));
 			return true;
-		case "category-keys":		// indexed-keys
+		case "indexed-keys":
 			keyIndexSchema(value);
 			return true;
 		case "key-index-min-features":

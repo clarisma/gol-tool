@@ -99,10 +99,12 @@ public class StatsFeaturePrinter extends AbstractFeaturePrinter
             checkValue(value);
             if(value.endsWith("%"))
             {
+                minTally = Long.MIN_VALUE;
                 minPercentage = Options.parsePercentage(value);
                 return true;
             }
             minTally = Math.round(Options.parseDouble(value));
+            minPercentage = 0;
             return true;
         case "sort":
             // TODO: value?

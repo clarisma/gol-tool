@@ -82,6 +82,9 @@ public class UpdateCommand extends GolCommand
         settingsStream.close();
         Project project = projectReader.project();
 
+        // TODO
+        project.set("updatable", "yes");
+
         // TODO: do we need a work path?
         BuildContext context = new BuildContext(features.store(), null, project);
         ChangeGraph changes = new ChangeGraph(context);
@@ -104,8 +107,9 @@ public class UpdateCommand extends GolCommand
         long end = System.currentTimeMillis();
         if(verbosity >= Verbosity.NORMAL)
         {
-            System.err.format("Read %s in %s" , sourceFileName, Format.formatTimespan(end - start));
+            System.err.format("Read %s in %s\n" , sourceFileName, Format.formatTimespan(end - start));
         }
-
+        changes.report();
+        System.err.format("Processed updates in %s\n" , Format.formatTimespan(System.currentTimeMillis() - start));
     }
 }

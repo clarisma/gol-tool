@@ -25,6 +25,11 @@ public class CFeature<T extends CFeature.Change>
         this.id = id;
     }
 
+    public long id()
+    {
+        return id;
+    }
+
     public static class Change
     {
         ChangeType changeType;

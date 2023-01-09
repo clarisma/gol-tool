@@ -37,7 +37,7 @@ public class ChangeSetReader extends DefaultHandler
 	private final List<String> currentRoles = new ArrayList<>();
 	protected String timestamp;
 	protected String userName;
-	protected long userId;
+	protected String userId;
 	protected int version;
 
 	public ChangeSetReader() 
@@ -84,10 +84,14 @@ public class ChangeSetReader extends DefaultHandler
 		}
 	}
 
+
 	private void storeId(Attributes attributes)
 	{
 		currentId = Long.parseLong(attributes.getValue("id"));
+		userId = attributes.getValue("uid");
 		userName = attributes.getValue("user");
+		timestamp = attributes.getValue("timestamp");
+		version = Integer.parseInt(attributes.getValue("version"));
 	}
 		
 	public void startElement (String uri, String localName,

@@ -59,6 +59,7 @@ public class BuildContext
         this.workPath = workPath;
         this.project = project;
         indexPath = Utils.peerFolder(golPath, "-indexes");
+        idIndexPath = project.idIndexing() ? indexPath : workPath;
     }
 
     public Path golPath()

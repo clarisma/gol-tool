@@ -130,7 +130,7 @@ public class TileCatalog
 		tileToPile.put(PURGATORY_TILE, PURGATORY_PILE);
 		tileToTip.put(PURGATORY_TILE, PURGATORY_TIP);
 		pileToTileList.add(0);			// index entry 0 is not used
-		assert PURGATORY_TILE == 1;
+		assert PURGATORY_PILE == 1;
 		pileToTileList.add(PURGATORY_TILE);
 
 		TileIndexWalker walker = new TileIndexWalker(store);

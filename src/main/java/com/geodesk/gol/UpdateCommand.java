@@ -83,12 +83,12 @@ public class UpdateCommand extends GolCommand
         Project project = projectReader.project();
 
         // TODO: do we need a work path?
-        BuildContext context = new BuildContext(golPath, null, project);
+        BuildContext context = new BuildContext(features.store(), null, project);
         ChangeGraph changes = new ChangeGraph(context);
 
         if(verbosity >= Verbosity.NORMAL)
         {
-            System.err.format("Reading %s ..." , sourceFileName);
+            System.err.format("Reading %s ...\r" , sourceFileName);
         }
         long start = System.currentTimeMillis();
         try(FileInputStream fin = new FileInputStream(sourceFileName))

@@ -28,6 +28,7 @@ public class BuildContext
     private Path golPath;
     private Path workPath;
     private Path indexPath;
+    private Path idIndexPath;
     private Project project;
     private FeatureStore featureStore;
     private PileFile pileFile;
@@ -45,6 +46,16 @@ public class BuildContext
     public BuildContext(Path golPath, Path workPath, Project project)
     {
         this.golPath = golPath;
+        this.workPath = workPath;
+        this.project = project;
+        indexPath = Utils.peerFolder(golPath, "-indexes");
+        idIndexPath = project.idIndexing() ? indexPath : workPath;
+    }
+
+    public BuildContext(FeatureStore store, Path workPath, Project project)
+    {
+        this.featureStore = store;
+        this.golPath = store.path();
         this.workPath = workPath;
         this.project = project;
         indexPath = Utils.peerFolder(golPath, "-indexes");
@@ -83,9 +94,9 @@ public class BuildContext
 
     public void createIndexes() throws IOException
     {
-        assert nodeIndex != null;
-        assert wayIndex != null;
-        assert relationIndex != null;
+        assert nodeIndex == null;
+        assert wayIndex == null;
+        assert relationIndex == null;
         nodeIndex = openIndex("nodes.idx", 0, true);
         wayIndex = openIndex("ways.idx", 2, true);
         relationIndex = openIndex("relations.idx", 2, true);
@@ -124,7 +135,7 @@ public class BuildContext
     {
         int tileCount = getTileCatalog().tileCount();
         int bits = 32 - Integer.numberOfLeadingZeros(tileCount) + extraBits;
-        Path path = indexPath.resolve(fileName);
+        Path path = idIndexPath.resolve(fileName);
         boolean exists = Files.exists(path);
         if(create)
         {

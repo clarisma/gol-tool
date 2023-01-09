@@ -35,7 +35,7 @@ import java.nio.file.Paths;
 
 public abstract class GolCommand extends BasicCommand
 {
-    protected Path golPath;
+    private Path golPath;
     protected FeatureLibrary features;
     protected Box bbox;
 

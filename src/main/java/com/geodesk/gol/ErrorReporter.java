@@ -12,6 +12,7 @@ import com.clarisma.common.store.StoreException;
 import com.geodesk.feature.match.QueryException;
 
 import java.io.IOException;
+import java.nio.file.NoSuchFileException;
 
 public class ErrorReporter
 {
@@ -41,6 +42,12 @@ public class ErrorReporter
         {
             msg = ex.getMessage();
             result = BAD_ARGUMENTS;
+        }
+        else if (
+            ex instanceof NoSuchFileException ex2)
+        {
+            msg = ex2.getFile() + ": File not found";
+            result = IO_ERROR;
         }
         else if(
             ex instanceof IOException ||

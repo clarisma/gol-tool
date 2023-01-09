@@ -1,4 +1,4 @@
-Geographic Object Librarian (GOL) 0.1.1 EA
+Geographic Object Librarian (GOL) 0.1.4 EA
 ==========================================
 
 Copyright (c) Clarisma / GeoDesk contributors

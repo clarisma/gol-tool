@@ -21,9 +21,9 @@ public class Project implements Serializable
 	private boolean keepWork;
 	private Path sourcePath;
 	private int maxTiles = 16 * 1024;
-	private int minTileDensity = 10_000;
+	private int minTileDensity = 75_000;
 	private int zoomLevels = ZoomLevels.fromString(ZoomLevels.DEFAULT); // TODO
-	private int minStringUsage = 1000;
+	private int minStringUsage = 300;
 	private int maxStringCount = 1 << 14;
 	private int rtreeBucketSize = 16;
 	private KeyIndexSchema keyIndexSchema;
@@ -238,7 +238,7 @@ public class Project implements Serializable
 		case "source":
 			sourcePath(Path.of(value));
 			return true;
-		case "category-keys":		// indexed-keys
+		case "indexed-keys":
 			keyIndexSchema(value);
 			return true;
 		case "key-index-min-features":

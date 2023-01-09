@@ -18,8 +18,6 @@ import org.eclipse.collections.impl.set.mutable.primitive.LongHashSet;
 import java.io.PrintStream;
 import java.util.*;
 
-// TODO: keys report: sort values by frequency, not by value name!!!
-
 public class StatsFeaturePrinter extends AbstractFeaturePrinter
 {
     /**
@@ -54,9 +52,9 @@ public class StatsFeaturePrinter extends AbstractFeaturePrinter
 
     /**
      * The minimum percentage of the total tally a row must have in order to
-     * be included in the report.
+     * be included in the report (expressed as a factor: 10% = 0.1)
      */
-    private double minPercentage = 0;
+    private double minPercentage = 0.01;
     private boolean alphaSort;
 
     /**
@@ -80,7 +78,7 @@ public class StatsFeaturePrinter extends AbstractFeaturePrinter
      */
     private MutableObjectIntMap<String> currentRoles;
     private long currentRelationId;
-    private TallyMode tallyMode = TallyMode.COUNT;
+    private TallyMode tallyMode = TallyMode.KEYS;
     private Unit unit = Unit.M;
     private int maxTableWidth = 100;
 
@@ -101,10 +99,12 @@ public class StatsFeaturePrinter extends AbstractFeaturePrinter
             checkValue(value);
             if(value.endsWith("%"))
             {
+                minTally = Long.MIN_VALUE;
                 minPercentage = Options.parsePercentage(value);
                 return true;
             }
             minTally = Math.round(Options.parseDouble(value));
+            minPercentage = 0;
             return true;
         case "sort":
             // TODO: value?

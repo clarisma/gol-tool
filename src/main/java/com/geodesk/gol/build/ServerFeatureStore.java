@@ -43,6 +43,7 @@ public class ServerFeatureStore extends FeatureStore
      * @param size      the payload size of the tile
      * @return          the page of the newly allocated tile
      */
+    // --> FeatureStore
     public synchronized int createTile(int tip, int size)
     {
         int page = allocateBlob(size);
@@ -51,6 +52,7 @@ public class ServerFeatureStore extends FeatureStore
         return page;
     }
 
+    // --> Compiler
     // not synchronized, safe as long as each thread works on a different tile
     public void writeBlob(int page, Archive structs, PbfOutputStream imports) throws IOException
     {
@@ -69,6 +71,7 @@ public class ServerFeatureStore extends FeatureStore
             (newHeader & ~BlobStoreConstants.PRECEDING_BLOB_FREE_FLAG);
     }
 
+    // --> Linker
     // not synchronized, safe as long as each thread works on a different tile
     public void fixTileLinks(int importingTip, PbfBuffer imports, IntObjectMap<LongIntMap> exports)
     {
@@ -103,21 +106,13 @@ public class ServerFeatureStore extends FeatureStore
                 continue;
             }
 
-            /*
-            if(typedId == FeatureId.ofWay(705988446))
-            {
-                log.debug("Imported {} from tile {}: Position: {} (Shifted: {})",
-                    FeatureId.toString(typedId), Tip.toString(tip),
-                    targetPos, shift);
-            }
-             */
-
             int p = linkPos + ofs;
             int flags = buf.getInt(p);
             buf.putInt(p, (targetPos << shift) | flags);
         }
     }
 
+    // --> Compiler
     public static void create(BuildContext ctx) throws IOException
     {
         Project project = ctx.project();

@@ -7,6 +7,12 @@
 
 package com.geodesk.gol.update;
 
+/**
+ * A class that describes a feature within a ChangeGraph. Used for both features
+ * that have been changed and nodes/members of changed ways/relations.
+ *
+ * @param <T>
+ */
 public class CFeature<T extends CFeature.Change>
 {
     private final long id;

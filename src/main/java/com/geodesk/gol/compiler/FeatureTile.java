@@ -29,10 +29,7 @@ import org.eclipse.collections.impl.map.mutable.primitive.LongObjectHashMap;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 // TODO: split this class
 //  - This class should only serve as a container for the data structures
@@ -430,6 +427,32 @@ public class FeatureTile
                 f.setTags(tags);
             }
         });
+    }
+
+    public PbfOutputStream createWayNodeIndex()
+    {
+        List<SWay> wayList = new ArrayList<>(ways.size());
+        ways.forEach(way ->
+        {
+            if(way.isLocal()) wayList.add(way);
+        });
+        Collections.sort(wayList);
+
+        PbfOutputStream out = new PbfOutputStream();
+        long prevId = 0;
+        for(SWay way: wayList)
+        {
+            long id = way.id();
+            out.writeSignedVarint(id - prevId);
+                // we could use unsigned delta, but this would require that
+                // we always sort the IDs to get efficient compression
+
+            assert way.nodeIds() != null:
+                "way/%d in %s has no nodeIds".formatted(id, Tile.toString(tile));
+            way.writeNodes(out);
+            prevId = id;
+        }
+        return out;
     }
 
     public void build()

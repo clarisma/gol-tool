@@ -34,7 +34,7 @@ import java.util.Iterator;
 
 // TODO: create SFeature2D clas that includes bbox
 
-public abstract class SFeature extends SharedStruct implements FeatureFlags //, Iterable<SFeature>
+public abstract class SFeature extends SharedStruct implements FeatureFlags, Comparable<SFeature> //, Iterable<SFeature>
 {
     protected long id;
     protected STagTable tags;
@@ -352,5 +352,11 @@ public abstract class SFeature extends SharedStruct implements FeatureFlags //, 
             normalize(ft);
             setFlag(BUILT_FLAG);
         }
+    }
+
+    // TODO: should this sort by type as well?
+    @Override public int compareTo(SFeature other)
+    {
+        return Long.compare(id, other.id);
     }
 }

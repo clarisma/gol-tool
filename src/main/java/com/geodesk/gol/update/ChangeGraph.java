@@ -7,10 +7,12 @@
 
 package com.geodesk.gol.update;
 
+import com.clarisma.common.index.IntIndex;
 import com.geodesk.core.Mercator;
 import com.geodesk.feature.FeatureId;
 import com.geodesk.feature.FeatureType;
 import com.geodesk.feature.store.StoredFeature;
+import com.geodesk.gol.build.BuildContext;
 import com.geodesk.gol.util.TileReaderTask;
 import org.eclipse.collections.api.map.primitive.MutableLongObjectMap;
 import org.eclipse.collections.api.set.primitive.MutableIntSet;
@@ -18,6 +20,7 @@ import org.eclipse.collections.impl.map.mutable.primitive.LongObjectHashMap;
 import org.xml.sax.SAXException;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.ByteBuffer;
 
 // TODO: rename ChangeInventory?
@@ -27,6 +30,19 @@ public class ChangeGraph
     private final MutableLongObjectMap<CNode> nodes = new LongObjectHashMap<>();
     private final MutableLongObjectMap<CWay> ways = new LongObjectHashMap<>();
     private final MutableLongObjectMap<CRelation> relations = new LongObjectHashMap<>();
+
+    private final boolean useIdIndexes;
+    private final IntIndex nodeIndex;
+    private final IntIndex wayIndex;
+    private final IntIndex relationIndex;
+
+    public ChangeGraph(BuildContext ctx) throws IOException
+    {
+        nodeIndex = ctx.getNodeIndex();
+        wayIndex = ctx.getWayIndex();
+        relationIndex = ctx.getRelationIndex();
+        useIdIndexes = nodeIndex != null & wayIndex != null & relationIndex != null;
+    }
 
     private CNode getNode(long id)
     {
@@ -116,6 +132,11 @@ public class ChangeGraph
     public void read(String fileName) throws IOException, SAXException
     {
         new Reader().read(fileName);
+    }
+
+    public void read(InputStream in) throws IOException, SAXException
+    {
+        new Reader().read(in);
     }
 
     private class FeatureFinderTask extends TileReaderTask

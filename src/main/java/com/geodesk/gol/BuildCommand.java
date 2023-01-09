@@ -81,6 +81,12 @@ public class BuildCommand extends BasicCommand
         configPath = Utils.pathWithExtension(filename, ".fab");
     }
 
+    @Option("u")
+    public void updatable(String value)
+    {
+        setOption("updatable", value);
+    }
+
     @Override public int perform() throws Throwable
     {
         if (configPath == null)
@@ -185,7 +191,8 @@ public class BuildCommand extends BasicCommand
 
     private void createWorkPath() throws IOException
     {
-        workPath = golPath.resolveSibling(golPath.getFileName() + ".work");
+        // workPath = golPath.resolveSibling(golPath.getFileName() + ".work");
+        workPath = Utils.peerFolder(golPath, "-work");
         if(Files.notExists(workPath))
         {
             try
@@ -202,18 +209,27 @@ public class BuildCommand extends BasicCommand
         statePath = workPath.resolve("state.txt");
     }
 
-    private void createIndexFolders(Path indexPath) throws IOException
+    private void createIndexFolders(Path indexPath, boolean wayNodes) throws IOException
     {
-        Files.createDirectories(indexPath);
-        int topTip = context.getTileCatalog().topTip();
-        createTipFolders(indexPath.resolve("anodes"), topTip);
-        createTipFolders(indexPath.resolve("wnodes"), topTip);
+        try
+        {
+            Files.createDirectories(indexPath);
+            int topTip = context.getTileCatalog().topTip();
+            if (wayNodes) createTipFolders(indexPath.resolve("waynodes"), topTip);
+            // createTipFolders(indexPath.resolve("wnodes"), topTip);
+        }
+        catch(IOException ex)
+        {
+            throw new IOException(
+                "Failed to create folder for indexes (%s: %s)".formatted(
+                ex.getClass().getSimpleName(), ex.getMessage()), ex);
+        }
     }
 
     private static void createTipFolders(Path folder, int topTip) throws IOException
     {
         int maxFolder = topTip >>> 12;
-        for (int n = 0; n < maxFolder; n++)
+        for (int n = 0; n <= maxFolder; n++)
         {
             Path subFolder = folder.resolve("%03X".formatted(n));
             Files.createDirectories(subFolder);
@@ -273,6 +289,12 @@ public class BuildCommand extends BasicCommand
         tib.createTileMap(workPath.resolve("tile-map.html"),
             TileQuad.fromSingleTile(Tile.fromString("0/0/0")));
 
+        boolean isUpdatable = project.isUpdatable();
+        if(project.idIndexing() || isUpdatable)
+        {
+            createIndexFolders(context.indexPath(), isUpdatable);
+        }
+
         if(!keepWork)
         {
             delete(workPath, "node-counts.txt", "string-counts.txt");
@@ -282,10 +304,9 @@ public class BuildCommand extends BasicCommand
     private void sort() throws Exception
     {
         writeState(SORT);
-        PileFile pileFile = context.createPileFile();
-        Sorter sorter = new Sorter(workPath, project.verbosity(),
-            context.getTileCatalog(), pileFile);
+        Sorter sorter = new Sorter(context, project.verbosity());
         sorter.sortFeatures(project.sourcePath().toFile());
+        context.closeIndexes();
 
         if(!keepWork && !project.idIndexing())
         {

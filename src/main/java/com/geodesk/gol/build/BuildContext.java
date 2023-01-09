@@ -7,6 +7,10 @@
 
 package com.geodesk.gol.build;
 
+import com.clarisma.common.index.DenseInt16Index;
+import com.clarisma.common.index.DensePackedIntIndex;
+import com.clarisma.common.index.IntIndex;
+import com.clarisma.common.io.MappedFile;
 import com.clarisma.common.io.PileFile;
 import org.eclipse.collections.api.map.primitive.MutableObjectIntMap;
 import org.eclipse.collections.api.map.primitive.ObjectIntMap;
@@ -30,6 +34,9 @@ public class BuildContext
     private PileFile linkerExportFile;
     private RandomAccessFile linkerImportFile;
     private TileCatalog tileCatalog;
+    private IntIndex nodeIndex;
+    private IntIndex wayIndex;
+    private IntIndex relationIndex;
 
     private static final int IMPORT_DB_PAGE_SIZE = 1 << 16; // TODO: configurable
     private static final int LINKER_EXPORTS_PAGE_SIZE = 1 << 13; // TODO: configurable
@@ -39,6 +46,7 @@ public class BuildContext
         this.golPath = golPath;
         this.workPath = workPath;
         this.project = project;
+        indexPath = Utils.peerFolder(golPath, "-indexes");
     }
 
     public Path golPath()
@@ -49,6 +57,11 @@ public class BuildContext
     public Path workPath()
     {
         return workPath;
+    }
+
+    public Path indexPath()
+    {
+        return indexPath;
     }
 
     public Project project()
@@ -67,11 +80,77 @@ public class BuildContext
         return featureStore;
     }
 
+    public void createIndexes() throws IOException
+    {
+        assert nodeIndex != null;
+        assert wayIndex != null;
+        assert relationIndex != null;
+        nodeIndex = openIndex("nodes.idx", 0, true);
+        wayIndex = openIndex("ways.idx", 2, true);
+        relationIndex = openIndex("relations.idx", 2, true);
+    }
+
+    public void closeIndexes() throws IOException
+    {
+        // TODO: clean this up (avoid ugly cast; we only use MappedFile-based index):
+        if(nodeIndex != null) ((MappedFile)nodeIndex).close();
+        if(wayIndex != null)  ((MappedFile)wayIndex).close();
+        if(relationIndex != null)  ((MappedFile)relationIndex).close();
+        nodeIndex = null;
+        wayIndex = null;
+        relationIndex = null;
+    }
+
+    public IntIndex getNodeIndex() throws IOException
+    {
+        if(nodeIndex == null) nodeIndex = openIndex("nodes.idx", 0, false);
+        return nodeIndex;
+    }
+
+    public IntIndex getWayIndex() throws IOException
+    {
+        if(wayIndex == null) wayIndex = openIndex("ways.idx", 2, false);
+        return wayIndex;
+    }
+
+    public IntIndex getRelationIndex() throws IOException
+    {
+        if(relationIndex == null) relationIndex = openIndex("relations.idx", 2, false);
+        return relationIndex;
+    }
+
+    private IntIndex openIndex(String fileName, int extraBits, boolean create) throws IOException
+    {
+        int tileCount = getTileCatalog().tileCount();
+        int bits = 32 - Integer.numberOfLeadingZeros(tileCount) + extraBits;
+        Path path = indexPath.resolve(fileName);
+        boolean exists = Files.exists(path);
+        if(create)
+        {
+            if(exists) Files.delete(path);
+        }
+        else
+        {
+            if(!exists) return null;
+        }
+        return bits == 16 ? new DenseInt16Index(path) : new DensePackedIntIndex(path, bits);
+    }
+
     public TileCatalog getTileCatalog() throws IOException
     {
         if(tileCatalog == null)
         {
-            tileCatalog = new TileCatalog(workPath.resolve("tile-catalog.txt"));
+            // TODO: check this behavior; we should always create the TileCatalog
+            //  the same way (from FeatureStore); the text file should only be used
+            //  for debugging
+            if(featureStore != null)
+            {
+                tileCatalog = new TileCatalog(featureStore);
+            }
+            else
+            {
+                tileCatalog = new TileCatalog(workPath.resolve("tile-catalog.txt"));
+            }
         }
         return tileCatalog;
     }

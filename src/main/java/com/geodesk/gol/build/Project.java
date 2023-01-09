@@ -13,6 +13,8 @@ import java.io.*;
 import java.nio.file.Path;
 import java.util.Map;
 
+// TODO: Rename to Settings
+
 public class Project implements Serializable
 {
 	private Path workPath;
@@ -30,6 +32,7 @@ public class Project implements Serializable
 	private int maxKeyIndexes = 8;
 	private int keyIndexMinFeatures = 300;
 	private Map<String,String> properties;
+	private boolean explicitIdIndexing;
 	private boolean idIndexing;
 	private boolean tagDuplicateNodes;
 	private boolean tagOrphanNodes;
@@ -55,7 +58,12 @@ public class Project implements Serializable
 
 	public boolean idIndexing()
 	{
-		return idIndexing;
+		return explicitIdIndexing ? idIndexing : updatable;
+	}
+
+	public boolean isUpdatable()
+	{
+		return updatable;
 	}
 
 	public Path workPath()
@@ -237,6 +245,10 @@ public class Project implements Serializable
 		{
 		case "source":
 			sourcePath(Path.of(value));
+			return true;
+		case "id-indexing":
+			idIndexing = booleanValue(value);
+			explicitIdIndexing = true;
 			return true;
 		case "indexed-keys":
 			keyIndexSchema(value);

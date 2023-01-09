@@ -7,10 +7,15 @@
 
 package com.geodesk.gol.build;
 
+import com.geodesk.core.Box;
 import com.geodesk.core.Tile;
 import com.geodesk.core.TileQuad;
+import com.geodesk.feature.store.FeatureStore;
+import com.geodesk.feature.store.TileIndexWalker;
 import com.geodesk.feature.store.ZoomLevels;
+import org.eclipse.collections.api.list.primitive.MutableIntList;
 import org.eclipse.collections.api.map.primitive.MutableIntIntMap;
+import org.eclipse.collections.impl.list.mutable.primitive.IntArrayList;
 import org.eclipse.collections.impl.map.mutable.primitive.IntIntHashMap;
 
 import java.io.IOException;
@@ -66,7 +71,12 @@ public class TileCatalog
 		throw new IOException(
 			String.format("Tile Catalog %s invalid at line %d", tileCatalogFile, line));
 	}
-	
+
+	// TODO: don't read from the text file; this should only be used fore debugging
+	//  instead, read the tile catalog by walking the tile index
+	//  This keeps the mapping of piles <-> tips consistent
+	//  (We cannot always assume that if pileA > pileB then tipA > tipB)
+
 	public TileCatalog(Path tileCatalogFile) throws IOException
 	{
 		List<String> lines = Files.readAllLines(tileCatalogFile);
@@ -110,6 +120,35 @@ public class TileCatalog
 		minZoom = ZoomLevels.minZoom(zoomLevelsInUse);
 		maxZoom = ZoomLevels.maxZoom(zoomLevelsInUse);
 	}
+
+	public TileCatalog(FeatureStore store)
+	{
+		// TODO: If we store tile count in the GOL, get it here
+		tileToPile = new IntIntHashMap();
+		tileToTip = new IntIntHashMap();
+		MutableIntList pileToTileList = new IntArrayList();
+		tileToPile.put(PURGATORY_TILE, PURGATORY_PILE);
+		tileToTip.put(PURGATORY_TILE, PURGATORY_TIP);
+		pileToTileList.add(0);			// index entry 0 is not used
+		assert PURGATORY_TILE == 1;
+		pileToTileList.add(PURGATORY_TILE);
+
+		TileIndexWalker walker = new TileIndexWalker(store);
+		walker.start(Box.ofWorld());
+		while(walker.next())
+		{
+			int tile = walker.tile();
+			tileToPile.put(tile, pileToTileList.size());
+			tileToTip.put(tile, walker.tip());
+			pileToTileList.add(tile);
+		}
+		pileToTile = pileToTileList.toArray();
+
+		zoomLevels = store.zoomLevels();
+		minZoom = ZoomLevels.minZoom(zoomLevels);
+		maxZoom = ZoomLevels.maxZoom(zoomLevels);
+	}
+
 	
 	public int tileCount()
 	{

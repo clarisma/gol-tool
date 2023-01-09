@@ -30,7 +30,7 @@ public class Linker extends Processor<Linker.Task>
 {
     // private static final Logger log = LogManager.getLogger();
 
-    private final ServerFeatureStore featureStore;
+    private final FeatureStore featureStore;
     private final TileCatalog tileCatalog;
     private final RandomAccessFile linkerImportFile;
     private final PileFile linkerExportFile;

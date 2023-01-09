@@ -33,7 +33,7 @@ import static com.geodesk.gol.build.ProtoGol.*;
 
 public class Compiler extends Processor<Compiler.Task>
 {
-    private final ServerFeatureStore featureStore;
+    private final FeatureStore featureStore;
     private final Path rootPath;
     private final TileCatalog tileCatalog;
     private final List<String> keyStrings;

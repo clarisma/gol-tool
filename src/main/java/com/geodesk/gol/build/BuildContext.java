@@ -12,6 +12,7 @@ import com.clarisma.common.index.DensePackedIntIndex;
 import com.clarisma.common.index.IntIndex;
 import com.clarisma.common.io.MappedFile;
 import com.clarisma.common.io.PileFile;
+import com.geodesk.feature.store.FeatureStore;
 import org.eclipse.collections.api.map.primitive.MutableObjectIntMap;
 import org.eclipse.collections.api.map.primitive.ObjectIntMap;
 import org.eclipse.collections.impl.map.mutable.primitive.ObjectIntHashMap;
@@ -28,7 +29,7 @@ public class BuildContext
     private Path workPath;
     private Path indexPath;
     private Project project;
-    private ServerFeatureStore featureStore;
+    private FeatureStore featureStore;
     private PileFile pileFile;
     private ObjectIntMap<String> globalStringMap;
     private PileFile linkerExportFile;
@@ -69,11 +70,11 @@ public class BuildContext
         return project;
     }
 
-    public ServerFeatureStore getFeatureStore() throws IOException
+    public FeatureStore getFeatureStore() throws IOException
     {
         if(featureStore == null)
         {
-            featureStore = new ServerFeatureStore();
+            featureStore = new FeatureStore();
             featureStore.setPath(golPath);
             featureStore.openExclusive();
         }

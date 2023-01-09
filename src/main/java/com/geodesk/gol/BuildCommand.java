@@ -10,6 +10,8 @@ package com.geodesk.gol;
 import com.clarisma.common.cli.*;
 import com.clarisma.common.io.FileUtils;
 import com.clarisma.common.io.PileFile;
+import com.clarisma.common.soar.Archive;
+import com.clarisma.common.soar.SBytes;
 import com.clarisma.common.text.Format;
 import com.clarisma.common.util.Log;
 import com.geodesk.core.Tile;
@@ -342,11 +344,40 @@ public class BuildCommand extends BasicCommand
         schema.removeLocalKeys(context.getGlobalStringMap());
     }
 
+    private void createFeatureStore() throws IOException
+    {
+        //Project project = context.project();
+        //Path workPath = context.workPath();
+        Archive archive = new Archive();
+        SFeatureStoreHeader header = new SFeatureStoreHeader(project);
+        archive.setHeader(header);
+
+        // TODO: properties
+
+        SBytes tileIndex = new SBytes(Files.readAllBytes(
+            workPath.resolve("tile-index.bin")), 2);
+        archive.place(tileIndex);
+        header.tileIndex = tileIndex;
+
+        SBytes indexSchema = project.keyIndexSchema().encode(context.getGlobalStringMap());
+        archive.place(indexSchema);
+        header.indexSchema = indexSchema;
+
+        SBytes stringTable = StringTableBuilder.encodeStringTable(
+            Files.readAllLines(workPath.resolve("global.txt")));
+        archive.place(stringTable);
+        header.stringTable = stringTable;
+
+        header.setMetadataSize(archive.size());
+        archive.writeSparseFile(golPath);
+    }
+
     private void compile() throws Exception
     {
         writeState(COMPILE);
         normalizeIndexedKeys();
-        ServerFeatureStore.create(context);
+        // ServerFeatureStore.create(context);
+        createFeatureStore();
         Compiler compiler = new Compiler(context);
         compiler.compileAll();
 

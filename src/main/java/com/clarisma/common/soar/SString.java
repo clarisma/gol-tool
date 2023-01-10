@@ -8,13 +8,16 @@
 package com.clarisma.common.soar;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+
+import com.clarisma.common.pbf.PbfDecoder;
 import com.clarisma.common.pbf.PbfEncoder;
 
 public class SString extends SharedStruct implements Comparable<SString> 
 {
-	private String string;
-	private byte[] bytes;
+	private final String string;
+	private final byte[] bytes;
 	
 	public SString(String s)
 	{
@@ -23,6 +26,16 @@ public class SString extends SharedStruct implements Comparable<SString>
 		int lenLength = PbfEncoder.varintLength(bytes.length);
 		setSize(bytes.length + lenLength);
 		setAlignment(0);
+	}
+
+	public SString(int p, byte[] bytes)
+	{
+		this.bytes = bytes;
+		string = new String(bytes, StandardCharsets.UTF_8);
+		int lenLength = PbfEncoder.varintLength(bytes.length);
+		setSize(bytes.length + lenLength);
+		setAlignment(0);
+		setLocation(p);
 	}
 
 	@Override public boolean equals(Object other)
@@ -56,5 +69,18 @@ public class SString extends SharedStruct implements Comparable<SString>
 	{
 		out.writeVarint(bytes.length);
 		out.write(bytes);
+	}
+
+	public static SString read(ByteBuffer buf, int pString)
+	{
+		int p = pString;
+		int len = buf.get(p++);
+		if((len & 0x80) != 0)
+		{
+			len = (len & 0x7f) | (buf.get(p++) << 7);  // TODO: max 16K
+		}
+		byte[] bytes = new byte[len];
+		buf.get(p, bytes);
+		return new SString(pString, bytes);
 	}
 }

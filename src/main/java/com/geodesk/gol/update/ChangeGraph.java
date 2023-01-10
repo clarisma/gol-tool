@@ -368,8 +368,8 @@ public class ChangeGraph
                     if(ways.get(wayId) != null) foundWays++;
                 }
                 // Log.debug("Read %,d nodes from %s", count, path);
-                Log.debug("Found %,d ways  in %s", foundWays, Tip.toString(tip));
-                Log.debug("Found %,d nodes in %s", foundNodes, Tip.toString(tip));
+                // Log.debug("Found %,d ways  in %s", foundWays, Tip.toString(tip));
+                // Log.debug("Found %,d nodes in %s", foundNodes, Tip.toString(tip));
             }
             catch (IOException ex)
             {

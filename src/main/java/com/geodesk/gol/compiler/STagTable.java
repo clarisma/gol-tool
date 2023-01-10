@@ -44,6 +44,8 @@ import static com.geodesk.gol.compiler.UsageScores.*;
 //   - need an iterator to return local strings used
 //     (for FeatureLayout.placeFeatureBody())
 //   - SString would need a sequence number
+//     --> No need: just map strings to sequence number
+//     --> retrieve strings from list
 
 public class STagTable extends SharedStruct implements Iterable<Map.Entry<String,String>>, Comparable<STagTable>
 {

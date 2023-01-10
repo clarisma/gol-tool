@@ -16,8 +16,10 @@ import com.geodesk.gol.build.Project;
 import com.geodesk.gol.build.ProjectReader;
 import com.geodesk.gol.build.Utils;
 import com.geodesk.gol.update.ChangeGraph;
+import org.xml.sax.SAXException;
 
 import java.io.FileInputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -26,54 +28,73 @@ import java.util.zip.GZIPInputStream;
 
 public class UpdateCommand extends GolCommand
 {
-    private final static int SOURCE_OSC = 1;
-    private final static int SOURCE_GZ = 2;
-
-    private int source;
-    private String sourceFileName;
+    private String[] sourceFiles;
 
     // TODO: make optional
     @Parameter("1=source")
-    public void source(String filename)
+    public void source(String... sourceFiles)
     {
-        String ext = FileUtils.getExtension(filename);
-        if(ext.isEmpty())
-        {
-            if(trySource(filename + ".osc", SOURCE_OSC)) return;
-            if(trySource(filename + ".osc.gz", SOURCE_GZ)) return;
-            throw new IllegalArgumentException("No .osc or .osc.gz file found with name " + filename);
-        }
-
-        // getExtension() gives us only the last extension (".gz" instead of ".osc.gz")
-        // TODO: rewrite this
-
-        switch(ext)
-        {
-        case "osc":
-            source = SOURCE_OSC;
-            break;
-        case "gz":
-            source = SOURCE_GZ;
-            break;
-        default:
-            throw new IllegalArgumentException("Unknown change file format: " + filename);
-        }
-        sourceFileName = filename;
+        this.sourceFiles = sourceFiles;
     }
 
-    private boolean trySource(String filename, int sourceType)
+    private void readFiles(ChangeGraph changes) throws IOException
     {
-        if(Files.exists(Path.of(filename)))
+        if(verbosity >= Verbosity.NORMAL) System.err.print("Reading changes ...\r");
+        long start = System.currentTimeMillis();
+
+        for(String file : sourceFiles)
         {
-            source = sourceType;
-            sourceFileName = filename;
-            return true;
+            String ext = FileUtils.getExtension(file);
+            if(ext.isEmpty())
+            {
+                if (readFile(changes, file + ".osc", false, false)) continue;
+                if (readFile(changes, file + ".osc.gz", true, false)) continue;
+                throw new IllegalArgumentException("No .osc or .osc.gz file found with name " + file);
+            }
+            switch(ext)
+            {
+            case "osc":
+                readFile(changes, file, false, true);
+                break;
+            case "gz":
+                readFile(changes, file, true, true);
+                break;
+            default:
+                throw new IllegalArgumentException("Unknown change file format: " + file);
+            }
         }
-        return false;
+
+        if(verbosity >= Verbosity.NORMAL)
+        {
+            System.err.format("Read %,d file%s in %s\n" , sourceFiles.length,
+                sourceFiles.length==1 ? "" : "s", Format.formatTimespan(
+                    System.currentTimeMillis() - start));
+        }
     }
+
+    private boolean readFile(ChangeGraph changes, String file,
+        boolean zipped, boolean mustExist) throws IOException
+    {
+        if (!mustExist && !Files.exists(Path.of(file))) return false;
+
+        try (FileInputStream fin = new FileInputStream(file))
+        {
+            InputStream in = fin;
+            if (zipped) in = new GZIPInputStream(fin);
+            changes.read(in);
+            in.close();
+        }
+        catch(SAXException ex)
+        {
+            throw new IOException("%s: Invalid file (%s)".formatted(file, ex.getMessage()));
+        }
+        return true;
+    }
+
 
     @Override protected void performWithLibrary() throws Exception
     {
+        long start = System.currentTimeMillis();
         InputStream settingsStream;
         // TODO: configurable
         settingsStream = getClass().getResourceAsStream("/com/geodesk/gol/default-config.fab");
@@ -88,27 +109,7 @@ public class UpdateCommand extends GolCommand
         // TODO: do we need a work path?
         BuildContext context = new BuildContext(features.store(), null, project);
         ChangeGraph changes = new ChangeGraph(context);
-
-        if(verbosity >= Verbosity.NORMAL)
-        {
-            System.err.format("Reading %s ...\r" , sourceFileName);
-        }
-        long start = System.currentTimeMillis();
-        try(FileInputStream fin = new FileInputStream(sourceFileName))
-        {
-            InputStream in = fin;
-            if(source == SOURCE_GZ)
-            {
-                in = new GZIPInputStream(fin);
-            }
-            changes.read(in);
-            in.close();
-        }
-        long end = System.currentTimeMillis();
-        if(verbosity >= Verbosity.NORMAL)
-        {
-            System.err.format("Read %s in %s\n" , sourceFileName, Format.formatTimespan(end - start));
-        }
+        readFiles(changes);
         changes.report();
         System.err.format("Processed updates in %s\n" , Format.formatTimespan(System.currentTimeMillis() - start));
     }

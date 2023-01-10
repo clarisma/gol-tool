@@ -12,13 +12,16 @@ import com.geodesk.core.Tile;
 import com.geodesk.core.TileQuad;
 import com.geodesk.feature.store.FeatureStore;
 import com.geodesk.feature.store.TileIndexWalker;
+import com.geodesk.feature.store.Tip;
 import com.geodesk.feature.store.ZoomLevels;
 import org.eclipse.collections.api.list.primitive.MutableIntList;
 import org.eclipse.collections.api.map.primitive.MutableIntIntMap;
 import org.eclipse.collections.impl.list.mutable.primitive.IntArrayList;
 import org.eclipse.collections.impl.map.mutable.primitive.IntIntHashMap;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -121,6 +124,8 @@ public class TileCatalog
 		maxZoom = ZoomLevels.maxZoom(zoomLevelsInUse);
 	}
 
+	// TODO: This is wrong; traversal order does not yield tip order,
+	//  since traversal is depth first (rather than breadth first)
 	public TileCatalog(FeatureStore store)
 	{
 		// TODO: If we store tile count in the GOL, get it here
@@ -291,6 +296,17 @@ public class TileCatalog
 			zoom--;
 		}
 		return 0;   // root quad -- no! TODO: should not get here
+	}
+
+	public void write(String filename) throws FileNotFoundException
+	{
+		PrintWriter out = new PrintWriter(filename);
+		for(int i=1; i<pileToTile.length; i++)
+		{
+			int tile = pileToTile[i];
+			out.format("%s\t%s\n", Tip.toString(tipOfTile(tile)), Tile.toString(tile));
+		}
+		out.close();
 	}
 
 	/**

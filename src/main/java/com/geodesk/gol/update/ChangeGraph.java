@@ -314,8 +314,8 @@ public class ChangeGraph
 
         piles.forEach(pile ->
         {
-            int tile = tileCatalog.tipOfTile(tileCatalog.tileOfPile(pile));
-            executor.submit(new ScanTask(tile));
+            int tip = tileCatalog.tipOfTile(tileCatalog.tileOfPile(pile));
+            executor.submit(new ScanTask(tip));
         });
 
         executor.shutdown();

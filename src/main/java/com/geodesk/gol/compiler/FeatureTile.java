@@ -368,6 +368,8 @@ public class FeatureTile
         for(SRelation rel: unresolved) rel.resolve(this);
     }
 
+    // TODO: rename to just "buildIndex" (index is not just "spatial"; we no
+    //  longer have ID indexes, so no need to differentiate)
     private SIndexTree buildSpatialIndex(String id, List<SFeature> features)
     {
         return SIndexTree.build(id, features, tileBounds, project);

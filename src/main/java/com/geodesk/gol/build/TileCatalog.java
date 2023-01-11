@@ -22,6 +22,7 @@ import org.eclipse.collections.impl.map.mutable.primitive.IntIntHashMap;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -128,6 +129,13 @@ public class TileCatalog
 	//  since traversal is depth first (rather than breadth first)
 	public TileCatalog(FeatureStore store)
 	{
+		this(store.baseMapping(), store.tileIndexPointer(), store.zoomLevels());
+	}
+
+	public TileCatalog(ByteBuffer buf, int pTileIndex, int zoomLevels)
+	{
+		this.zoomLevels = zoomLevels;
+
 		// TODO: If we store tile count in the GOL, get it here
 		tileToPile = new IntIntHashMap();
 		tileToTip = new IntIntHashMap();
@@ -138,7 +146,7 @@ public class TileCatalog
 		assert PURGATORY_PILE == 1;
 		pileToTileList.add(PURGATORY_TILE);
 
-		TileIndexWalker walker = new TileIndexWalker(store);
+		TileIndexWalker walker = new TileIndexWalker(buf, pTileIndex, zoomLevels);
 		walker.start(Box.ofWorld());
 		while(walker.next())
 		{
@@ -149,7 +157,6 @@ public class TileCatalog
 		}
 		pileToTile = pileToTileList.toArray();
 
-		zoomLevels = store.zoomLevels();
 		minZoom = ZoomLevels.minZoom(zoomLevels);
 		maxZoom = ZoomLevels.maxZoom(zoomLevels);
 	}

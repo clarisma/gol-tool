@@ -9,7 +9,6 @@ package com.geodesk.gol;
 
 import com.clarisma.common.cli.*;
 import com.clarisma.common.io.FileUtils;
-import com.clarisma.common.io.PileFile;
 import com.clarisma.common.soar.Archive;
 import com.clarisma.common.soar.SBytes;
 import com.clarisma.common.text.Format;
@@ -164,7 +163,7 @@ public class BuildCommand extends BasicCommand
 
         if(!keepWork)
         {
-            delete(workPath, "state.txt", "stats.txt", "tile-map.html", "tile-index.bin");
+            delete(workPath, "state.txt");
             try
             {
                 Files.delete(workPath);
@@ -274,22 +273,33 @@ public class BuildCommand extends BasicCommand
     {
         writeState(PREPARE);
         StringTableBuilder stb = new StringTableBuilder();
-        stb.readStrings(workPath.resolve("string-counts.txt"));
+        stb.build(
+            workPath.resolve("string-counts.txt"),
+            project.keyIndexSchema(),
+            project.maxStringCount(),
+            project.minStringUsage());
         stb.writeStringTables(
-            workPath.resolve("keys.txt"), workPath.resolve("values.txt"),
-            workPath.resolve("roles.txt"), workPath.resolve("global.txt"),
-            project.maxStringCount());
+            workPath.resolve("keys.txt"),
+            workPath.resolve("values.txt"),
+            workPath.resolve("roles.txt"));
 
         TileIndexBuilder tib = new TileIndexBuilder();
         tib.buildTileTree(
             workPath.resolve("node-counts.txt"),
             project.zoomLevels(),
-            project.maxTiles(), project.minTileDensity());
+            project.maxTiles(),
+            project.minTileDensity());
         tib.writeTileIndex(workPath.resolve("tile-index.bin"));
         tib.writeTileCatalog(workPath.resolve("tile-catalog.txt"));
-        // TODO: don't write map anymore
-        tib.createTileMap(workPath.resolve("tile-map.html"),
-            TileQuad.fromSingleTile(Tile.fromString("0/0/0")));
+            // TODO: write only if --debug
+
+        createFeatureStore(tib, stb);
+
+        if(keepWork)
+        {
+            tib.createTileMap(workPath.resolve("tile-map.html"),
+                TileQuad.fromSingleTile(Tile.fromString("0/0/0")));
+        }
 
         boolean isUpdatable = project.isUpdatable();
         if(project.idIndexing() || isUpdatable)
@@ -303,6 +313,29 @@ public class BuildCommand extends BasicCommand
         }
     }
 
+    private void createFeatureStore(TileIndexBuilder tib, StringTableBuilder stb) throws IOException
+    {
+        Archive archive = new Archive();
+        SFeatureStoreHeader header = new SFeatureStoreHeader(project);
+        archive.setHeader(header);
+
+        // TODO: properties
+
+        header.tileIndex = tib.addToArchive(archive);
+
+        SBytes indexSchema = project.keyIndexSchema().encode(stb.stringsToCodes());
+        archive.place(indexSchema);
+        header.indexSchema = indexSchema;
+
+        SBytes stringTable = stb.encodeGlobalStrings();
+        archive.place(stringTable);
+        header.stringTable = stringTable;
+
+        header.setMetadataSize(archive.size());
+        archive.writeSparseFile(golPath);
+    }
+
+
     private void sort() throws Exception
     {
         writeState(SORT);
@@ -312,8 +345,7 @@ public class BuildCommand extends BasicCommand
 
         if(!keepWork && !project.idIndexing())
         {
-            delete(workPath,
-                "nodes.idx", "ways.idx", "relations.idx");
+            delete(workPath,"nodes.idx", "ways.idx", "relations.idx");
         }
     }
 
@@ -336,15 +368,27 @@ public class BuildCommand extends BasicCommand
      * Make sure this step is performed if we split the Compiler into a
      * separate executable (This will likely read settings in binary form).
      *
+     * We cannot perform this step when we're reading the settings,
+     * because we don't know yet whether the keys to be indexed will
+     * use global strings.
+     *
+     * 1/11/23: No longer needed. The StringTableBuilder ensures that all
+     *   indexed keys (regardless of usage frequency) are stored in the GST
+     *
+     * TODO: The Compiler should read the key index schema from the GOL!
+     *
      * @throws IOException if global string table fails to load
      */
+    /*
     private void normalizeIndexedKeys() throws IOException
     {
         KeyIndexSchema schema = context.project().keyIndexSchema();
         schema.removeLocalKeys(context.getGlobalStringMap());
     }
+     */
 
-    private void createFeatureStore() throws IOException
+    /*
+    private void createFeatureStore_old() throws IOException
     {
         //Project project = context.project();
         //Path workPath = context.workPath();
@@ -371,21 +415,18 @@ public class BuildCommand extends BasicCommand
         header.setMetadataSize(archive.size());
         archive.writeSparseFile(golPath);
     }
+     */
 
     private void compile() throws Exception
     {
         writeState(COMPILE);
-        normalizeIndexedKeys();
-        // ServerFeatureStore.create(context);
-        createFeatureStore();
+
         Compiler compiler = new Compiler(context);
         compiler.compileAll();
 
         if(!keepWork)
         {
-            delete(workPath,
-                "features.bin", "tile-catalog.txt",
-                "global.txt", "keys.txt", "values.txt", "roles.txt");
+            delete(workPath, "features.bin", "keys.txt", "values.txt", "roles.txt");
         }
     }
 

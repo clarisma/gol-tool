@@ -33,6 +33,8 @@ import java.util.*;
 
 // TODO: What guarantees can we make about the order of tiles in the Tile Catalog?
 //  Are TIPs always in ascending order?
+//  --> No guarantees about layout
+//  --> Pile numbers follow index traversal order (depth-first, west, south)
 
 public class TileIndexBuilder 
 {
@@ -308,6 +310,7 @@ public class TileIndexBuilder
 		return root;
 	}
 
+	// TODO: remove
 	public void writeTileIndex(Path indexPath) throws IOException
 	{
 		Archive archive = new Archive();
@@ -316,14 +319,18 @@ public class TileIndexBuilder
 		archive.writeFile(indexPath);
 	}
 
-	public void addToArchive(Archive archive)
+	public Struct addToArchive(Archive archive)
 	{
 		addToArchive(archive, root);
+		return root;
 	}
 
 	private void addToArchive(Archive archive, STile root)
 	{
-		// TODO: more efficient layout
+		// TODO: more efficient layout?
+		//  But if we use other techniques (page-aware, hole-filling, etc.),
+		//  be sure to only place entries after the root, else we end up with
+		//  negative TIPs (which are not allowed)
 		
 		archive.place(root);
 		for(STile child: root.children)

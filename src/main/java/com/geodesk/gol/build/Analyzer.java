@@ -588,17 +588,6 @@ public class Analyzer extends OsmPbfReader
         out.close();
     }
 
-    /*
-    public void analyze(String sourceFilename) throws IOException
-    {
-        globalNodesPerTile = new int[4096 * 4096];      // TODO: delay creation
-        mostRecentString = new StringCounter("yes");
-        globalStrings.put(mostRecentString.string, mostRecentString);
-        evictionCandidate = mostRecentString;
-        read(sourceFilename);
-    }
-     */
-
     public void analyze() throws Exception
     {
         analyze(project.workPath(), project.sourcePath());
@@ -615,7 +604,7 @@ public class Analyzer extends OsmPbfReader
         globalStrings.put(mostRecentString.string, mostRecentString);
         evictionCandidate = mostRecentString;
         read(sourcePath.toFile());
-        writeStatistics(workPath.resolve("stats.txt").toString());
+        // writeStatistics(workPath.resolve("stats.txt").toString());
         writeStringSummary(workPath.resolve("string-counts.txt").toString());
         writeNodeDensities(workPath.resolve("node-counts.txt").toString());
         if(project.verbosity() >= Verbosity.QUIET)
@@ -625,23 +614,7 @@ public class Analyzer extends OsmPbfReader
         }
     }
 
-
     /*
-    public static void main(String[] args) throws Exception
-    {
-        String fileName = "c:\\geodesk\\mapdata\\south-america-2021-02-02.osm.pbf";
-        log.info("V3 Analyzing {}...", fileName);
-        Stopwatch timer = new Stopwatch();
-        Analyzer analyzer = new Analyzer();
-        analyzer.analyze(fileName);
-        analyzer.writeStatistics("c:\\geodesk\\sa2\\stats.txt");
-        analyzer.writeStringSummary("c:\\geodesk\\sa2\\string-counts.txt");
-        analyzer.writeNodeDensities("c:\\geodesk\\sa2\\node-counts.txt");
-        log.info("Analyzed in {}\n", Format.formatTimespan(timer.stop()));
-    }
-
-     */
-
     public static void main(String[] args) throws Exception
     {
         Path workPath = Path.of(args[0]);
@@ -656,4 +629,5 @@ public class Analyzer extends OsmPbfReader
             System.err.println("Analyzed in " + Format.formatTimespan(analyzer.timeElapsed()));
         }
     }
+     */
 }

@@ -68,7 +68,10 @@ public class Compiler extends Processor<Compiler.Task>
         keyStrings = Files.readAllLines(rootPath.resolve("keys.txt"));
         valueStrings = Files.readAllLines(rootPath.resolve("values.txt"));
         roleStrings = Files.readAllLines(rootPath.resolve("roles.txt"));
-        globalStrings = ctx.getGlobalStringMap();
+
+        // TODO: check if we need to have "" in the table
+        //  (currently not included)
+        globalStrings = featureStore.stringsToCodes();
         wayNodeIndexPath = ctx.project().isUpdatable() ?
             ctx.indexPath().resolve("waynodes") : null;
     }

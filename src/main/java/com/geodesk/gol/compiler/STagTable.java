@@ -216,6 +216,8 @@ public class STagTable extends SharedStruct implements Iterable<Map.Entry<String
 					// strings used as keys must be 4-byte aligned
 				uncommonKeyCount++;
 			}
+
+			// TODO: what happens to empty tag value?
 			e.valueCode = globalStrings.get(v);
 			if(e.valueCode != 0)
 			{

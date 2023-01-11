@@ -33,11 +33,11 @@ import java.util.List;
 //  an index number above 8K (or 16K for roles)
 
 /**
- * The StringTableBuilder creates string tables for the Importer as well
+ * The StringTableBuilder creates string tables for the Sorter as well
  * as the FeatureStore, based on the String Summary file produced by the
  * Analyzer.
  *
- * For the Importer, string tables are separated by keys, values, and roles;
+ * For the Sorter, string tables are separated by keys, values, and roles;
  * we put as many strings into them as possible to maximize space savings,
  * and don't distinguish numbers.
  *
@@ -50,19 +50,35 @@ import java.util.List;
  *
  * TODO: Put indexed keys first, so they appear before all others in the tag table
  *  --> quicker to get a hit in queries
+ *
+ *  TODO: Should indexed keys be promoted to global strings, even if their
+ *   occurence count is not high enough?
+ *   Useful for updating: Expectation that key use becomes more frequent in the future
+ *   If so, need to ensure that max-strings > number of indexed keys)
+ *
+ *  TODO: put certain keys ("yes", "no", "outer", "inner") at fixed positions in the GST?
  */
 public class StringTableBuilder
 {
-    private List<StringEntry> keys = new ArrayList<>();
-    private List<StringEntry> values = new ArrayList<>();
-    private List<StringEntry> roles = new ArrayList<>();
-    private List<StringEntry> global = new ArrayList<>();
+    private final List<StringEntry> keys = new ArrayList<>();
+    private final List<StringEntry> values = new ArrayList<>();
+    private final List<StringEntry> roles = new ArrayList<>();
+    /**
+     * Global strings (includes empty string at #0)
+     */
+    private String[] globalStrings;
+    private ObjectIntMap<String> stringsToCodes;
 
     private static final float KEY_FACTOR = 5;
     private static final float CATEGORY_KEY_FACTOR = 20;
     private static final float ROLE_FACTOR = 2;
 
-    private double minGlobalWeight = 1000;
+    private static final double INDEXED_KEY_BONUS = 10_000_000_000_000d;
+
+    public ObjectIntMap<String> stringsToCodes()
+    {
+        return stringsToCodes;
+    }
 
     private static class StringEntry implements Comparable<StringEntry>
     {
@@ -75,7 +91,7 @@ public class StringTableBuilder
         }
     }
 
-    private void addEntry(List<StringEntry> list, String string, double weight)
+    private static void addEntry(List<StringEntry> list, String string, double weight)
     {
         StringEntry e = new StringEntry();
         e.string = string;
@@ -83,8 +99,10 @@ public class StringTableBuilder
         list.add(e);
     }
 
-    public void readStrings(Path file) throws IOException
+    public void build(Path file, KeyIndexSchema indexedKeys,
+        int maxGlobalStrings, int minGlobalStringUsage) throws IOException
     {
+        List<StringEntry> tentativeGlobal = new ArrayList<>();
         try (BufferedReader reader = Files.newBufferedReader(file, StandardCharsets.UTF_8))
         {
             reader.readLine();   // table header; discard
@@ -120,13 +138,13 @@ public class StringTableBuilder
                 {
                     // TODO:
                     // Don't add very short strings to the string tables for
-                    // the Importer, unless they have exceptionally high
+                    // the Sorter, unless they have exceptionally high
                     // occurrences; otherwise, writing the string-table index
                     // number uses as much space as the string itself. For
                     // the top 63 strings (roughly over one million uses),
                     // the number is only one byte because of varint encoding,
-                    // so in that case string-tabling a string with one or two 
-                    // characters makes sense  
+                    // so in that case string-tabling a string with one or two
+                    // characters makes sense
                     if (keyCount > 2) addEntry(keys, string, keyCount * len);
                     if (valueCount > 2) addEntry(values, string, valueCount * len);
                     if (roleCount > 2) addEntry(roles, string, valueCount * len);
@@ -146,10 +164,21 @@ public class StringTableBuilder
                     }
                 }
 
-                double weight = keyCount * KEY_FACTOR + roleCount * ROLE_FACTOR + valueCount;
-                if(weight > minGlobalWeight)
+                // TODO: Strings that are assigned an explicit code ("yes", "no" ,etc.)
+
+                long usageCount = keyCount + roleCount + valueCount;
+                if(indexedKeys.getCategory(string) != 0)
                 {
-                    addEntry(global, string, weight);
+                    // TODO: In theory, indexed keys could be pushed beyond the
+                    //  MAX_COMMON_KEY limit if there's a *huge* amount of high-usage
+                    //  strings
+
+                    addEntry(tentativeGlobal, string, INDEXED_KEY_BONUS + usageCount);
+                }
+                else if(usageCount >= minGlobalStringUsage)
+                {
+                    double weight = keyCount * KEY_FACTOR + roleCount * ROLE_FACTOR + valueCount;
+                    addEntry(tentativeGlobal, string, weight);
                 }
             }
         }
@@ -157,7 +186,20 @@ public class StringTableBuilder
         Collections.sort(keys);
         Collections.sort(values);
         Collections.sort(roles);
-        Collections.sort(global);
+        Collections.sort(tentativeGlobal);
+
+        int globalStringCount = Math.min(tentativeGlobal.size(), maxGlobalStrings);
+        MutableObjectIntMap<String> map = new ObjectIntHashMap<>(globalStringCount);
+        globalStrings = new String[globalStringCount+1];
+        globalStrings[0] = "";
+        int i=1;
+        for(StringEntry entry : tentativeGlobal)
+        {
+            String string = entry.string;;
+            map.put(string, i);
+            globalStrings[i++] = string;
+        }
+        stringsToCodes = map;
     }
 
     private void writeStrings(List<StringEntry> list, Path file, int max) throws FileNotFoundException
@@ -171,76 +213,26 @@ public class StringTableBuilder
         out.close();
     }
 
-    public static class SStringTable extends Struct
-    {
-        private byte[] bytes;
-
-        public SStringTable(List<StringEntry> list)
-        {
-            PbfOutputStream out = new PbfOutputStream();
-            out.writeVarint(list.size());       // todo: fixed uint16?
-            for(StringEntry e: list)
-            {
-                byte[] chars = e.string.getBytes(StandardCharsets.UTF_8);
-                out.writeVarint(chars.length);
-                out.writeBytes(chars);
-            }
-            bytes = out.toByteArray();
-            setSize(bytes.length);
-            setAlignment(0);
-        }
-        @Override public void writeTo(StructOutputStream out) throws IOException
-        {
-            out.write(bytes);
-        }
-    }
-
-    public SStringTable buildStruct()
-    {
-        return new SStringTable(global);
-    }
-
-    public ObjectIntMap<String> createGlobalStringMap()
-    {
-        MutableObjectIntMap<String> stringMap = new ObjectIntHashMap<>(global.size());
-            // TODO : account for load factor?
-        for(int i=0; i<global.size(); i++)
-        {
-            stringMap.put(global.get(i).string, i+1);
-        }
-        return stringMap;
-    }
-
     public void writeStringTables(Path keysFile, Path valuesFile,
-        Path rolesFile, Path globalFile, int maxGlobalStrings) throws FileNotFoundException
+        Path rolesFile) throws FileNotFoundException
     {
         writeStrings(keys, keysFile, Integer.MAX_VALUE);
         writeStrings(values, valuesFile, Integer.MAX_VALUE);
         writeStrings(roles, rolesFile, Integer.MAX_VALUE);
-        writeStrings(global, globalFile, maxGlobalStrings);
     }
 
-    public static SBytes encodeStringTable(List<String> strings)
+    public SBytes encodeGlobalStrings()
     {
         PbfOutputStream out = new PbfOutputStream();
-        out.writeVarint(strings.size());       // todo: fixed uint16?
-        for(String s: strings)
+        int length = globalStrings.length;     // includes "" at #0
+        // The encoded string table, however, does not include entry #0
+        out.writeVarint(length - 1);       // todo: fixed uint16?
+        for(int i=1; i<length; i++)
         {
-            byte[] chars = s.getBytes(StandardCharsets.UTF_8);
+            byte[] chars = globalStrings[i].getBytes(StandardCharsets.UTF_8);
             out.writeVarint(chars.length);
             out.writeBytes(chars);
         }
-        return new SBytes( out.toByteArray(), 0);
-    }
-
-    public static void main(String[] args) throws Exception
-    {
-        Path root = Paths.get("c:\\geodesk");
-        StringTableBuilder stb = new StringTableBuilder();
-        stb.readStrings(Paths.get("c:\\geodesk\\string-counts.txt"));
-        stb.writeStrings(stb.keys, root.resolve("keys.txt"), Integer.MAX_VALUE);
-        stb.writeStrings(stb.values, root.resolve("values.txt"), Integer.MAX_VALUE);
-        stb.writeStrings(stb.roles, root.resolve("roles.txt"), Integer.MAX_VALUE);
-        stb.writeStrings(stb.global, root.resolve("global.txt"), 1 << 14);
+        return new SBytes(out.toByteArray(), 0);
     }
 }

@@ -19,9 +19,14 @@ import org.eclipse.collections.impl.map.mutable.primitive.ObjectIntHashMap;
 
 import java.io.IOException;
 import java.io.RandomAccessFile;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+
+import static java.nio.file.StandardOpenOption.READ;
+import static java.nio.file.StandardOpenOption.WRITE;
 
 public class BuildContext
 {
@@ -32,7 +37,7 @@ public class BuildContext
     private Project project;
     private FeatureStore featureStore;
     private PileFile pileFile;
-    private ObjectIntMap<String> globalStringMap;
+    // private ObjectIntMap<String> globalStringMap;
     private PileFile linkerExportFile;
     private RandomAccessFile linkerImportFile;
     private TileCatalog tileCatalog;
@@ -153,20 +158,24 @@ public class BuildContext
     {
         if(tileCatalog == null)
         {
-            // TODO: check this behavior; we should always create the TileCatalog
-            //  the same way (from FeatureStore); the text file should only be used
-            //  for debugging
+            ByteBuffer buf;
             if(featureStore != null)
             {
-                tileCatalog = new TileCatalog(featureStore);
+                buf = featureStore.baseMapping();
             }
             else
             {
-                tileCatalog = new TileCatalog(workPath.resolve("tile-catalog.txt"));
+                FileChannel channel = FileChannel.open(golPath, READ);
+                int size = (int)Math.min(channel.size(), 1 << 30);
+                buf = channel.map(FileChannel.MapMode.READ_ONLY, 0, size);
+                channel.close();
             }
+            tileCatalog = new TileCatalog(buf, FeatureStore.tileIndexPointer(buf),
+                    buf.getInt(FeatureStore.ZOOM_LEVELS_OFS));
         }
         return tileCatalog;
     }
+
 
     public PileFile createPileFile() throws IOException
     {
@@ -187,6 +196,8 @@ public class BuildContext
         return pileFile;
     }
 
+    // TODO: not needed
+    /*
     public ObjectIntMap<String> getGlobalStringMap() throws IOException
     {
         if(globalStringMap == null)
@@ -202,6 +213,7 @@ public class BuildContext
         }
         return globalStringMap;
     }
+     */
 
     public RandomAccessFile createLinkerImportFile() throws IOException
     {

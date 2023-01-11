@@ -233,8 +233,6 @@ public abstract class SIndexTree extends StructGroup<SFeature> implements Bounds
             return childBranches;
         }
 
-        ;
-
         @Override public int countChildren()
         {
             return childBranches.length;
@@ -244,8 +242,6 @@ public abstract class SIndexTree extends StructGroup<SFeature> implements Bounds
         {
             return "ROOT";
         }
-
-        ;
     }
 
     private static class KeyGroup
@@ -265,9 +261,10 @@ public abstract class SIndexTree extends StructGroup<SFeature> implements Bounds
     }
 
     /**
-     * This method finds all possible key-bit combinations among a list of features (e.g. "highway", "highway+railway",
-     * "building+amenity+tourism"). For each such combination, it creates a KeyGroup, and assigns the group number to
-     * each feature. Group numbers start from 0.
+     * This method finds all possible key-bit combinations among a list of
+     * features (e.g. "highway", "highway+railway", "building+amenity+tourism").
+     * For each such combination, it creates a KeyGroup, and assigns the group
+     * number to each feature. Group numbers start from 0.
      *
      * @param features a list of SFeature structs
      * @param schema   the KeyIndexSchema in use
@@ -305,9 +302,11 @@ public abstract class SIndexTree extends StructGroup<SFeature> implements Bounds
     }
 
     /**
-     * Based on a list of KeyGroups, this method builds a list of index buckets. It will attempt to place each of the
-     * most common key-bit groups into a separate bucket. If there are too many key-bit groups, or these groups aren't
-     * used by a minimum number of features, it consolidates these less-frequent groups into a "mixed" bucket.
+     * Based on a list of KeyGroups, this method builds a list of index buckets.
+     * It will attempt to place each of the most common key-bit groups into a
+     * separate bucket. If there are too many key-bit groups, or these groups
+     * aren't used by a minimum number of features, it consolidates these less
+     * frequent groups into a "mixed" bucket.
      *
      * @param groups  a list of KeyGroup objects
      * @param project the build settings (for "max-key-indexes" and "key-index-min-features")
@@ -393,9 +392,14 @@ public abstract class SIndexTree extends StructGroup<SFeature> implements Bounds
     {
         int rtreeBucketSize = project.rtreeBucketSize();
         KeyIndexSchema schema = project.keyIndexSchema();
+            // TODO: Read this from the GOL
         List<KeyGroup> groups = groupFeatures(features, schema);
         List<KeyGroup> buckets = createKeyIndexBuckets(groups, project);
         int bucketCount = buckets.size();
+
+        // TODO: Always create index buckets
+        //  See https://github.com/clarisma/gol-tool/issues/78
+
         if (bucketCount < 2)
         {
             return buildSpatialIndex(id, features, tileBounds, rtreeBucketSize);

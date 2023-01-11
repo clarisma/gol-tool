@@ -20,6 +20,7 @@ import org.eclipse.collections.impl.map.mutable.primitive.ObjectIntHashMap;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -168,6 +169,7 @@ public class BuildContext
                 FileChannel channel = FileChannel.open(golPath, READ);
                 int size = (int)Math.min(channel.size(), 1 << 30);
                 buf = channel.map(FileChannel.MapMode.READ_ONLY, 0, size);
+                buf.order(ByteOrder.LITTLE_ENDIAN);
                 channel.close();
             }
             tileCatalog = new TileCatalog(buf, FeatureStore.tileIndexPointer(buf),

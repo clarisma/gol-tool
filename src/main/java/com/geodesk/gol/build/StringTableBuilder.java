@@ -25,9 +25,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 
 // TODO: don't include strings in GST if they are only used for keys and have
 //  an index number above 8K (or 16K for roles)
@@ -99,9 +97,10 @@ public class StringTableBuilder
         list.add(e);
     }
 
-    public void build(Path file, KeyIndexSchema indexedKeys,
+    public void build(Path file, KeyIndexSchema keyIndexSchema,
         int maxGlobalStrings, int minGlobalStringUsage) throws IOException
     {
+        Set<String> indexedKeysToInclude = new HashSet<>(keyIndexSchema.indexedKeys());
         List<StringEntry> tentativeGlobal = new ArrayList<>();
         try (BufferedReader reader = Files.newBufferedReader(file, StandardCharsets.UTF_8))
         {
@@ -167,13 +166,14 @@ public class StringTableBuilder
                 // TODO: Strings that are assigned an explicit code ("yes", "no" ,etc.)
 
                 long usageCount = keyCount + roleCount + valueCount;
-                if(indexedKeys.getCategory(string) != 0)
+                if(indexedKeysToInclude.contains(string))
                 {
                     // TODO: In theory, indexed keys could be pushed beyond the
                     //  MAX_COMMON_KEY limit if there's a *huge* amount of high-usage
                     //  strings
 
                     addEntry(tentativeGlobal, string, INDEXED_KEY_BONUS + usageCount);
+                    indexedKeysToInclude.remove(string);
                 }
                 else if(usageCount >= minGlobalStringUsage)
                 {
@@ -181,6 +181,13 @@ public class StringTableBuilder
                     addEntry(tentativeGlobal, string, weight);
                 }
             }
+        }
+
+        // Add all indexed keys, even those that aren't used at all
+        //  (GST must always include indexed keys regardless of usage count)
+        for(String string: indexedKeysToInclude)
+        {
+            addEntry(tentativeGlobal, string, INDEXED_KEY_BONUS);
         }
 
         Collections.sort(keys);

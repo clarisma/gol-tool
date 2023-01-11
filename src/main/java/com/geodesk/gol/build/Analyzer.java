@@ -597,7 +597,7 @@ public class Analyzer extends OsmPbfReader
     {
         globalNodesPerTile = new int[4096 * 4096];      // TODO: delay creation
         mostRecentString = new StringCounter("no");
-        mostRecentString.total = mostRecentString.values = 1_000_000_000;
+        mostRecentString.total = mostRecentString.values = 100_000_000_000_000L;
             // Ensures that "no" will always be included in the GST
             //  TODO: This feels ugly; consider assigning fixed entries
             //   to "no" and other common strings

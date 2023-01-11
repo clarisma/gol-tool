@@ -90,6 +90,11 @@ public class KeyIndexSchema implements Serializable
         keysToCategories = map;
     }
 
+    public Set<String> indexedKeys()
+    {
+        return keysToCategories.keySet();
+    }
+
     /**
      * Returns the category to which a key belongs.
      *

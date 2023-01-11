@@ -311,6 +311,7 @@ public class TileIndexBuilder
 	}
 
 	// TODO: remove
+	/*
 	public void writeTileIndex(Path indexPath) throws IOException
 	{
 		Archive archive = new Archive();
@@ -318,6 +319,7 @@ public class TileIndexBuilder
 		addToArchive(archive);
 		archive.writeFile(indexPath);
 	}
+	 */
 
 	public Struct addToArchive(Archive archive)
 	{

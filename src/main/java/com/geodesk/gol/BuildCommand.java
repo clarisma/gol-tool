@@ -289,9 +289,10 @@ public class BuildCommand extends BasicCommand
             project.zoomLevels(),
             project.maxTiles(),
             project.minTileDensity());
-        tib.writeTileIndex(workPath.resolve("tile-index.bin"));
-        tib.writeTileCatalog(workPath.resolve("tile-catalog.txt"));
-            // TODO: write only if --debug
+        if(keepWork)
+        {
+            tib.writeTileCatalog(workPath.resolve("tile-catalog.txt"));
+        }
 
         createFeatureStore(tib, stb);
 

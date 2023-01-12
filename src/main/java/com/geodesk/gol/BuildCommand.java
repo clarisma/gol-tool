@@ -242,7 +242,10 @@ public class BuildCommand extends BasicCommand
         if(Files.exists(statePath))
         {
             Properties props = new Properties();
-            props.load(new FileInputStream(statePath.toFile()));
+            try(FileInputStream in = new FileInputStream(statePath.toFile()))
+            {
+                props.load(in);
+            }
             String task = props.getProperty("task");
             for (int i=0; i<TASKS.length; i++)
             {

@@ -25,6 +25,11 @@ import org.xml.sax.Attributes;
 import org.xml.sax.SAXException;
 import org.xml.sax.helpers.DefaultHandler;
 
+// TODO: OscReader
+// TODO: could pass LongList, Iterable<String> to avoid needless copying,
+//  but risks introducing subtle bugs if consumer does not copy
+//  (Current implementation assumes consumer uses arrays; consumer may also
+//  iterate and encode as PBF)
 
 public class ChangeSetReader extends DefaultHandler
 {

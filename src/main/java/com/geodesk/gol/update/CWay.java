@@ -7,9 +7,11 @@
 
 package com.geodesk.gol.update;
 
+import com.geodesk.core.Box;
+
 public class CWay extends CFeature<CWay.Change>
 {
-    // TODO: need current nodeIDs
+    // TODO: need current nodeIDs?
 
     public CWay(long id)
     {
@@ -18,7 +20,23 @@ public class CWay extends CFeature<CWay.Change>
 
     public static class Change extends CFeature.Change
     {
+        /**
+         * The way's future node IDs.
+         */
         long[] nodeIds;
+        long[] nodeIdsAdded;
+        long[] nodeIdsRemoved;
+        /**
+         * The encoded representation of the way's new geometry (delta-encoded
+         * X/Y) or null if the way's geometry has not changed (or has not been
+         * calculated yet)
+         */
+        byte[] geometry;
+        /**
+         * The way's new bounding box, or null if the bbox has not changed
+         * (or has not yet been calculated).
+         */
+        Box bbox;
 
         public Change(ChangeType changeType, int version, String[] tags, long[] nodeIds)
         {

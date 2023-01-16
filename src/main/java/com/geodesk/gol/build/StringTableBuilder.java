@@ -236,9 +236,7 @@ public class StringTableBuilder
         out.writeVarint(length - 1);       // todo: fixed uint16?
         for(int i=1; i<length; i++)
         {
-            byte[] chars = globalStrings[i].getBytes(StandardCharsets.UTF_8);
-            out.writeVarint(chars.length);
-            out.writeBytes(chars);
+            out.writeString(globalStrings[i]);
         }
         return new SBytes(out.toByteArray(), 0);
     }

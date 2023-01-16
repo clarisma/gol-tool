@@ -11,6 +11,7 @@ import com.geodesk.feature.store.ZoomLevels;
 
 import java.io.*;
 import java.nio.file.Path;
+import java.util.HashMap;
 import java.util.Map;
 
 // TODO: Rename to Settings
@@ -31,7 +32,7 @@ public class Project implements Serializable
 	private KeyIndexSchema keyIndexSchema;
 	private int maxKeyIndexes = 8;
 	private int keyIndexMinFeatures = 300;
-	private Map<String,String> properties;
+	private Map<String,String> properties = new HashMap<>();
 	private boolean explicitIdIndexing;
 	private boolean idIndexing;
 	private boolean tagDuplicateNodes;
@@ -239,6 +240,16 @@ public class Project implements Serializable
 		}
 	}
 
+	public void setProperty(String name, String value)
+	{
+		properties.put(name, value);
+	}
+
+	public Map<String,String> properties()
+	{
+		return properties;
+	}
+
 	public boolean set(String name, String value)
 	{
 		switch(name)
@@ -288,11 +299,6 @@ public class Project implements Serializable
 			return true;
 		}
 		return false;
-	}
-
-	public Map<String,String> properties()
-	{
-		return properties;
 	}
 
 	public static Project read(Path path) throws Exception

@@ -17,9 +17,7 @@ import com.geodesk.feature.store.StoredFeature;
 import com.geodesk.feature.store.Tip;
 import com.geodesk.gol.build.BuildContext;
 import com.geodesk.gol.build.TileCatalog;
-import com.geodesk.gol.info.IndexReport;
 import com.geodesk.gol.util.TileReaderTask;
-import org.eclipse.collections.api.map.primitive.LongObjectMap;
 import org.eclipse.collections.api.map.primitive.MutableLongLongMap;
 import org.eclipse.collections.api.map.primitive.MutableLongObjectMap;
 import org.eclipse.collections.api.set.primitive.IntSet;
@@ -41,18 +39,63 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 import static java.nio.file.StandardOpenOption.READ;
-import static java.nio.file.StandardOpenOption.WRITE;
 
 // TODO: rename ChangeInventory?
+//  Better name: RevisionSet, or just Revision
 
 // TODO: changes that are created and then deleted?
 
+// TODO: When coalescing changes, need to inspect the order; parser may
+//  see delete before create
+
 public class ChangeGraph
 {
+    /**
+     * - All explicitly changed nodes (tags, x/y)
+     * - All implicitly changed or created nodes (promoted to feature,
+     *   demoted to anonymous, purgatory node)
+     *   - An anonymous node is promoted to feature if in the future:
+     *     - it has tags OR
+     *     - it is a relation member OR
+     *     - it is a "duplicate" OR
+     *     - it is an "orphan"
+     *   - A feature node is demoted to anonymous if in the future:
+     *     - it has no tags AND
+     *     - it isn't referenced by any relations AND
+     *     - it is not a "duplicate" AND
+     *     - it is not an "orphan"
+     * - All nodes (potentially) referenced by relations
+     */
     private final MutableLongObjectMap<CNode> nodes = new LongObjectHashMap<>();
+    /**
+     * - All explicitly changed ways (tags, node IDs)
+     * - All implicitly changed ways (a way-node moved, was promoted to feature
+     *   or demoted to anonymous)
+     * - All ways (potentially) referenced by relations
+     */
     private final MutableLongObjectMap<CWay> ways = new LongObjectHashMap<>();
+    /**
+     * - All explicitly changed relations (tags, member IDs, roles)
+     * - All implicitly changed relations (member feature's geometry change
+     *   caused the relation's bbox or quad to change)
+     * - All relations (potentially) referenced by other relations
+     */
     private final MutableLongObjectMap<CRelation> relations = new LongObjectHashMap<>();
-    private final MutableLongLongMap locations = new LongLongHashMap();
+    /**
+     * A mapping of node IDs to past locations. Contains the locations of all
+     * modified or deleted nodes, as well as all future nodes referenced by
+     * new/modified ways.
+     */
+    private final MutableLongLongMap idToPastLocation = new LongLongHashMap();
+    /**
+     * A mapping of x/y to one of the nodes (non-deterministic) located there
+     * in the future. This helps us discover potential duplicate nodes.
+     * (If more than one node lives at a location, we promote those that are
+     * anonymous nodes to feature status, tagged with geodesk:duplicate)
+     * // TODO: also orphans can be duplicate
+     */
+    private final MutableLongObjectMap<CNode> futureLocationToNode = new LongObjectHashMap<>();
+
 
     private final boolean useIdIndexes;
     private final IntIndex nodeIndex;
@@ -256,20 +299,20 @@ public class ChangeGraph
             piles.size(), tileCatalog.tileCount());
 
         gatherNodes();
-        System.out.format("Relevant nodes: %,d\n", locations.size());
+        System.out.format("Relevant nodes: %,d\n", idToPastLocation.size());
 
         scanTiles(piles);
 	}
 
     private void gatherNodes()
     {
-        nodes.forEach(node -> locations.put(node.id(), -1));
+        nodes.forEach(node -> idToPastLocation.put(node.id(), -1));
         ways.forEach(way ->
         {
             CWay.Change change = way.change;
             if(change != null)
             {
-                for(long nodeId: change.nodeIds) locations.put(nodeId, -1);
+                for(long nodeId: change.nodeIds) idToPastLocation.put(nodeId, -1);
             }
         });
     }
@@ -360,7 +403,7 @@ public class ChangeGraph
                     for (int i = 0; i < nodeCount; i++)
                     {
                         long nodeId = pbf.readSignedVarint() + prevNodeId;
-                        if(locations.get(nodeId) != 0) foundNodes++;
+                        if(idToPastLocation.get(nodeId) != 0) foundNodes++;
                         count++;
                         prevNodeId = nodeId;
                     }
@@ -381,6 +424,59 @@ public class ChangeGraph
         {
             readWayNodes();
         }
+    }
+
+    /**
+     * Since we cannot concurrenlty write to `nodes`, `ways`, `relations` and
+     * `idToPastLocation` (at least without lots of expensive locking), we
+     * stash the results of a scan in unordered circular linked lists. Each
+     * entry contains the ID of the feature, and two integer values. For the
+     * feature maps, `val1`/'val2` are the TIP/offset of the features; for
+     * node locations, `val1`/'val2` are the x/y coordinates.
+     */
+    private static class ScanResult
+    {
+        long id;
+        int val1;
+        int val2;
+        ScanResult next;
+    }
+
+    /**
+     * Adds a single result to an unordered circular linked list.
+     *
+     * @param first     the first item of the circular linked list
+     *                  (can be `null`)
+     * @param item      the single result (must not be `null`)
+     * @return          the first item of the circular linked list
+     */
+    static ScanResult addResult(ScanResult first, ScanResult item)
+    {
+        if(first == null)
+        {
+            item.next = item;
+            return item;
+        }
+        item.next = first.next;
+        first.next = item;
+        return first;
+    }
+
+    /**
+     * Combines two unordered circular linked lists.
+     *
+     * @param a  the first item of the first linked list (can be `null`)
+     * @param b  the first item of the second linked list (can be `null`)
+     * @return   the first item of the combined circular linked list
+     */
+    static ScanResult mergeResults(ScanResult a, ScanResult b)
+    {
+        if(a == null) return b;
+        if(b == null) return a;
+        ScanResult aNext = a.next;
+        a.next = b.next;
+        b.next = aNext;
+        return a;
     }
 
     private class FeatureFinder

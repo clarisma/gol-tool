@@ -85,31 +85,6 @@ indexed-relation-types:
 max-key-indexes:             6
 key-index-min-features:    300
 
-properties:
-    license:       ODbL 2.0
-    license-url:
-
-compiler-heap:      6g
-compiler-threads:   auto
-compiler-queue:     auto
-
-sorter:
-    heap:       0.5g
-    threads:    auto
-    queue:      auto
-    page-size:  auto
-    batch-size: auto
-
-analyzer:
-    heap:       1g
-    threads:    auto
-    queue:      auto
-
-compiler:
-    heap:       6g
-    threads:    auto
-    queue:      auto
-
 area-tags:
     aeroway (except taxiway)
     amenity

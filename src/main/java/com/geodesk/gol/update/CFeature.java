@@ -39,38 +39,48 @@ public class CFeature<T extends CFeature.Change>
     /**
      * A feature's tags have changed.
      */
-    public static final int CHANGED_TAGS = 1;
+    public static final int CHANGED_TAGS = 1 << 0;
     /**
      * Indicates that a node's x/y or a way's geometry has changed (does not
      * apply to relations).
      */
-    public static final int CHANGED_GEOMETRY = 2;
+    public static final int CHANGED_GEOMETRY = 1 << 1;
     /**
      * A way's node IDs have changed. This *always* results in CHANGED_GEOMETRY.
      */
-    public static final int CHANGED_NODE_IDS = 4;
+    public static final int CHANGED_NODE_IDS = 1 << 2;
     /**
      * The members (or their roles) of a relation have changed.
      */
-    public static final int CHANGED_MEMBERS = 4;
+    public static final int CHANGED_MEMBERS = 1 << 3;
     /**
      * The bounding box of a way or relation has changed.
      */
-    public static final int CHANGED_BBOX = 16;
+    public static final int CHANGED_BBOX = 1 << 4;
     /**
      * A feature has moved into (or out of) one or more tiles.
      */
-    public static final int CHANGED_TILES = 32;
+    public static final int CHANGED_TILES = 1 << 5;
+    /**
+     * The feature will be deleted. Ways and relations are only deleted
+     * explicitly. Nodes can be deleted explicitly or implicitly (loss of
+     * feature status because a node will no longer have tags AND will
+     * not be part of relations AND will not be a duplicate AND will not
+     * be an orphan).
+     */
+    public static final int DELETE = 1 << 6;
 
     /**
      * A node's future x/y is the same as one or more other nodes.
-     * This does not mean
+     * This does not mean that the node will be tagged geodesk:duplicate
+     * (even if it does not have tags), because it may be included in a
+     * relation.
      */
-    public static final int SHARED_FUTURE_LOCATION = 128;
+    public static final int SHARED_FUTURE_LOCATION = 1 << 8;
     /**
      * A feature will be member of at least one relation in the future.
      */
-    public static final int FUTURE_RELATION_MEMBER = 256;
+    public static final int FUTURE_RELATION_MEMBER = 1 << 9;
 
 
     public CFeature(long id)
@@ -85,8 +95,7 @@ public class CFeature<T extends CFeature.Change>
 
     public static class Change
     {
-        // just use flag bits? We need flags anyway
-        ChangeType changeType;
+        int flags;
         /**
          * The OSM version number of the feature if it changed explicitly,
          * otherwise 0.
@@ -97,9 +106,9 @@ public class CFeature<T extends CFeature.Change>
          */
         String[] tags;
 
-        protected Change(ChangeType changeType, int version, String[] tags)
+        protected Change(int flags, int version, String[] tags)
         {
-            this.changeType = changeType;
+            this.flags = flags;
             this.version = version;
             this.tags = tags;
         }

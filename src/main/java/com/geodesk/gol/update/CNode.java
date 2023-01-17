@@ -16,8 +16,8 @@ public class CNode extends CFeature<CNode.Change>
 
     public static class Change extends CFeature.Change
     {
-        int x;
-        int y;
+        final int x;
+        final int y;
 
         public Change(ChangeType changeType, int version, String[] tags, int x, int y)
         {

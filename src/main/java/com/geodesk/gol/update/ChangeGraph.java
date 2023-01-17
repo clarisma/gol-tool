@@ -11,17 +11,22 @@ import com.clarisma.common.index.IntIndex;
 import com.clarisma.common.pbf.PbfDecoder;
 import com.clarisma.common.util.Log;
 import com.geodesk.core.Mercator;
+import com.geodesk.core.XY;
 import com.geodesk.feature.FeatureId;
+import com.geodesk.feature.FeatureLibrary;
 import com.geodesk.feature.FeatureType;
-import com.geodesk.feature.store.StoredFeature;
-import com.geodesk.feature.store.Tip;
+import com.geodesk.feature.Features;
+import com.geodesk.feature.query.WorldView;
+import com.geodesk.feature.store.*;
 import com.geodesk.gol.build.BuildContext;
 import com.geodesk.gol.build.TileCatalog;
 import com.geodesk.gol.util.TileReaderTask;
+import org.eclipse.collections.api.map.primitive.MutableLongIntMap;
 import org.eclipse.collections.api.map.primitive.MutableLongLongMap;
 import org.eclipse.collections.api.map.primitive.MutableLongObjectMap;
 import org.eclipse.collections.api.set.primitive.IntSet;
 import org.eclipse.collections.api.set.primitive.MutableIntSet;
+import org.eclipse.collections.impl.map.mutable.primitive.LongIntHashMap;
 import org.eclipse.collections.impl.map.mutable.primitive.LongLongHashMap;
 import org.eclipse.collections.impl.map.mutable.primitive.LongObjectHashMap;
 import org.eclipse.collections.impl.set.mutable.primitive.IntHashSet;
@@ -98,37 +103,24 @@ public class ChangeGraph
 
 
     private final boolean useIdIndexes;
+    private final FeatureStore store;
     private final IntIndex nodeIndex;
     private final IntIndex wayIndex;
     private final IntIndex relationIndex;
     private final TileCatalog tileCatalog;
     private final Path wayNodeIndexPath;
-
-    private Set<String> userIds = new HashSet<>();
-    private String earliestTimestamp = "9999";
-    private String latestTimestamp = "0000";
-
-    private long proposedChangesCount;
-    private long effectiveChangesCount;
-    private long createNodeCount;
-    private long modifyNodeCount;
-    private long deleteNodeCount;
-    private long createWayCount;
-    private long modifyWayCount;
-    private long deleteWayCount;
-    private long createRelationCount;
-    private long modifyRelationCount;
-    private long deletedRelationCount;
-
+    private final Features<?> duplicateNodes;
 
     public ChangeGraph(BuildContext ctx) throws IOException
     {
+        store = ctx.getFeatureStore();
         nodeIndex = ctx.getNodeIndex();
         wayIndex = ctx.getWayIndex();
         relationIndex = ctx.getRelationIndex();
         useIdIndexes = nodeIndex != null & wayIndex != null & relationIndex != null;
         tileCatalog = ctx.getTileCatalog();
         wayNodeIndexPath = ctx.indexPath().resolve("waynodes");
+        duplicateNodes = new WorldView<>(store).select("n[geodesk:duplicate]");
     }
 
     private CNode getNode(long id)
@@ -182,45 +174,19 @@ public class ChangeGraph
 
     private class Reader extends ChangeSetReader
     {
-        private ChangeType acceptChange(CFeature<?> f, ChangeType changeType)
+        private boolean acceptChange(CFeature<?> f, ChangeType changeType)
         {
-            if(timestamp.compareTo(earliestTimestamp) < 0)
-            {
-                earliestTimestamp = timestamp;
-            }
-            if(timestamp.compareTo(latestTimestamp) > 0)
-            {
-                latestTimestamp = timestamp;
-            }
-            userIds.add(userId);
-
-            proposedChangesCount++;
-            if(f.change == null)
-            {
-                effectiveChangesCount++;
-                return changeType;
-            }
-            if (f.change.version > version) return null;
-            if(f.change.changeType == ChangeType.CREATE)
-            {
-                if(changeType == ChangeType.DELETE)
-                {
-                    f.change = null;
-                    effectiveChangesCount--;
-                    return null;
-                }
-
-                // TODO: check if CREATE is followed by other CREATE
-
-                return ChangeType.CREATE;
-            }
-            return changeType;
+            if(f.change == null) return true;
+            if (version > f.change.version) return true;
+            if (version < f.change.version) return false;
+            if(changeType == ChangeType.DELETE) return true;
+            return ((f.change.flags & CFeature.DELETE) == 0);
         }
 
         @Override protected void node(ChangeType change, long id, double lon, double lat, String[] tags)
         {
             CNode node = getNode(id);
-            if((change = acceptChange(node, change)) == null) return;
+            if(!acceptChange(node, change)) return;
             int x = (int)Math.round(Mercator.xFromLon(lon));
             int y = (int)Math.round(Mercator.yFromLat(lat));
             node.change = new CNode.Change(change, version, tags, x, y);
@@ -229,14 +195,14 @@ public class ChangeGraph
         @Override protected void way(ChangeType change, long id, String[] tags, long[] nodeIds)
         {
             CWay way = getWay(id);
-            if((change = acceptChange(way, change)) == null) return;
+            if(!acceptChange(way, change)) return;
             way.change = new CWay.Change(change, version, tags, nodeIds);
         }
 
         @Override protected void relation(ChangeType change, long id, String[] tags, long[] memberIds, String[] roles)
         {
             CRelation rel = getRelation(id);
-            if((change = acceptChange(rel, change)) == null) return;
+            if(!acceptChange(rel, change)) return;
             CFeature<?>[] members = new CFeature[memberIds.length];
             for(int i=0; i<memberIds.length; i++)
             {
@@ -255,6 +221,36 @@ public class ChangeGraph
     {
         new Reader().read(in);
     }
+
+    /*
+
+    // TODO: What about features that have no Change (and hence have no flags)?
+
+    private void markFutureRelationMembers()
+    {
+        for(CRelation rel: relations)
+        {
+
+        }
+    }
+     */
+
+    private void markNodesWithFutureSharedLocations()
+    {
+        for(CNode node: nodes)
+        {
+            CNode.Change change = node.change;
+            if(change==null) continue;
+            long futureXY = XY.of(change.x, change.y);
+            CNode otherNode = futureLocationToNode.getIfAbsentPut(futureXY, node);
+            if(otherNode != node)
+            {
+                otherNode.change.flags |= CFeature.SHARED_FUTURE_LOCATION;
+                change.flags |= CFeature.SHARED_FUTURE_LOCATION;
+            }
+        }
+    }
+
 
     private class FeatureFinderTask extends TileReaderTask
     {
@@ -287,19 +283,13 @@ public class ChangeGraph
 
     public void report() throws Exception
 	{
-        int userCount = userIds.size();
-		System.out.format("%,d change%s (%,d effective) by %,d user%s\n", proposedChangesCount,
-            proposedChangesCount==1 ? "" : "s", effectiveChangesCount, userCount,
-            userCount==1 ? "" : "s");
-        System.out.format("Earliest: %s\n", earliestTimestamp);
-        System.out.format("Latest:   %s\n", latestTimestamp);
-
         IntSet piles = getPiles();
-        System.out.format("Affected tiles: %,d of %,d\n",
-            piles.size(), tileCatalog.tileCount());
+        Log.debug("Affected tiles: %,d of %,d", piles.size(), tileCatalog.tileCount());
+        Log.debug("New/changed nodes in %,d tiles", getNodeTiles().size());
 
         gatherNodes();
-        System.out.format("Relevant nodes: %,d\n", idToPastLocation.size());
+        Log.debug("Relevant nodes: %,d", idToPastLocation.size());
+
 
         scanTiles(piles);
 	}
@@ -347,6 +337,22 @@ public class ChangeGraph
         }
     }
 
+    private IntSet getNodeTiles() throws IOException
+    {
+        MutableIntSet tiles = new IntHashSet();
+        for(CNode node: nodes)
+        {
+            if(node.change != null)
+            {
+                int tile = tileCatalog.tileOfPile(tileCatalog
+                    .resolvePileOfXY(node.change.x, node.change.y));
+                tiles.add(tile);
+            }
+        }
+        return tiles;
+    }
+
+
     public void scanTiles(IntSet piles)
     {
         int threadCount = Runtime.getRuntime().availableProcessors();
@@ -358,7 +364,9 @@ public class ChangeGraph
         piles.forEach(pile ->
         {
             int tip = tileCatalog.tipOfTile(tileCatalog.tileOfPile(pile));
-            executor.submit(new ScanTask(tip));
+            int tilePage = store.fetchTile(tip);
+            executor.submit(new ScanTask(tip,
+                store.bufferOfPage(tilePage), store.offsetOfPage(tilePage)));
         });
 
         executor.shutdown();
@@ -372,12 +380,18 @@ public class ChangeGraph
         }
     }
 
-    private class ScanTask implements Runnable
+    private class ScanTask extends TileReaderTask
     {
         private final int tip;
+        private final MutableLongIntMap nodeIdsOfWays = new LongIntHashMap();
+        private int waysScanned;
+        private int foundWays;
+        private int foundNodes;
+        private int foundDupes;
 
-        ScanTask(int tip)
+        ScanTask(int tip, ByteBuffer buf, int pTile)
         {
+            super(buf, pTile);
             this.tip = tip;
         }
 
@@ -398,6 +412,7 @@ public class ChangeGraph
                 while (pbf.pos() < len)
                 {
                     long wayId = pbf.readSignedVarint() + prevWayId;
+                    nodeIdsOfWays.put(wayId, pbf.pos());
                     int nodeCount = (int) pbf.readVarint();
                     long prevNodeId = 0;
                     for (int i = 0; i < nodeCount; i++)
@@ -412,7 +427,8 @@ public class ChangeGraph
                 }
                 // Log.debug("Read %,d nodes from %s", count, path);
                 // Log.debug("Found %,d ways  in %s", foundWays, Tip.toString(tip));
-                // Log.debug("Found %,d nodes in %s", foundNodes, Tip.toString(tip));
+                Log.debug("Found %,d nodes in %s", foundNodes, Tip.toString(tip));
+                Log.debug("%d ways", nodeIdsOfWays.size());
             }
             catch (IOException ex)
             {
@@ -423,6 +439,35 @@ public class ChangeGraph
         @Override public void run()
         {
             readWayNodes();
+            super.run();
+             Log.debug("%d ways scanned (%d ways found, %d nodes found, %d dupes)",
+                waysScanned, foundWays, foundNodes, foundDupes);
+            //Log.debug("%d ways scanned (%d ways found, %d nodes found)",
+            //    waysScanned, foundWays, foundNodes);
+
+        }
+
+        @Override public void node(int p)
+        {
+            StoredNode node = new StoredNode(store, buf, p);
+            if(nodes.containsKey(node.id())) foundNodes++;
+            if(duplicateNodes.contains(node)) foundDupes++;
+        }
+
+        @Override public void way(int p)
+        {
+            StoredWay way = new StoredWay(store, buf, p);
+            if(ways.containsKey(way.id())) foundWays++;
+            StoredWay.XYIterator iter = way.iterXY(0);
+            while(iter.hasNext())
+            {
+                long xy = iter.nextXY();
+                if(futureLocationToNode.containsKey(xy))
+                {
+                    Log.debug("Potential duplicate node in way/%d", way.id());
+                }
+            }
+            waysScanned++;
         }
     }
 

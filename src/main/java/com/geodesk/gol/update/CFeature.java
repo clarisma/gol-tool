@@ -80,7 +80,7 @@ public class CFeature<T extends CFeature.Change>
     /**
      * A feature will be member of at least one relation in the future.
      */
-    public static final int FUTURE_RELATION_MEMBER = 1 << 9;
+    // public static final int FUTURE_RELATION_MEMBER = 1 << 9;
 
 
     public CFeature(long id)
@@ -106,9 +106,9 @@ public class CFeature<T extends CFeature.Change>
          */
         String[] tags;
 
-        protected Change(int flags, int version, String[] tags)
+        protected Change(ChangeType changeType, int version, String[] tags)
         {
-            this.flags = flags;
+            this.flags = changeType==ChangeType.DELETE ? DELETE : 0;
             this.version = version;
             this.tags = tags;
         }

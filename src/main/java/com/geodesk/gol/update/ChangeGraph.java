@@ -283,6 +283,8 @@ public class ChangeGraph
 
     public void report() throws Exception
 	{
+        Log.debug("In graph: %,d nodes, %,d ways, %,d relations",
+            nodes.size(), ways.size(), relations.size());
         IntSet piles = getPiles();
         Log.debug("Affected tiles: %,d of %,d", piles.size(), tileCatalog.tileCount());
         Log.debug("New/changed nodes in %,d tiles", getNodeTiles().size());
@@ -472,7 +474,7 @@ public class ChangeGraph
     }
 
     /**
-     * Since we cannot concurrenlty write to `nodes`, `ways`, `relations` and
+     * Since we cannot concurrently write to `nodes`, `ways`, `relations` and
      * `idToPastLocation` (at least without lots of expensive locking), we
      * stash the results of a scan in unordered circular linked lists. Each
      * entry contains the ID of the feature, and two integer values. For the

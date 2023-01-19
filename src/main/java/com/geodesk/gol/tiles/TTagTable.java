@@ -19,7 +19,7 @@ import java.util.Arrays;
 
 public class TTagTable extends SharedStruct
 {
-    private final StringSource strings;
+    private final TTile tile;
     private final int hashCode;
     private final long[] tags;
 
@@ -28,9 +28,10 @@ public class TTagTable extends SharedStruct
     private static long[] EMPTY = new long[] { 0xffff_ffff_ffff_ffffL };
 
 
-    public TTagTable(StringSource strings, ByteBuffer buf, int pTable, int uncommonTagsFlag)
+    public TTagTable(TileReader reader, int pTable, int uncommonTagsFlag)
     {
-        this.strings = strings;
+        this.tile = reader.tile();
+        ByteBuffer buf = reader.buf();
         setAlignment(1);    // 2-byte aligned (1 << 1)
         int uncommonTagCount = 0;
         int size = 0;
@@ -44,11 +45,16 @@ public class TTagTable extends SharedStruct
                 int valueSize = (k & 2) + 2;
                 uncommonTagCount++;
                 size += valueSize;
-                if((k & 4) != 0) break;
                 p -= valueSize;
+                if((k & 4) != 0) break;
             }
             setAnchor(size);
+            setLocation(p);
             p += size;
+        }
+        else
+        {
+            setLocation(pTable);
         }
         int tagCount = uncommonTagCount;
         for(;;)
@@ -73,7 +79,7 @@ public class TTagTable extends SharedStruct
 			int rawPointer = (int) (tag >> 16);
 			int flags = rawPointer & 7;
 			int pKey = ((rawPointer ^ flags) >> 1) + origin;    // preserve sign
-			int keyCode = strings.localStringCodeFromPtr(pKey);
+			int keyCode = reader.readString(pKey);
             if((flags & 2) == 0)
             {
                 // narrow value
@@ -87,7 +93,7 @@ public class TTagTable extends SharedStruct
                 if((flags & 1) != 0)
                 {
                     // wide string
-                    val = strings.localStringCodeFromPtr(p + val);
+                    val = reader.readString(p + val);
                 }
                 tag = (long)val << 32;
             }
@@ -114,7 +120,7 @@ public class TTagTable extends SharedStruct
                 if((k & 1) != 0)
                 {
                     // wide string
-                    val = strings.localStringCodeFromPtr(p + val);
+                    val = reader.readString(p + val);
                 }
             }
             long tag = ((k & 0x7ffc) << 1) | (k & 3);
@@ -128,9 +134,10 @@ public class TTagTable extends SharedStruct
         setSize(size);
     }
 
-    public TTagTable(StringSource strings, String[] tagStrings)
+    // TODO: is tagStrings allowed to be null (currently not; can be null in STagTable)
+    public TTagTable(TTile tile, String[] tagStrings)
     {
-        this.strings = strings;
+        this.tile = tile;
         setAlignment(1);    // 2-byte aligned (1 << 1)
         if(tagStrings.length == 0)
         {
@@ -148,7 +155,7 @@ public class TTagTable extends SharedStruct
             String key = tagStrings[i2];
             String value = tagStrings[i2+1];
             long tag;
-            int k = strings.globalStringCode(key);
+            int k = tile.globalStringCode(key);
             if(k >= 0 && k <= TagValues.MAX_COMMON_KEY)
             {
                 // global key
@@ -158,8 +165,8 @@ public class TTagTable extends SharedStruct
             else
             {
                 // local key
-                int keyCode = strings.localStringCode(key);
-                strings.useLocalStringAsKey(keyCode);
+                int keyCode = tile.localStringCode(key);
+                tile.useLocalStringAsKey(keyCode);
                     // ensure that string will be 4-byte aligned
                 tag = (keyCode << 3) | LOCAL_KEY;
                 size += 4;
@@ -167,7 +174,7 @@ public class TTagTable extends SharedStruct
             }
 
             int valueSize = 2;
-            int v = strings.globalStringCode(value);
+            int v = tile.globalStringCode(value);
             if(v >= 0)
             {
                 tag |= ((long)v << 32) | 1;  // local string
@@ -206,7 +213,7 @@ public class TTagTable extends SharedStruct
                 if(!numberValue)
                 {
                     // wide string
-                    tag |= ((long) strings.localStringCode(value) << 32) | 3;
+                    tag |= ((long) tile.localStringCode(value) << 32) | 3;
                     valueSize = 4;
                 }
             }
@@ -214,7 +221,7 @@ public class TTagTable extends SharedStruct
             size += valueSize;
             if((tag & LOCAL_KEY) != 0) anchor += valueSize;
         }
-        sortTags(strings, tags);
+        sortTags(tile, tags);
         hashCode = Arrays.hashCode(tags);
         setAlignment(1);    // 2-byte aligned (1 << 1)
         setSize(size);
@@ -226,10 +233,10 @@ public class TTagTable extends SharedStruct
      * - local keys first, descending key string
      * - then global keys, ascending key code
      *
-     * @param strings
+     * @param tile
      * @param tags
      */
-    private static void sortTags(StringSource strings, long[] tags)
+    private static void sortTags(TTile tile, long[] tags)
     {
         for(int i=1; i<tags.length; i++)
         {
@@ -253,8 +260,8 @@ public class TTagTable extends SharedStruct
                     }
                     else
                     {
-                        compare = strings.localString(otherKey).compareTo(
-                            strings.localString(key));
+                        compare = tile.localString(otherKey).compareTo(
+                            tile.localString(key));
                         if(compare >= 0) break;     // TODO: duplicate keys?
                     }
                 }
@@ -292,7 +299,7 @@ public class TTagTable extends SharedStruct
                 if((tag & 1) != 0)
                 {
                     // wide string
-                    out.writePointer(strings.localStringStruct(val));
+                    out.writePointer(tile.localStringStruct(val));
                 }
                 else
                 {
@@ -302,7 +309,7 @@ public class TTagTable extends SharedStruct
             }
             if((tag & LOCAL_KEY) != 0)
             {
-                SString keyString = strings.localStringStruct(keyCode);
+                SString keyString = tile.localStringStruct(keyCode);
                 int ptr = keyString.location() - origin;
 				assert (ptr & 3) == 0;
 				ptr <<= 1;

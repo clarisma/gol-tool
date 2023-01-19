@@ -13,6 +13,7 @@ import com.geodesk.feature.FeatureType;
 import com.geodesk.geom.Bounds;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 
 import static com.geodesk.feature.store.FeatureFlags.*;
 
@@ -26,6 +27,9 @@ public abstract class TFeature extends SharedStruct implements Bounds, Comparabl
     protected int minY;
     protected int tileQuad = -1;
     protected int group;
+
+    protected static final int LOCAL_FLAG = 1 << 15;
+
 
     public TFeature(long id)
     {
@@ -41,6 +45,11 @@ public abstract class TFeature extends SharedStruct implements Bounds, Comparabl
     public FeatureType type()
     {
         return FeatureType.values()[(flags >> FEATURE_TYPE_BITS) & 3];
+    }
+
+    public boolean isForeign()
+    {
+        return (flags & LOCAL_FLAG) == 0;
     }
 
     @Override public int minX()
@@ -63,4 +72,6 @@ public abstract class TFeature extends SharedStruct implements Bounds, Comparabl
         out.writeInt(((int) (id >>> 32) << 8) | (flags & 0xff));
         out.writeInt((int) id);
     }
+
+    public abstract void readStub(TileReader reader, int p);
 }

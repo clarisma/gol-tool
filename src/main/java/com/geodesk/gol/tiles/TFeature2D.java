@@ -11,6 +11,7 @@ import com.clarisma.common.soar.Struct;
 import com.clarisma.common.soar.StructOutputStream;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 
 public abstract class TFeature2D<T extends Struct> extends TFeature
 {
@@ -37,7 +38,7 @@ public abstract class TFeature2D<T extends Struct> extends TFeature
 
     @Override public void writeTo(StructOutputStream out) throws IOException
     {
-        // assert !isForeign();
+        assert !isForeign();
         out.writeInt(minX);
         out.writeInt(minY);
         out.writeInt(maxX);
@@ -47,4 +48,15 @@ public abstract class TFeature2D<T extends Struct> extends TFeature
         out.writePointer(body);
     }
 
+    @Override public void readStub(TileReader reader, int p)
+    {
+        ByteBuffer buf = reader.buf();
+        minX = buf.getInt(p - 16);
+        minY = buf.getInt(p - 12);
+        maxX = buf.getInt(p - 8);
+        maxY = buf.getInt(p - 4);
+        flags |= (buf.getInt(p) & 0xFE) | LOCAL_FLAG;
+        setLocation(p-16);
+        tags = reader.readTagsIndirect(p + 8);
+    }
 }

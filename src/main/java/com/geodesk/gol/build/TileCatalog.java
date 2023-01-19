@@ -66,7 +66,7 @@ public class TileCatalog
 	// public static final int OVERSIZED_PILES = 3;
 
 	// TODO: consolidate with TileArchive
-	public static final int PURGATORY_TILE = 0x0f00_0000;
+	public static final int PURGATORY_TILE = 0x0f00_0000;	// TODO: make -1?
 	public static final int PURGATORY_PILE = 1;
 	public static final int PURGATORY_TIP = 0;
 

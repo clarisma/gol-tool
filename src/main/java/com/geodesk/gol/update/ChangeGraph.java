@@ -19,11 +19,15 @@ import com.geodesk.feature.Features;
 import com.geodesk.feature.query.WorldView;
 import com.geodesk.feature.store.*;
 import com.geodesk.gol.build.BuildContext;
+import com.geodesk.gol.build.Project;
 import com.geodesk.gol.build.TileCatalog;
+import com.geodesk.gol.tiles.TTile;
+import com.geodesk.gol.tiles.TileReader;
 import com.geodesk.gol.util.TileReaderTask;
 import org.eclipse.collections.api.map.primitive.MutableLongIntMap;
 import org.eclipse.collections.api.map.primitive.MutableLongLongMap;
 import org.eclipse.collections.api.map.primitive.MutableLongObjectMap;
+import org.eclipse.collections.api.map.primitive.ObjectIntMap;
 import org.eclipse.collections.api.set.primitive.IntSet;
 import org.eclipse.collections.api.set.primitive.MutableIntSet;
 import org.eclipse.collections.impl.map.mutable.primitive.LongIntHashMap;
@@ -110,6 +114,7 @@ public class ChangeGraph
     private final TileCatalog tileCatalog;
     private final Path wayNodeIndexPath;
     private final Features<?> duplicateNodes;
+    private final Project project;
 
     public ChangeGraph(BuildContext ctx) throws IOException
     {
@@ -121,6 +126,7 @@ public class ChangeGraph
         tileCatalog = ctx.getTileCatalog();
         wayNodeIndexPath = ctx.indexPath().resolve("waynodes");
         duplicateNodes = new WorldView<>(store).select("n[geodesk:duplicate]");
+        project = ctx.project();
     }
 
     private CNode getNode(long id)
@@ -440,13 +446,19 @@ public class ChangeGraph
 
         @Override public void run()
         {
+            /*
             readWayNodes();
             super.run();
              Log.debug("%d ways scanned (%d ways found, %d nodes found, %d dupes)",
                 waysScanned, foundWays, foundNodes, foundDupes);
             //Log.debug("%d ways scanned (%d ways found, %d nodes found)",
             //    waysScanned, foundWays, foundNodes);
+            */
 
+            Log.debug("Reading tile %06X...", tip);
+            TTile tile = new TTile(tip, store.stringsToCodes(), tileCatalog, project);
+            TileReader reader = new TileReader(tile, store, buf, pTile);
+            reader.read();
         }
 
         @Override public void node(int p)

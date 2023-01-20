@@ -9,6 +9,7 @@ package com.geodesk.gol.tiles;
 import com.clarisma.common.pbf.PbfDecoder;
 import com.clarisma.common.soar.Struct;
 import com.clarisma.common.soar.StructOutputStream;
+import com.geodesk.feature.match.TypeBits;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -17,6 +18,8 @@ import static com.geodesk.feature.store.FeatureFlags.*;
 
 public class TWay extends TFeature2D<TWay.Body>
 {
+    private TNode[] featureNodes;
+
     public TWay(long id)
     {
         super(id);
@@ -29,33 +32,53 @@ public class TWay extends TFeature2D<TWay.Body>
         int ppBody = location() + 28;
         int pBody = buf.getInt(ppBody) + ppBody;
         reader.checkPointer(pBody);
-
-        PbfDecoder decoder = new PbfDecoder(buf, pBody);
-        int nodeCount = (int)decoder.readVarint();
-        while(nodeCount > 0)
-        {
-            decoder.readVarint();
-            decoder.readVarint();
-            nodeCount--;
-        }
-        int coordsLen = decoder.pos() - pBody;
-        byte[] coords = new byte[coordsLen];
-        buf.get(pBody, coords);
-        body = new Body(pBody, coords);
-        if(isRelationMember()) relations = reader.readRelationTableIndirect(pBody-4);
+        body = new Body(reader, buf, pBody);
     }
 
     class Body extends Struct
     {
         private final byte[] encodedCoords;
-        private int[] tipDeltas;
+        private final int[] tipDeltas;
 
-        public Body(int p, byte[] encodedCoords)
+        public Body(TileReader reader, ByteBuffer buf, int pBody)
         {
-            setLocation(p);
-            setSize(encodedCoords.length);
-            // TODO: anchor, size
-            this.encodedCoords = encodedCoords;
+            PbfDecoder decoder = new PbfDecoder(buf, pBody);
+            int nodeCount = (int) decoder.readVarint();
+            while (nodeCount > 0)
+            {
+                decoder.readVarint();
+                decoder.readVarint();
+                nodeCount--;
+            }
+            int bodySize = decoder.pos() - pBody;
+            encodedCoords = new byte[bodySize];
+            buf.get(pBody, encodedCoords);
+            int p = pBody - 4;
+            if (isRelationMember())
+            {
+                relations = reader.readRelationTableIndirect(p);
+                p -= 4;
+                bodySize += 4;
+                setAlignment(1);   // 2-byte (1 << 1)
+            }
+            if ((flags & WAYNODE_FLAG) != 0)
+            {
+                int pBefore = reader.readTable(p, 2, -1,
+                    TypeBits.NODES & TypeBits.WAYNODE_FLAGGED, false);
+                featureNodes = reader.getCurrentNodes();
+                tipDeltas = reader.getCurrentTipDeltas();
+                bodySize += p - pBefore;
+                reader.resetTables();
+                setAlignment(1);   // 2-byte (1 << 1)
+            }
+            else
+            {
+                tipDeltas = null;
+            }
+            setSize(bodySize);
+            int anchor = bodySize - encodedCoords.length;
+            setAnchor(anchor);
+            setLocation(pBody - anchor);
         }
 
         @Override public void writeTo(StructOutputStream out) throws IOException

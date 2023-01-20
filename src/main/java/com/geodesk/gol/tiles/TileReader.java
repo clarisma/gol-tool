@@ -9,6 +9,7 @@ package com.geodesk.gol.tiles;
 
 import com.clarisma.common.soar.SString;
 import com.clarisma.common.soar.Struct;
+import com.clarisma.common.util.Bytes;
 import com.clarisma.common.util.Log;
 import com.geodesk.feature.match.TypeBits;
 import com.geodesk.feature.store.FeatureConstants;
@@ -41,8 +42,8 @@ public class TileReader
 
     private final List<TFeature> currentFeatures = new ArrayList<>();
     private final MutableIntList currentTipDeltas = new IntArrayList();
+    private final MutableIntList currentRoles = new IntArrayList();
     private int currentTip = FeatureConstants.START_TIP;
-    private int currentTableSize;
 
     public TileReader(TTile tile, FeatureStore store, ByteBuffer buf, int pTile)
     {
@@ -219,7 +220,7 @@ public class TileReader
     {
         if((typeMask & allowedTypes) == 0)
         {
-            throw new InvalidTileException("Unexpected feature type");
+            throw new InvalidTileException("Unexpected feature type (%08X)".formatted(typeMask));
         }
     }
 
@@ -293,15 +294,16 @@ public class TileReader
     protected static final int LOCAL_TILE = Integer.MIN_VALUE;
     protected static final int LAST_FLAG = 1;
     protected static final int FOREIGN_FLAG = 2;
+    protected static final int DIFFERENT_ROLE_FLAG = 2;
     protected static final int DIFFERENT_TILE_FLAG = 8;
 
-    protected int readTipDelta(int p, int step)
+    protected int readTipDelta(int p, int direction)
     {
         int tipDelta = buf.getShort(p);
         if ((tipDelta & 1) != 0)
         {
             // wide TIP delta
-            p += step;
+            p += direction * 2;
             tipDelta &= 0xffff;
             tipDelta |= ((int)buf.getShort(p)) << 16;
                 // Beware of signed/unsigned here
@@ -311,19 +313,136 @@ public class TileReader
         }
         tipDelta >>= 1;     // signed shift; gets rid of the flag bit
         currentTipDeltas.add(tipDelta);
-        p += step;
         currentTip += tipDelta;
         return p;
     }
 
-    protected void resetTables()
+    public void resetTables()
     {
         currentFeatures.clear();
         currentTipDeltas.clear();
-        currentTableSize = 0;
+        currentRoles.clear();
         currentTip = FeatureConstants.START_TIP;
     }
 
+    /**
+     * Reads entries from a MemberTable, RelationTable or FeatureNodeTable.
+     *
+     * Prior to this method:
+     * - `currentTableSize` must be 0
+     * - `currentTip` must be `FeatureConstants.START_TIP`
+     * - `currentFeatures`, `currentTipDeltas` and `currentRoles` must be empty
+     * - All local features must be read and indexed in `features`
+     *
+     * This method fills `currentFeatures` and `currentTipDeltas` (and optionally
+     * `currentRoles`) with the contents of the encoded table.
+     *
+     * @param p             pointer to the first 4-byte element in the table
+     * @param shift         the shift to apply to obtain a pointer to a local feature
+     *                      (3 for MemberTable, 2 for the others)
+     *                      TODO: may change in 0.2
+     * @param direction     the direction in which to traverse the table
+     *                      (backward = -1  for FeatureNodeTable,
+     *                       forward  =  1  for the others)
+     * @param allowedTypes  a bitmask of the allowed feature types
+     * @param roles         indicates whether roles should be retrieved
+     *                      (true for MemberTable, false for the others)
+     *
+     * @return the pointer to the next byte after the table (if step2 is positive),
+     *   or the address of the next hypothetical 4-byte entry ahead of the table
+     *   (i.e. the absolute difference between `p` and the return equals the
+     *   size of the table)
+     *
+     * @throws InvalidTileException if the local or foreign pointers are invalid,
+     *   local pointers don't reference a (previously loaded) local feature,
+     *   or the referenced feature's type is not compatible with the table
+     */
+    public int readTable(int p, int shift, int direction, int allowedTypes, boolean roles)
+    {
+        int currentRole = 0;
+
+        // Step to take after local feature ref (or foreign feature ref
+        // in same tile as previous):  +4 if forward, -4 if backward
+        int stepAfter = 4 * direction;
+
+        // Step to take after foreign feature in a different tile:
+        // +4 if forward, -2 if backward
+        int stepAfterTileChange = 3 * direction + 1;
+
+        int lowerShift = shift-1;
+        int pointerMask = (0xffff_ffff >> lowerShift) << lowerShift;
+        for(;;)
+        {
+            int entry = buf.getInt(p);
+            try
+            {
+                if ((entry & FOREIGN_FLAG) == 0)
+                {
+                    // local feature
+                    int pFeature = (p & pointerMask) + ((entry >> shift) << lowerShift);
+                    currentFeatures.add(getFeature(pFeature, allowedTypes));
+                    currentTipDeltas.add(LOCAL_TILE);
+                    // move pointer to next feature ref (+4 if forward, -4 if backward)
+                    p += stepAfter;
+                }
+                else
+                {
+                    if ((entry & DIFFERENT_TILE_FLAG) != 0)
+                    {
+                        // If foreign feature is in a different tile, move
+                        // pointer to the lower 2 bytes of the TIP delta
+                        // (+4 if forward, -2 if backward)
+                        p += stepAfterTileChange;
+                        // read the TIP; pointer returned points to lower or upper
+                        // part; we move the pointer to the next feature ref
+                        // (+2 if forward, -4 if backward)
+                        p = readTipDelta(p, direction) + stepAfterTileChange - 2;
+                        currentFeatures.add(getForeignFeature(currentTip,
+                            (entry >>> 4) << 2, allowedTypes));
+                    }
+                    else
+                    {
+                        // no change in tile
+                        currentTipDeltas.add(0);
+                        // move pointer to next feature ref (+4 if forward, -4 if backward)
+                        p += stepAfter;
+                    }
+                }
+            }
+            catch(InvalidTileException ex)
+            {
+                throw new InvalidTileException(
+                    p, "Invalid feature reference: " + ex.getMessage());
+            }
+            if(roles)
+            {
+                if((entry & DIFFERENT_ROLE_FLAG) != 0)
+                {
+                    int rawRole = buf.getChar(p);
+                    if ((rawRole & 1) != 0)
+                    {
+                        // common role
+                        currentRole = rawRole ^ 1;
+                            // flag bit is reversed internally: 0 = global string
+                        p += 2;
+                    }
+                    else
+                    {
+                        // uncommon role
+                        rawRole = buf.getInt(p);
+                        currentRole = (readString(p + (rawRole >> 1)) << 1) | 1;
+                            // flag bit is reversed internally: 1 = local string
+                        p += 4;
+                    }
+                }
+                currentRoles.add(currentRole);
+            }
+            if((entry & LAST_FLAG) != 0) break;
+        }
+        return p;
+    }
+
+    /*
     protected TRelationTable readRelationTable(int pTable)
     {
         TRelationTable relTable = relTables.get(pTable);
@@ -378,6 +497,25 @@ public class TileReader
         // TODO: + ref count
         return relTable;
     }
+     */
+
+    protected TRelationTable readRelationTable(int pTable)
+    {
+        TRelationTable relTable = relTables.get(pTable);
+        if(relTable == null)
+        {
+            int pEnd = readTable(pTable, 2, 1, TypeBits.RELATIONS, false);
+            List<TRelation> relations = new ArrayList<>(currentFeatures.size());
+            for(TFeature f: currentFeatures) relations.add((TRelation)f);
+            relTable = new TRelationTable(relations, getCurrentTipDeltas(), pEnd - pTable);
+            resetTables();
+            relTables.put(pTable, relTable);
+            // TODO: add to tile!
+            // TODO: check for duplicates? (error condition)
+        }
+        // TODO: + ref count
+        return relTable;
+    }
 
     protected TRelationTable readRelationTableIndirect(int ppTable)
     {
@@ -385,4 +523,19 @@ public class TileReader
         checkPointer(pTable);
         return readRelationTable(pTable);
     }
+
+    public int[] getCurrentTipDeltas()
+    {
+        return currentTipDeltas.toArray();
+    }
+
+    public TNode[] getCurrentNodes()
+    {
+        int nodeCount = currentFeatures.size();
+        TNode[] nodes = new TNode[nodeCount];
+        for(int i=0; i<nodeCount; i++) nodes[i] = (TNode)currentFeatures.get(i);
+        return nodes;
+    }
+
+
 }

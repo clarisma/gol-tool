@@ -43,9 +43,7 @@ import java.nio.channels.FileChannel;
 import java.nio.file.Path;
 import java.util.HashSet;
 import java.util.Set;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 
 import static java.nio.file.StandardOpenOption.READ;
 
@@ -363,11 +361,16 @@ public class ChangeGraph
 
     public void scanTiles(IntSet piles)
     {
+        /*
         int threadCount = Runtime.getRuntime().availableProcessors();
         ThreadPoolExecutor executor = new ThreadPoolExecutor(
             threadCount, threadCount, 1, TimeUnit.SECONDS,
             new LinkedBlockingQueue<>(threadCount * 4),
             new ThreadPoolExecutor.CallerRunsPolicy());
+
+         */
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+
 
         piles.forEach(pile ->
         {

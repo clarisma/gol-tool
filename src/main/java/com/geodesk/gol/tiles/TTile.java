@@ -183,6 +183,10 @@ public class TTile
         }
     }
 
+
+    // TODO: Don't expose these, cannot iterate while reading tile, because
+    //  foreign relations may be added while we are iterating relations
+    /*
     public Iterable<TNode> nodes()
     {
         return nodes.values();
@@ -197,4 +201,6 @@ public class TTile
     {
         return relations.values();
     }
+
+     */
 }

@@ -23,7 +23,7 @@ public class TWay extends TFeature2D<TWay.Body>
         flags |= 1 << FEATURE_TYPE_BITS;
     }
 
-    public void readBody(TileReader reader)
+    @Override public void readBody(TileReader reader)
     {
         ByteBuffer buf = reader.buf();
         int ppBody = location() + 28;
@@ -38,10 +38,11 @@ public class TWay extends TFeature2D<TWay.Body>
             decoder.readVarint();
             nodeCount--;
         }
-        int coordsLen = buf.position() - pBody;
+        int coordsLen = decoder.pos() - pBody;
         byte[] coords = new byte[coordsLen];
         buf.get(pBody, coords);
         body = new Body(pBody, coords);
+        if(isRelationMember()) relations = reader.readRelationTableIndirect(pBody-4);
     }
 
     class Body extends Struct

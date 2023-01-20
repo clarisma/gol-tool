@@ -52,6 +52,11 @@ public abstract class TFeature extends SharedStruct implements Bounds, Comparabl
         return (flags & LOCAL_FLAG) == 0;
     }
 
+    public boolean isRelationMember()
+    {
+        return (flags & RELATION_MEMBER_FLAG) != 0;
+    }
+
     @Override public int minX()
     {
         return minX;
@@ -74,4 +79,31 @@ public abstract class TFeature extends SharedStruct implements Bounds, Comparabl
     }
 
     public abstract void readStub(TileReader reader, int p);
+
+    public abstract void readBody(TileReader reader);
+
+    public int typeCode()
+    {
+        return (flags >> 3) & 3;
+    }
+
+    @Override public String toString()
+    {
+        int type = typeCode();
+        String s;
+        if(type == 0)
+        {
+            s = "node/";
+        }
+        else if(type == 1)
+        {
+            s = "way/";
+        }
+        else
+        {
+            assert type == 2;
+            s = "relation/";
+        }
+        return s + id;
+    }
 }

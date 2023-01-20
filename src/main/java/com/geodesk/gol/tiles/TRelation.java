@@ -26,6 +26,11 @@ public class TRelation extends TFeature2D<TRelation.Body>
         flags |= 2 << FEATURE_TYPE_BITS;
     }
 
+    @Override public void readBody(TileReader reader)
+    {
+        // TODO
+    }
+
     class Body extends Struct
     {
         @Override public void writeTo(StructOutputStream out) throws IOException

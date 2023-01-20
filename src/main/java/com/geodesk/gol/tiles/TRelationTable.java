@@ -19,7 +19,7 @@ public class TRelationTable extends SharedStruct
     /**
      * The list of relations, sorted by ID. Does not contain duplicates.
      */
-    private final List<TRelation> relations = new ArrayList<>();
+    private final List<TRelation> relations;
     /**
      * A representation of the Relation Table in canonical form.
      * The upper half of each item contains the TIP of a foreign relation
@@ -29,8 +29,16 @@ public class TRelationTable extends SharedStruct
      * Since `relations` is already sorted by ID, a lower index position
      * represents a lower ID, so we can use default ordering for sorting.
      */
-    private long[] refs;
+    private int[] tipDeltas;
     private int hashCode;
+
+    public TRelationTable(List<TRelation> relations, int[] tipDeltas, int size)
+    {
+        this.relations = relations;
+        this.tipDeltas = tipDeltas;
+        setSize(size);
+        setAlignment(1);    // 2-byte aligned (1 << 1)
+    }
 
     /**
      * Inserts a new relation into this RelationTable, maintaining sort

@@ -34,7 +34,7 @@ public class TTagTable extends SharedStruct
         ByteBuffer buf = reader.buf();
         setAlignment(1);    // 2-byte aligned (1 << 1)
         int uncommonTagCount = 0;
-        int size = 0;
+        int size;
         int p = pTable;
         if(uncommonTagsFlag != 0)
         {
@@ -42,19 +42,19 @@ public class TTagTable extends SharedStruct
             {
                 p -= 4;
                 int k = buf.getInt(p);
-                int valueSize = (k & 2) + 2;
+                p -= (k & 2) + 2;
                 uncommonTagCount++;
-                size += valueSize;
-                p -= valueSize;
                 if((k & 4) != 0) break;
             }
+            size = pTable - p;
             setAnchor(size);
             setLocation(p);
-            p += size;
+            p = pTable;
         }
         else
         {
             setLocation(pTable);
+            size = 0;
         }
         int tagCount = uncommonTagCount;
         for(;;)
@@ -106,6 +106,11 @@ public class TTagTable extends SharedStruct
         for(;;)
         {
             int k = buf.getInt(p);
+            if(k == TagValues.EMPTY_TABLE_MARKER)
+            {
+                // TODO: workaround for current empty table marker
+                k = 0x8000;
+            }
             int val;
             if((k & 2) == 0)
             {

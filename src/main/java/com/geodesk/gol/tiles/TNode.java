@@ -53,7 +53,13 @@ public class TNode extends TFeature
         minY = buf.getInt(p - 4);
         flags |= (buf.getInt(p) & 0xFE) | LOCAL_FLAG;
         setLocation(p - 8);
-        setSize((flags & FeatureFlags.RELATION_MEMBER_FLAG) != 0 ? 24 : 20);
+        setSize(isRelationMember() ? 24 : 20);
         tags = reader.readTagsIndirect(p + 8);
+    }
+
+    @Override public void readBody(TileReader reader)
+    {
+        if(!isRelationMember()) return;
+        relations = reader.readRelationTableIndirect(location() + 20);
     }
 }

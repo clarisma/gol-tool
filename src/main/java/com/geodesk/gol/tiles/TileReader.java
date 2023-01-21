@@ -45,12 +45,24 @@ public class TileReader
     private final MutableIntList currentRoles = new IntArrayList();
     private int currentTip = FeatureConstants.START_TIP;
 
+    // TODO: remove
     public TileReader(TTile tile, FeatureStore store, ByteBuffer buf, int pTile)
     {
         this.tile = tile;
         this.store = store;
         this.buf = buf;
         this.pTile = pTile;
+        int tileLength = (buf.getInt(pTile) & 0x3fff_ffff) + 4;  // TODO: generalize
+        pTileEnd = pTile + tileLength;
+    }
+
+    public TileReader(TTile tile, FeatureStore store, int tip)
+    {
+        int tilePage = store.fetchTile(tip);
+        this.tile = tile;
+        this.store = store;
+        this.buf = store.bufferOfPage(tilePage);
+        this.pTile = store.offsetOfPage(tilePage);
         int tileLength = (buf.getInt(pTile) & 0x3fff_ffff) + 4;  // TODO: generalize
         pTileEnd = pTile + tileLength;
     }
@@ -109,20 +121,18 @@ public class TileReader
     {
         try
         {
-            //Log.debug("Reading node index...");
             readIndex(pTile + 8, TypeBits.NODES);
-            //Log.debug("Reading way index...");
             readIndex(pTile + 12, TypeBits.NONAREA_WAYS);
-            //Log.debug("Reading area index...");
             readIndex(pTile + 16, TypeBits.AREAS);
-            //Log.debug("Reading relation index...");
             readIndex(pTile + 20, TypeBits.NONAREA_RELATIONS);
             for (TFeature f : features.values())
             {
                 f.readBody(this);
             }
+            /*
             Log.debug("Read %d local features and %d foreign features.",
                 features.size(), foreignFeatures.size());
+             */
         }
         catch (Throwable ex)
         {

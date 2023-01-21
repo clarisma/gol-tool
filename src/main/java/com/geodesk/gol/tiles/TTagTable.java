@@ -11,6 +11,7 @@ import com.clarisma.common.math.Decimal;
 import com.clarisma.common.soar.SString;
 import com.clarisma.common.soar.SharedStruct;
 import com.clarisma.common.soar.StructOutputStream;
+import com.clarisma.common.soar.StructWriter;
 import com.geodesk.feature.store.TagValues;
 
 import java.io.IOException;
@@ -26,7 +27,7 @@ public class TTagTable extends SharedStruct
     private final static int LOCAL_KEY = 4;
 
     private static long[] EMPTY = new long[] { 0xffff_ffff_ffff_ffffL };
-
+        // TODO: change this to 0x8000;
 
     public TTagTable(TileReader reader, int pTable, int uncommonTagsFlag)
     {
@@ -340,5 +341,57 @@ public class TTagTable extends SharedStruct
     public boolean hasUncommonKeys()
     {
         return (tags[0] & LOCAL_KEY) != 0;
+    }
+
+    private void writeValue(StructWriter out, long tag)
+    {
+        int value = (int)(tag >> 32);
+        if((tag & 3) == 3)
+        {
+            // wide string
+            out.writePointer(tile.localStringStruct(value));
+            return;
+        }
+        if((tag & 2) == 0)
+        {
+            out.writeShort((short)value);
+        }
+        else
+        {
+            out.writeInt(value);
+        }
+    }
+
+    @Override public void write(StructWriter out)
+    {
+        int anchorLocation = anchorLocation();
+        int origin = anchorLocation & 0xffff_fffc;
+        int i= 0;
+        for(; out.position() < anchorLocation; i++)
+        {
+            long tag = tags[i];
+            assert (tag & LOCAL_KEY) != 0;
+            writeValue(out, tag);
+            SString keyString = tile.localStringStruct((int)tag >>> 3);
+            int ptr = keyString.location() - origin;
+			assert (ptr & 3) == 0;
+			ptr <<= 1;
+            ptr |= (int)tag & 3;
+            if(i == 0) ptr |= 4;
+			out.writeInt(ptr);
+                // don't use writePointer, pointers to uncommon
+                // keys require special handling
+        }
+        int lastTagIndex = tags.length-1;
+        for(; i <= lastTagIndex; i++)
+        {
+            long tag = tags[i];
+            assert (tag & LOCAL_KEY) == 0;
+            int k = ((int)tag >>> 1) & 0x7ffc;
+            k |= (int)tag & 3;
+            if(i == lastTagIndex) tag |= 0x8000;
+            out.writeShort((short)k);
+            writeValue(out, tag);
+        }
     }
 }

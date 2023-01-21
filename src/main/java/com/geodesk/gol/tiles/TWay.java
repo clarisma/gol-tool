@@ -9,6 +9,7 @@ package com.geodesk.gol.tiles;
 import com.clarisma.common.pbf.PbfDecoder;
 import com.clarisma.common.soar.Struct;
 import com.clarisma.common.soar.StructOutputStream;
+import com.clarisma.common.soar.StructWriter;
 import com.geodesk.feature.match.TypeBits;
 
 import java.io.IOException;
@@ -78,7 +79,7 @@ public class TWay extends TFeature2D<TWay.Body>
             setLocation(pBody - anchor);
         }
 
-        @Override public void writeTo(StructOutputStream out) throws IOException
+        @Override public void write(StructWriter out)
         {
             // TODO
         }

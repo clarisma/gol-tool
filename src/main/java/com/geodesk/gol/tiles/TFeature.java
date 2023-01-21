@@ -9,6 +9,7 @@ package com.geodesk.gol.tiles;
 
 import com.clarisma.common.soar.SharedStruct;
 import com.clarisma.common.soar.StructOutputStream;
+import com.clarisma.common.soar.StructWriter;
 import com.geodesk.feature.FeatureType;
 import com.geodesk.geom.Bounds;
 
@@ -72,7 +73,14 @@ public abstract class TFeature extends SharedStruct implements Bounds, Comparabl
         return Long.compare(id, other.id);
     }
 
+    // TODO: remove
     protected void writeId(StructOutputStream out) throws IOException
+    {
+        out.writeInt(((int) (id >>> 32) << 8) | (flags & 0xff));
+        out.writeInt((int) id);
+    }
+
+    protected void writeId(StructWriter out)
     {
         out.writeInt(((int) (id >>> 32) << 8) | (flags & 0xff));
         out.writeInt((int) id);

@@ -9,6 +9,7 @@ package com.geodesk.gol.tiles;
 
 import com.clarisma.common.soar.Struct;
 import com.clarisma.common.soar.StructOutputStream;
+import com.clarisma.common.soar.StructWriter;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -36,7 +37,20 @@ public abstract class TFeature2D<T extends Struct> extends TFeature
         return maxY;
     }
 
+    // TODO: remove
     @Override public void writeTo(StructOutputStream out) throws IOException
+    {
+        assert !isForeign();
+        out.writeInt(minX);
+        out.writeInt(minY);
+        out.writeInt(maxX);
+        out.writeInt(maxY);
+        writeId(out);
+        out.writePointer(tags, tags.hasUncommonKeys() ? 1 : 0);
+        out.writePointer(body);
+    }
+
+    @Override public void write(StructWriter out)
     {
         assert !isForeign();
         out.writeInt(minX);

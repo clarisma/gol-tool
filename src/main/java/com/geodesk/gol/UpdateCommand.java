@@ -15,6 +15,7 @@ import com.geodesk.gol.build.BuildContext;
 import com.geodesk.gol.build.Project;
 import com.geodesk.gol.build.ProjectReader;
 import com.geodesk.gol.build.Utils;
+import com.geodesk.gol.tiles.TileCompiler;
 import com.geodesk.gol.update.ChangeGraph;
 import org.xml.sax.SAXException;
 
@@ -108,9 +109,13 @@ public class UpdateCommand extends GolCommand
 
         // TODO: do we need a work path?
         BuildContext context = new BuildContext(features.store(), null, project);
+        TileCompiler compiler = new TileCompiler(context);
+        compiler.compileAll();
+        /*
         ChangeGraph changes = new ChangeGraph(context);
         readFiles(changes);
         changes.report();
+         */
         System.err.format("Processed updates in %s\n" , Format.formatTimespan(System.currentTimeMillis() - start));
     }
 }

@@ -71,6 +71,21 @@ public class SString extends SharedStruct implements Comparable<SString>
 		out.write(bytes);
 	}
 
+	@Override public void write(StructWriter out)
+	{
+		int len = bytes.length;
+		if(len >= 0x80)
+		{
+			out.writeByte((byte)(len | 0x80));
+			out.writeByte((byte)(len >> 7)); // TODO: max 16K
+		}
+		else
+		{
+			out.writeByte((byte)len);
+		}
+		out.writeBytes(bytes);
+	}
+
 	public static SString read(ByteBuffer buf, int pString)
 	{
 		int p = pString;

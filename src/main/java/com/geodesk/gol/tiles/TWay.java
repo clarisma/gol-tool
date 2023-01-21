@@ -28,11 +28,7 @@ public class TWay extends TFeature2D<TWay.Body>
 
     @Override public void readBody(TileReader reader)
     {
-        ByteBuffer buf = reader.buf();
-        int ppBody = location() + 28;
-        int pBody = buf.getInt(ppBody) + ppBody;
-        reader.checkPointer(pBody);
-        body = new Body(reader, buf, pBody);
+        body = new Body(reader, readBodyPointer(reader));
     }
 
     class Body extends Struct
@@ -40,8 +36,9 @@ public class TWay extends TFeature2D<TWay.Body>
         private final byte[] encodedCoords;
         private final int[] tipDeltas;
 
-        public Body(TileReader reader, ByteBuffer buf, int pBody)
+        public Body(TileReader reader, int pBody)
         {
+            ByteBuffer buf = reader.buf();
             PbfDecoder decoder = new PbfDecoder(buf, pBody);
             int nodeCount = (int) decoder.readVarint();
             while (nodeCount > 0)

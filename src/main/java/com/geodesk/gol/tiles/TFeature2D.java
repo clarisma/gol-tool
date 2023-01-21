@@ -59,4 +59,13 @@ public abstract class TFeature2D<T extends Struct> extends TFeature
         setLocation(p-16);
         tags = reader.readTagsIndirect(p + 8);
     }
+
+    protected int readBodyPointer(TileReader reader)
+    {
+        ByteBuffer buf = reader.buf();
+        int ppBody = location() + 28;
+        int pBody = buf.getInt(ppBody) + ppBody;
+        reader.checkPointer(pBody);
+        return pBody;
+    }
 }

@@ -294,7 +294,7 @@ public class TileReader
     protected static final int LOCAL_TILE = Integer.MIN_VALUE;
     protected static final int LAST_FLAG = 1;
     protected static final int FOREIGN_FLAG = 2;
-    protected static final int DIFFERENT_ROLE_FLAG = 2;
+    protected static final int DIFFERENT_ROLE_FLAG = 4;
     protected static final int DIFFERENT_TILE_FLAG = 8;
 
     protected int readTipDelta(int p, int direction)
@@ -431,7 +431,9 @@ public class TileReader
                         // uncommon role
                         rawRole = buf.getInt(p);
                         currentRole = (readString(p + (rawRole >> 1)) << 1) | 1;
+                            // signed shift (rawRole contains relative pointer)
                             // flag bit is reversed internally: 1 = local string
+                        //Log.debug("Read uncommon role: %s", tile.localString(currentRole >>> 1));
                         p += 4;
                     }
                 }
@@ -441,63 +443,6 @@ public class TileReader
         }
         return p;
     }
-
-    /*
-    protected TRelationTable readRelationTable(int pTable)
-    {
-        TRelationTable relTable = relTables.get(pTable);
-        if(relTable == null)
-        {
-            int p = pTable;
-            for(;;)
-            {
-                int entry = buf.getInt(p);
-                try
-                {
-                    if ((entry & FOREIGN_FLAG) == 0)
-                    {
-                        // local relation
-                        int pRel = (p & 0xffff_fffe) + ((entry >> 2) << 1);
-                        currentFeatures.add(getFeature(pRel, TypeBits.RELATIONS));
-                        currentTableSize += 4;
-                        currentTipDeltas.add(LOCAL_TILE);
-                        p += 4;
-                    }
-                    else
-                    {
-                        p += 4;
-                        if ((entry & DIFFERENT_TILE_FLAG) != 0)
-                        {
-                            p = readTipDelta(p, 2);
-                            currentFeatures.add(getForeignFeature(currentTip,
-                                (entry >>> 4) << 2, TypeBits.RELATIONS));
-                        }
-                        else
-                        {
-                            currentTipDeltas.add(0);
-                        }
-                    }
-                }
-                catch(InvalidTileException ex)
-                {
-                    throw new InvalidTileException(
-                        p, "Invalid relation reference: " + ex.getMessage());
-                }
-
-                if((entry & LAST_FLAG) != 0) break;
-            }
-            List<TRelation> relations = new ArrayList<>(currentFeatures.size());
-            for(TFeature f: currentFeatures) relations.add((TRelation)f);
-            relTable = new TRelationTable(relations, currentTipDeltas.toArray(), currentTableSize);
-            resetTables();
-            relTables.put(pTable, relTable);
-            // TODO: add to tile!
-            // TODO: check for duplicates? (error condition)
-        }
-        // TODO: + ref count
-        return relTable;
-    }
-     */
 
     protected TRelationTable readRelationTable(int pTable)
     {
@@ -527,6 +472,16 @@ public class TileReader
     public int[] getCurrentTipDeltas()
     {
         return currentTipDeltas.toArray();
+    }
+
+    public TFeature[] getCurrentFeatures()
+    {
+        return currentFeatures.toArray(new TFeature[0]);
+    }
+
+    public int[] getCurrentRoles()
+    {
+        return currentRoles.toArray();
     }
 
     public TNode[] getCurrentNodes()

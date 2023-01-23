@@ -12,7 +12,6 @@ import com.clarisma.common.soar.StructOutputStream;
 import com.geodesk.feature.match.TypeBits;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
 
 import static com.geodesk.feature.store.FeatureFlags.FEATURE_TYPE_BITS;
 
@@ -20,7 +19,7 @@ public class TRelation extends TFeature2D<TRelation.Body>
 {
     private TFeature[] members;
     private int[] roles;
-    private int[] tipDeltas;
+    private int[] tips;
 
     public TRelation(long id)
     {
@@ -49,7 +48,7 @@ public class TRelation extends TFeature2D<TRelation.Body>
             bodySize += reader.readTable(pBody, 3, 1,
                 TypeBits.ALL & TypeBits.RELATION_MEMBER, true);
             members = reader.getCurrentFeatures();
-            tipDeltas = reader.getCurrentTipDeltas();
+            tips = reader.getCurrentTips();
             roles = reader.getCurrentRoles();
             reader.resetTables();
             setSize(bodySize);

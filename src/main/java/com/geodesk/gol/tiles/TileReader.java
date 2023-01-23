@@ -9,7 +9,6 @@ package com.geodesk.gol.tiles;
 
 import com.clarisma.common.soar.SString;
 import com.clarisma.common.soar.Struct;
-import com.clarisma.common.util.Bytes;
 import com.clarisma.common.util.Log;
 import com.geodesk.feature.match.TypeBits;
 import com.geodesk.feature.store.FeatureConstants;
@@ -41,7 +40,7 @@ public class TileReader
     private final MutableIntObjectMap<TRelationTable> relTables = new IntObjectHashMap<>();
 
     private final List<TFeature> currentFeatures = new ArrayList<>();
-    private final MutableIntList currentTipDeltas = new IntArrayList();
+    private final MutableIntList currentTips = new IntArrayList();
     private final MutableIntList currentRoles = new IntArrayList();
     private int currentTip = FeatureConstants.START_TIP;
 
@@ -322,15 +321,15 @@ public class TileReader
             p += 2;
         }
         tipDelta >>= 1;     // signed shift; gets rid of the flag bit
-        currentTipDeltas.add(tipDelta);
         currentTip += tipDelta;
+        currentTips.add(currentTip);
         return p;
     }
 
     public void resetTables()
     {
         currentFeatures.clear();
-        currentTipDeltas.clear();
+        currentTips.clear();
         currentRoles.clear();
         currentTip = FeatureConstants.START_TIP;
     }
@@ -344,7 +343,7 @@ public class TileReader
      * - `currentFeatures`, `currentTipDeltas` and `currentRoles` must be empty
      * - All local features must be read and indexed in `features`
      *
-     * This method fills `currentFeatures` and `currentTipDeltas` (and optionally
+     * This method fills `currentFeatures` and `currentTips` (and optionally
      * `currentRoles`) with the contents of the encoded table.
      *
      * @param p             pointer to the first 4-byte element in the table
@@ -391,7 +390,7 @@ public class TileReader
                     // local feature
                     int pFeature = (p & pointerMask) + ((entry >> shift) << lowerShift);
                     currentFeatures.add(getFeature(pFeature, allowedTypes));
-                    currentTipDeltas.add(LOCAL_TILE);
+                    currentTips.add(LOCAL_TILE);
                     // move pointer to next feature ref (+4 if forward, -4 if backward)
                     p += stepAfter;
                 }
@@ -413,7 +412,7 @@ public class TileReader
                     else
                     {
                         // no change in tile
-                        currentTipDeltas.add(0);
+                        currentTips.add(currentTip);
                         // move pointer to next feature ref (+4 if forward, -4 if backward)
                         p += stepAfter;
                     }
@@ -462,7 +461,7 @@ public class TileReader
             int pEnd = readTable(pTable, 2, 1, TypeBits.RELATIONS, false);
             List<TRelation> relations = new ArrayList<>(currentFeatures.size());
             for(TFeature f: currentFeatures) relations.add((TRelation)f);
-            relTable = new TRelationTable(relations, getCurrentTipDeltas(), pEnd - pTable);
+            relTable = new TRelationTable(relations, getCurrentTips(), pEnd - pTable);
             resetTables();
             relTables.put(pTable, relTable);
             // TODO: add to tile!
@@ -479,9 +478,9 @@ public class TileReader
         return readRelationTable(pTable);
     }
 
-    public int[] getCurrentTipDeltas()
+    public int[] getCurrentTips()
     {
-        return currentTipDeltas.toArray();
+        return currentTips.toArray();
     }
 
     public TFeature[] getCurrentFeatures()

@@ -8,11 +8,9 @@
 package com.geodesk.gol.tiles;
 import com.clarisma.common.pbf.PbfDecoder;
 import com.clarisma.common.soar.Struct;
-import com.clarisma.common.soar.StructOutputStream;
 import com.clarisma.common.soar.StructWriter;
 import com.geodesk.feature.match.TypeBits;
 
-import java.io.IOException;
 import java.nio.ByteBuffer;
 
 import static com.geodesk.feature.store.FeatureFlags.*;
@@ -35,7 +33,7 @@ public class TWay extends TFeature2D<TWay.Body>
     class Body extends Struct
     {
         private final byte[] encodedCoords;
-        private final int[] tipDeltas;
+        private final int[] tips;
 
         public Body(TileReader reader, int pBody)
         {
@@ -64,14 +62,14 @@ public class TWay extends TFeature2D<TWay.Body>
                 int pBefore = reader.readTable(p, 2, -1,
                     TypeBits.NODES & TypeBits.WAYNODE_FLAGGED, false);
                 featureNodes = reader.getCurrentNodes();
-                tipDeltas = reader.getCurrentTipDeltas();
+                tips = reader.getCurrentTips();
                 bodySize += p - pBefore;
                 reader.resetTables();
                 setAlignment(1);   // 2-byte (1 << 1)
             }
             else
             {
-                tipDeltas = null;
+                tips = null;
             }
             setSize(bodySize);
             int anchor = bodySize - encodedCoords.length;

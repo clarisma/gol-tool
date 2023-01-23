@@ -11,6 +11,7 @@ import com.clarisma.common.soar.SharedStruct;
 import com.clarisma.common.soar.StructOutputStream;
 import com.clarisma.common.soar.StructWriter;
 import com.geodesk.feature.FeatureType;
+import com.geodesk.feature.store.FeatureFlags;
 import com.geodesk.geom.Bounds;
 
 import java.io.IOException;
@@ -113,5 +114,10 @@ public abstract class TFeature extends SharedStruct implements Bounds, Comparabl
             s = "relation/";
         }
         return s + id;
+    }
+
+    public void markAsLast()
+    {
+        flags |= FeatureFlags.LAST_SPATIAL_ITEM_FLAG;
     }
 }

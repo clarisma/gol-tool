@@ -18,6 +18,14 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 
+/**
+ * Bit 0:       0 = number, 1 = string
+ * Bit 1:       0 = narrow, 1 = wide
+ * Bit 2:       0 = global-string key code, 1 = local-string key code
+ * Bits 3-31:   global/local string code
+ * Bits 32-63:  If numeric or global-string value: encoded value
+ *              If local-string value: local-string value code
+ */
 public class TTagTable extends SharedStruct
 {
     private final TTile tile;
@@ -67,14 +75,13 @@ public class TTagTable extends SharedStruct
             p += tagSize;
             if((k & 0x8000) != 0) break;
         }
+        int globalKeyTagCount = tagCount - uncommonTagCount;
 
         tags = new long[tagCount];
         p = pTable;
         int origin = pTable & 0xffff_fffc;
-        int n = uncommonTagCount;
-        while(n > 0)
+        for(int i= globalKeyTagCount; i < tagCount; i++)
         {
-            n--;
             p -= 6;
             long tag = buf.getLong(p);
 			int rawPointer = (int) (tag >> 16);
@@ -99,12 +106,11 @@ public class TTagTable extends SharedStruct
                 tag = (long)val << 32;
             }
             tag |= (keyCode << 3) | (flags & 3) | LOCAL_KEY;
-            tags[n] = tag;
+            tags[i] = tag;
         }
 
         p = pTable;
-        n = uncommonTagCount;
-        for(;;)
+        for(int i=0; i<globalKeyTagCount; i++)
         {
             int k = buf.getInt(p);
             if(k == TagValues.EMPTY_TABLE_MARKER)
@@ -131,7 +137,7 @@ public class TTagTable extends SharedStruct
             }
             long tag = ((k & 0x7ffc) << 1) | (k & 3);
             k |= (long)val << 32;
-            tags[n++] = tag;
+            tags[i] = tag;
             p += 4;
             if((k & 0x8000) != 0) break;
         }
@@ -253,7 +259,7 @@ public class TTagTable extends SharedStruct
                 long other = tags[j];
                 int localKeyFlag = (int)tag & LOCAL_KEY;
                 int otherLocalKeyFlag = (int)other & LOCAL_KEY;
-                int compare = otherLocalKeyFlag - localKeyFlag;
+                int compare = localKeyFlag - otherLocalKeyFlag;
                 if(compare > 0) break;
                 if(compare == 0)
                 {
@@ -262,14 +268,13 @@ public class TTagTable extends SharedStruct
                     if(localKeyFlag == 0)
                     {
                         compare = key - otherKey;
-                        if(compare >= 0) break;     // TODO: duplicate keys?
                     }
                     else
                     {
-                        compare = tile.localString(otherKey).compareTo(
-                            tile.localString(key));
-                        if(compare >= 0) break;     // TODO: duplicate keys?
+                        compare = tile.localString(key).compareTo(
+                            tile.localString(otherKey));
                     }
+                    if(compare >= 0) break;     // TODO: duplicate keys?
                 }
                 tags[j + 1] = tags[j];
                 j = j - 1;
@@ -279,6 +284,7 @@ public class TTagTable extends SharedStruct
     }
 
 
+    /*
     @Override public void writeTo(StructOutputStream out) throws IOException
     {
         int origin = anchorLocation() & 0xffff_fffc;
@@ -326,6 +332,7 @@ public class TTagTable extends SharedStruct
             }
         }
     }
+     */
 
     @Override public int hashCode()
     {
@@ -336,6 +343,16 @@ public class TTagTable extends SharedStruct
     {
         if(o instanceof TTagTable other) return Arrays.equals(tags, other.tags);
         return false;
+    }
+
+    public int tagCount()
+    {
+        return tags.length;
+    }
+
+    public long getTag(int n)
+    {
+        return tags[n];
     }
 
     public boolean hasUncommonKeys()
@@ -366,8 +383,9 @@ public class TTagTable extends SharedStruct
     {
         int anchorLocation = anchorLocation();
         int origin = anchorLocation & 0xffff_fffc;
-        int i= 0;
-        for(; out.position() < anchorLocation; i++)
+        int lastFlag = 4;
+        int i = tags.length-1;
+        while(out.position() < anchorLocation)
         {
             long tag = tags[i];
             assert (tag & LOCAL_KEY) != 0;
@@ -376,20 +394,21 @@ public class TTagTable extends SharedStruct
             int ptr = keyString.location() - origin;
 			assert (ptr & 3) == 0;
 			ptr <<= 1;
-            ptr |= (int)tag & 3;
-            if(i == 0) ptr |= 4;
-			out.writeInt(ptr);
+            ptr |= ((int)tag & 3) | lastFlag;
+    		out.writeInt(ptr);
                 // don't use writePointer, pointers to uncommon
                 // keys require special handling
+            i--;
+            lastFlag = 0;
         }
-        int lastTagIndex = tags.length-1;
-        for(; i <= lastTagIndex; i++)
+        int lastGlobalTagIndex = i;
+        for(i=0; i <= lastGlobalTagIndex; i++)
         {
             long tag = tags[i];
             assert (tag & LOCAL_KEY) == 0;
             int k = ((int)tag >>> 1) & 0x7ffc;
             k |= (int)tag & 3;
-            if(i == lastTagIndex) tag |= 0x8000;
+            if(i == lastGlobalTagIndex) tag |= 0x8000;
             out.writeShort((short)k);
             writeValue(out, tag);
         }

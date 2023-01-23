@@ -9,7 +9,10 @@ package com.geodesk.gol.tiles;
 import com.clarisma.common.pbf.PbfDecoder;
 import com.clarisma.common.soar.Struct;
 import com.clarisma.common.soar.StructWriter;
+import com.geodesk.feature.FeatureId;
 import com.geodesk.feature.match.TypeBits;
+import com.geodesk.feature.store.FeatureConstants;
+import com.geodesk.feature.store.Tip;
 
 import java.nio.ByteBuffer;
 
@@ -29,6 +32,8 @@ public class TWay extends TFeature2D<TWay.Body>
     {
         body = new Body(reader, readBodyPointer(reader));
     }
+
+    private static final TNode[] EMPTY_NODES = new TNode[0];
 
     class Body extends Struct
     {
@@ -69,6 +74,7 @@ public class TWay extends TFeature2D<TWay.Body>
             }
             else
             {
+                featureNodes = EMPTY_NODES;
                 tips = null;
             }
             setSize(bodySize);
@@ -79,7 +85,53 @@ public class TWay extends TFeature2D<TWay.Body>
 
         @Override public void write(StructWriter out)
         {
-            // TODO
+            int prevTip = Integer.MIN_VALUE;
+            int truePrevTip = FeatureConstants.START_TIP;
+
+            // Remember: first foreign ref must always indicate tile change even
+            // if its tip is START_TIP
+
+            int lastFlag = TileReader.LAST_FLAG;
+            for(int i=featureNodes.length-1; i>=0; i--)
+            {
+                TNode node = featureNodes[i];
+                int tip = tips[i];
+                int flags = lastFlag;
+                if (tip != TileReader.LOCAL_TILE)
+                {
+                    assert node.isForeign();
+                    flags |= TileReader.FOREIGN_FLAG;
+                    if (tip != prevTip)
+                    {
+                        flags |= TileReader.DIFFERENT_TILE_FLAG;
+                        int tipDelta = tip - truePrevTip;
+                        if (Tip.isWideTipDelta(tipDelta))
+                        {
+                            out.writeShort((short)(tipDelta >> 15));
+                            out.writeShort((short)((tipDelta << 1) | 1));
+                        }
+                        else
+                        {
+                            out.writeShort((short) (tipDelta << 1));
+                        }
+                        prevTip = tip;
+                        truePrevTip = tip;
+                    }
+                    long typedId = FeatureId.ofNode(node.id());
+                    out.writeForeignPointer(tip, typedId, 2, flags);
+                    // TODO: pointer occupies top 28 bits, but we only
+                    //  shift by 2 because it is 4-byte aligned
+                    // TODO: unify handling of pointers, this is too confusing
+                }
+                else
+                {
+                    assert !node.isForeign();
+                    out.writeTaggedPointer(node, 2, flags);
+                }
+                lastFlag = 0;
+            }
+            if(isRelationMember()) out.writePointer(relations);
+            out.writeBytes(encodedCoords);
         }
     }
 }

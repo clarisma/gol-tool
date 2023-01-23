@@ -9,7 +9,11 @@ package com.geodesk.gol.tiles;
 
 import com.clarisma.common.soar.Struct;
 import com.clarisma.common.soar.StructOutputStream;
+import com.clarisma.common.soar.StructWriter;
+import com.geodesk.feature.FeatureId;
 import com.geodesk.feature.match.TypeBits;
+import com.geodesk.feature.store.FeatureConstants;
+import com.geodesk.feature.store.Tip;
 
 import java.io.IOException;
 
@@ -17,13 +21,15 @@ import static com.geodesk.feature.store.FeatureFlags.FEATURE_TYPE_BITS;
 
 public class TRelation extends TFeature2D<TRelation.Body>
 {
+    private TTile tile;
     private TFeature[] members;
     private int[] roles;
     private int[] tips;
 
-    public TRelation(long id)
+    public TRelation(TTile tile, long id)
     {
         super(id);
+        this.tile = tile;
         flags |= 2 << FEATURE_TYPE_BITS;
     }
 
@@ -39,7 +45,7 @@ public class TRelation extends TFeature2D<TRelation.Body>
             // TODO: empty relation
 
             int bodySize = 0;
-            if(isRelationMember())
+            if (isRelationMember())
             {
                 relations = reader.readRelationTableIndirect(pBody - 4);
                 bodySize = 4;
@@ -55,9 +61,70 @@ public class TRelation extends TFeature2D<TRelation.Body>
             setAlignment(1);    // 2-byte algined (1 << 1)
         }
 
-        @Override public void writeTo(StructOutputStream out) throws IOException
+        @Override public void write(StructWriter out)
         {
-            // TODO
+            if(isRelationMember()) out.writePointer(relations);
+
+            int prevRole = 0;
+            int prevTip = Integer.MIN_VALUE;
+            int truePrevTip = FeatureConstants.START_TIP;
+
+            // Remember: first foreign ref must always indicate tile change even
+            // if its tip is START_TIP
+
+            int lastItem = members.length - 1;
+            for (int i = 0; i <= lastItem; i++)
+            {
+                TFeature member = members[i];
+                int tip = tips[i];
+                int role = roles[i];
+                int flags = (i == lastItem) ? 1 : 0;   // last-item flag
+                if(role != prevRole) flags |= TileReader.DIFFERENT_ROLE_FLAG;
+                if (tip == TileReader.LOCAL_TILE)
+                {
+                    assert !member.isForeign();
+                    out.writeTaggedPointer(member, 3, flags);
+                }
+                else
+                {
+                    assert member.isForeign();
+                    flags |= TileReader.FOREIGN_FLAG;
+                    if (tip != prevTip) flags |= TileReader.DIFFERENT_TILE_FLAG;
+                    long typedId = FeatureId.of(member.typeCode(), member.id());
+                    out.writeForeignPointer(tip, typedId, 2, flags);
+                    // TODO: pointer occupies top 28 bits, but we only
+                    //  shift by 2 because it is 4-byte aligned
+                    // TODO: unify handling of pointers, this is too confusing
+                    if (tip != prevTip)
+                    {
+                        int tipDelta = tip - truePrevTip;
+                        if (Tip.isWideTipDelta(tipDelta))
+                        {
+                            out.writeInt((tipDelta << 1) | 1);
+                        }
+                        else
+                        {
+                            out.writeShort((short) (tipDelta << 1));
+                        }
+                        prevTip = tip;
+                        truePrevTip = tip;
+                    }
+                }
+                if(role != prevRole)
+                {
+                    if((role & 1) == 0)
+                    {
+                        // global string (flag is reversed)
+                        out.writeShort((short)(role | 1));
+                    }
+                    else
+                    {
+                        // local string
+                        out.writeTaggedPointer(tile.localStringStruct(
+                            role >>> 1), 1, 0);
+                    }
+                }
+            }
         }
     }
 }

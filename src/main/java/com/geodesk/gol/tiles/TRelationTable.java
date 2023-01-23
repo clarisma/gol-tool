@@ -9,6 +9,10 @@ package com.geodesk.gol.tiles;
 
 import com.clarisma.common.soar.SharedStruct;
 import com.clarisma.common.soar.StructOutputStream;
+import com.clarisma.common.soar.StructWriter;
+import com.geodesk.feature.FeatureId;
+import com.geodesk.feature.store.FeatureConstants;
+import com.geodesk.feature.store.Tip;
 
 import java.io.IOException;
 import java.util.List;
@@ -86,21 +90,22 @@ public class TRelationTable extends SharedStruct
         return false;
     }
 
-    /*
     @Override public void write(StructWriter out)
     {
-        assert hashCode != 0: "Table has not been built";
-        int currentTip = FeatureConstants.START_TIP;
+        assert hashCode != 0 : "Table has not been built";
+        int prevTip = Integer.MIN_VALUE;
+        int truePrevTip = FeatureConstants.START_TIP;
 
-        // TODO: first foreign ref must always indicate tile change even
-        //  if its tip is START_TIP
-        int count = tipDeltas.length;
-        for(int i=0; i< count; i++)
+        // Remember: first foreign ref must always indicate tile change even
+        // if its tip is START_TIP
+
+        int lastItem = tips.length - 1;
+        for (int i = 0; i <= lastItem; i++)
         {
             TRelation rel = relations.get(i);
-            int tipDelta = tipDeltas[i];
-            int flags = (i == count-1) ? 1 : 0;   // last-item flag
-            if(tipDelta == TileReader.LOCAL_TILE)
+            int tip = tips[i];
+            int flags = (i == lastItem) ? 1 : 0;   // last-item flag
+            if (tip == TileReader.LOCAL_TILE)
             {
                 assert !rel.isForeign();
                 out.writeTaggedPointer(rel, 2, flags);
@@ -109,27 +114,27 @@ public class TRelationTable extends SharedStruct
             {
                 assert rel.isForeign();
                 flags |= TileReader.FOREIGN_FLAG;
-                if (tipDelta != 0) flags |= TileReader.DIFFERENT_TILE_FLAG;
+                if (tip != prevTip) flags |= TileReader.DIFFERENT_TILE_FLAG;
                 long typedId = FeatureId.ofRelation(rel.id());
-                out.writeForeignPointer(ref.tip, typedId, 2, flags);
-                    // TODO: pointer occupies top 28 bits, but we only
-                    //  shift by 2 because it is 4-byte aligned
-                    // TODO: unify handling of pointers, this is too confusing
-                if ((flags & 8) != 0)
+                out.writeForeignPointer(tip, typedId, 2, flags);
+                // TODO: pointer occupies top 28 bits, but we only
+                //  shift by 2 because it is 4-byte aligned
+                // TODO: unify handling of pointers, this is too confusing
+                if (tip != prevTip)
                 {
-                    int tipDelta = ref.tip - prevTip;
-                    if (FeatureTile.isWideTipDelta(tipDelta))
+                    int tipDelta = tip - truePrevTip;
+                    if (Tip.isWideTipDelta(tipDelta))
                     {
                         out.writeInt((tipDelta << 1) | 1);
                     }
                     else
                     {
-                        out.writeShort(tipDelta << 1);
+                        out.writeShort((short) (tipDelta << 1));
                     }
-                    prevTip = ref.tip;
+                    prevTip = tip;
+                    truePrevTip = tip;
                 }
             }
         }
-
-     */
+    }
 }

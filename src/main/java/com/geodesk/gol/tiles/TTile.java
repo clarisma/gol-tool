@@ -159,7 +159,7 @@ public class TTile
         TRelation rel = relations.get(id);
         if (rel == null)
         {
-            rel = new TRelation(id);
+            rel = new TRelation(this, id);
             relations.put(id, rel);
         }
         return rel;

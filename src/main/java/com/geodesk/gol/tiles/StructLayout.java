@@ -28,6 +28,11 @@ public class StructLayout
         pos = header.size();
     }
 
+    public int size()
+    {
+        return pos;
+    }
+
     public void put(Struct s)
     {
         pos = s.alignedLocation(pos);

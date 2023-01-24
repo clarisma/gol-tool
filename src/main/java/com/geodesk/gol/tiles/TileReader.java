@@ -322,7 +322,6 @@ public class TileReader
         }
         tipDelta >>= 1;     // signed shift; gets rid of the flag bit
         currentTip += tipDelta;
-        currentTips.add(currentTip);
         return p;
     }
 
@@ -406,16 +405,16 @@ public class TileReader
                         // part; we move the pointer to the next feature ref
                         // (+2 if forward, -4 if backward)
                         p = readTipDelta(p, direction) + stepAfterTileChange - 2;
-                        currentFeatures.add(getForeignFeature(currentTip,
-                            (entry >>> 4) << 2, allowedTypes));
                     }
                     else
                     {
                         // no change in tile
-                        currentTips.add(currentTip);
                         // move pointer to next feature ref (+4 if forward, -4 if backward)
                         p += stepAfter;
                     }
+                    currentFeatures.add(getForeignFeature(currentTip,
+                        (entry >>> 4) << 2, allowedTypes));
+                    currentTips.add(currentTip);
                 }
             }
             catch(InvalidTileException ex)
@@ -463,6 +462,7 @@ public class TileReader
             for(TFeature f: currentFeatures) relations.add((TRelation)f);
             relTable = new TRelationTable(relations, getCurrentTips(), pEnd - pTable);
             resetTables();
+            relTable = tile.getRelationTable(relTable);
             relTables.put(pTable, relTable);
             // TODO: add to tile!
             // TODO: check for duplicates? (error condition)

@@ -37,6 +37,7 @@ public class TRelationTable extends SharedStruct
 
     public TRelationTable(List<TRelation> relations, int[] tips, int size)
     {
+        assert relations.size() == tips.length;
         this.relations = relations;
         this.tips = tips;
         setSize(size);
@@ -65,9 +66,10 @@ public class TRelationTable extends SharedStruct
         relations.add(i, relation);
     }
 
-    @Override public void writeTo(StructOutputStream out) throws IOException
+    public void build()
     {
         // TODO
+        hashCode();
     }
 
     @Override public int hashCode()

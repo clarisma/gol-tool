@@ -12,11 +12,15 @@ import com.clarisma.common.soar.SString;
 import com.clarisma.common.soar.SharedStruct;
 import com.clarisma.common.soar.StructOutputStream;
 import com.clarisma.common.soar.StructWriter;
+import com.clarisma.common.util.Log;
+import com.geodesk.feature.store.FeatureConstants;
 import com.geodesk.feature.store.TagValues;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
+import java.util.Iterator;
+import java.util.List;
 
 /**
  * Bit 0:       0 = number, 1 = string
@@ -26,7 +30,7 @@ import java.util.Arrays;
  * Bits 32-63:  If numeric or global-string value: encoded value
  *              If local-string value: local-string value code
  */
-public class TTagTable extends SharedStruct
+public class TTagTable extends SharedStruct implements Comparable<TTagTable>
 {
     private final TTile tile;
     private final int hashCode;
@@ -34,8 +38,10 @@ public class TTagTable extends SharedStruct
 
     private final static int LOCAL_KEY = 4;
 
-    private static long[] EMPTY = new long[] { 0xffff_ffff_ffff_ffffL };
-        // TODO: change this to 0x8000;
+    private static long EMPTY_TAG = 0x8000L;
+    // TODO: Change TagValues.EMPTY_TABLE_MARKER to match this patter
+
+    // TODO: reading won't work because of broken empty tag code!
 
     public TTagTable(TileReader reader, int pTable, int uncommonTagsFlag)
     {
@@ -45,6 +51,7 @@ public class TTagTable extends SharedStruct
         int uncommonTagCount = 0;
         int size;
         int p = pTable;
+
         if(uncommonTagsFlag != 0)
         {
             for (;;)
@@ -87,7 +94,12 @@ public class TTagTable extends SharedStruct
 			int rawPointer = (int) (tag >> 16);
 			int flags = rawPointer & 7;
 			int pKey = ((rawPointer ^ flags) >> 1) + origin;    // preserve sign
+            assert (pKey & 3) == 0; // 4-byte aligned
 			int keyCode = reader.readString(pKey);
+            tile.useLocalStringAsKey(keyCode);
+                // ensure that key is 4-byte aligned (when we're reading, this
+                // will always be the case, but the alignment information is
+                // not preserved, so we need to mark the struct explicitly)
             if((flags & 2) == 0)
             {
                 // narrow value
@@ -107,6 +119,8 @@ public class TTagTable extends SharedStruct
             }
             tag |= (keyCode << 3) | (flags & 3) | LOCAL_KEY;
             tags[i] = tag;
+
+            assert tag !=0; // TODO: check!!!!
         }
 
         p = pTable;
@@ -115,8 +129,11 @@ public class TTagTable extends SharedStruct
             int k = buf.getInt(p);
             if(k == TagValues.EMPTY_TABLE_MARKER)
             {
-                // TODO: workaround for current empty table marker
-                k = 0x8000;
+                // TODO: Workaround for broken empty-table marker
+                assert i==0;
+                tags[0] = EMPTY_TAG;
+                size -= 2;
+                break;
             }
             int val;
             if((k & 2) == 0)
@@ -136,8 +153,9 @@ public class TTagTable extends SharedStruct
                 }
             }
             long tag = ((k & 0x7ffc) << 1) | (k & 3);
-            k |= (long)val << 32;
+            tag |= (long)val << 32;
             tags[i] = tag;
+
             p += 4;
             if((k & 0x8000) != 0) break;
         }
@@ -153,8 +171,8 @@ public class TTagTable extends SharedStruct
         setAlignment(1);    // 2-byte aligned (1 << 1)
         if(tagStrings.length == 0)
         {
-            tags = EMPTY;
-            hashCode = 0;
+            tags = new long[] { EMPTY_TAG };
+            hashCode = 1;
             setSize(4);
             return;
         }
@@ -417,11 +435,44 @@ public class TTagTable extends SharedStruct
         {
             long tag = tags[i];
             assert (tag & LOCAL_KEY) == 0;
-            int k = ((int)tag >>> 1) & 0x7ffc;
-            k |= (int)tag & 3;
-            if(i == lastGlobalTagIndex) tag |= 0x8000;
-            out.writeShort((short)k);
-            writeValue(out, tag);
+            if(tag == EMPTY_TAG)
+            {
+                // TODO: workaround for broken empty-table marker
+                out.writeInt(TagValues.EMPTY_TABLE_MARKER);
+            }
+            else
+            {
+                int k = ((int) tag >>> 1) & 0x7ffc;
+                k |= (int) tag & 3;
+                if (i == lastGlobalTagIndex) tag |= 0x8000;
+                out.writeShort((short) k);
+                writeValue(out, tag);
+            }
         }
+    }
+
+    public void gatherStrings(List<? super SString> strings)
+    {
+        for(int i=0; i<tags.length; i++)
+        {
+            long tag = tags[i];
+            if((tag & LOCAL_KEY) != 0)
+            {
+                int k = ((int)tag) >>> 3;
+                strings.add(tile.localStringStruct(k));
+            }
+            if((tag & 3) == 3)  // local-string value
+            {
+                int v = (int)(tag >>> 32);
+                strings.add(tile.localStringStruct(v));
+            }
+        }
+    }
+
+    @Override public int compareTo(TTagTable other)
+    {
+        // We just compare the keys of the first tags; we only need
+        // a rough order // TODO: or no sort at all?
+        return Integer.compare((int)tags[0], (int)other.tags[0]);
     }
 }

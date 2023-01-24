@@ -7,6 +7,7 @@
 
 package com.geodesk.gol.tiles;
 
+import com.clarisma.common.soar.Struct;
 import com.clarisma.common.soar.StructOutputStream;
 import com.clarisma.common.soar.StructWriter;
 import com.geodesk.feature.store.FeatureFlags;
@@ -35,16 +36,9 @@ public class TNode extends TFeature
         return minY;
     }
 
-
-    // TODO: remove
-    @Override public void writeTo(StructOutputStream out) throws IOException
+    @Override public Struct body()
     {
-        assert !isForeign();
-        out.writeInt(minX);
-        out.writeInt(minY);
-        writeId(out);
-        out.writePointer(tags, tags.hasUncommonKeys() ? 1 : 0);
-        if (relations != null) out.writePointer(relations);
+        return null;
     }
 
     @Override public void write(StructWriter out)

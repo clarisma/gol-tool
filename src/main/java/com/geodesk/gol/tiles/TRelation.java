@@ -7,6 +7,7 @@
 
 package com.geodesk.gol.tiles;
 
+import com.clarisma.common.soar.SString;
 import com.clarisma.common.soar.Struct;
 import com.clarisma.common.soar.StructOutputStream;
 import com.clarisma.common.soar.StructWriter;
@@ -16,6 +17,8 @@ import com.geodesk.feature.store.FeatureConstants;
 import com.geodesk.feature.store.Tip;
 
 import java.io.IOException;
+import java.util.Iterator;
+import java.util.List;
 
 import static com.geodesk.feature.store.FeatureFlags.FEATURE_TYPE_BITS;
 
@@ -52,7 +55,7 @@ public class TRelation extends TFeature2D<TRelation.Body>
                 setAnchor(4);
             }
             bodySize += reader.readTable(pBody, 3, 1,
-                TypeBits.ALL & TypeBits.RELATION_MEMBER, true);
+                TypeBits.ALL & TypeBits.RELATION_MEMBER, true) - pBody;
             members = reader.getCurrentFeatures();
             tips = reader.getCurrentTips();
             roles = reader.getCurrentRoles();
@@ -123,8 +126,18 @@ public class TRelation extends TFeature2D<TRelation.Body>
                         out.writeTaggedPointer(tile.localStringStruct(
                             role >>> 1), 1, 0);
                     }
+                    prevRole = role;
                 }
             }
+        }
+    }
+
+    public void gatherStrings(List<? super SString> strings)
+    {
+        for(int i=0;i < roles.length; i++)
+        {
+            int role = roles[i];
+            if((role & 1) != 0) strings.add(tile.localStringStruct(role >>> 1));
         }
     }
 }

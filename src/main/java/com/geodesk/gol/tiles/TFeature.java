@@ -8,6 +8,7 @@
 package com.geodesk.gol.tiles;
 
 import com.clarisma.common.soar.SharedStruct;
+import com.clarisma.common.soar.Struct;
 import com.clarisma.common.soar.StructOutputStream;
 import com.clarisma.common.soar.StructWriter;
 import com.geodesk.feature.FeatureType;
@@ -72,6 +73,18 @@ public abstract class TFeature extends SharedStruct implements Bounds, Comparabl
     @Override public int minY()
     {
         return minY;
+    }
+
+    public abstract Struct body();
+
+    public TTagTable tags()
+    {
+        return tags;
+    }
+
+    public TRelationTable relations()
+    {
+        return relations;
     }
 
     @Override public int compareTo(TFeature other)

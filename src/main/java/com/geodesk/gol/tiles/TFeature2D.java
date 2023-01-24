@@ -37,6 +37,11 @@ public abstract class TFeature2D<T extends Struct> extends TFeature
         return maxY;
     }
 
+    @Override public Struct body()
+    {
+        return body;
+    }
+
     // TODO: remove
     @Override public void writeTo(StructOutputStream out) throws IOException
     {

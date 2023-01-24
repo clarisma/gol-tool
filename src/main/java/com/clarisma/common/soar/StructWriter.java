@@ -15,12 +15,15 @@ import java.nio.ByteBuffer;
 public class StructWriter
 {
     private ByteBuffer buf;
+	private int start;
 	private int pos;
 	private PbfOutputStream links;
 
 	public StructWriter(ByteBuffer buf, int start)
 	{
 		this.buf = buf;
+		this.start = start;
+		this.pos = start;
 	}
 
 	public void setLinks(PbfOutputStream links)
@@ -64,10 +67,14 @@ public class StructWriter
 		pos += 8;
     }
 
-
+	/**
+	 * Returns position (relative to tile start, NOT buffer start)
+	 *
+	 * @return
+	 */
 	public int position()
 	{
-		return pos;
+		return pos-start;
 	}
 
 	public void writePointer(Struct target)
@@ -78,7 +85,7 @@ public class StructWriter
 			writeInt(0);
 			return;
 		}
-		writeInt(target.anchorLocation() - pos);
+		writeInt(target.anchorLocation() - (pos - start));
 	}
 
 	public void writePointer(Struct target, int flags)
@@ -86,12 +93,17 @@ public class StructWriter
 		int p;
 		if(target == null)
 		{
-			// TODO: warn
+			// TODO: assert
+			Log.debug("Writing null pointer at %08X", pos);
 			p = 0;
 		}
 		else
 		{
-			p = target.anchorLocation() - pos;
+			if(target.location() == 0)
+			{
+				Log.debug("Writing null pointer at %08X", pos);
+			}
+			p = target.anchorLocation() - (pos - start);
 		}
 		// TODO: check if flags clash with pointer?
 		writeInt(p | flags);
@@ -128,7 +140,7 @@ public class StructWriter
 			assert (flagCount-1) <= alignment:
 				String.format("Cannot have %d flag bits for a pointer to a 2^%d aligned struct",
 					flagCount, alignment);
-			int from = pos & (0xffff_ffff << (flagCount-1));
+			int from = (pos - start) & (0xffff_ffff << (flagCount-1));
 			p = target.anchorLocation() - from;
 
 			/*
@@ -145,9 +157,13 @@ public class StructWriter
 
 	public void write(Struct s)
 	{
+		pos = start + s.location();
 		int oldPos = pos;
-		pos = s.location();
 		s.write(this);
+		if(pos != oldPos + s.size())
+		{
+			Log.debug("!!!");
+		}
 		assert pos == oldPos + s.size():
 			String.format("Size of %s is %d, but %d bytes were written",
 				s, s.size(), pos-oldPos);
@@ -162,5 +178,15 @@ public class StructWriter
 		links.writeFixed64(id);
 		writeInt(flags);
     }
+
+	public void writeChain(Struct s)
+	{
+		do
+		{
+			write(s);
+			s = s.next();
+		}
+		while(s != null);
+	}
 }
 

@@ -15,7 +15,7 @@ import org.eclipse.collections.api.map.primitive.IntIntMap;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
+import java.util.function.Consumer;
 
 public class TIndex extends Struct implements SpatialTreeFactory<TIndex.Branch>
 {
@@ -111,7 +111,7 @@ public class TIndex extends Struct implements SpatialTreeFactory<TIndex.Branch>
         return trunk;
     }
 
-    protected static class Branch extends Struct implements Bounds
+    protected static abstract class Branch extends Struct implements Bounds
     {
         private final int minX;
         private final int minY;
@@ -146,28 +146,54 @@ public class TIndex extends Struct implements SpatialTreeFactory<TIndex.Branch>
 	{
 		return maxY;
 	}
+
+        public Branch[] children()
+        {
+            return null;
+        }
     }
 
     protected static class Leaf extends Branch
     {
-        private final TFeature first;
+        private final TFeature firstChild;
 
         Leaf(Bounds bbox, TFeature first, int size)
         {
             super(bbox);
-            this.first = first;
+            this.firstChild = first;
             setSize(size);
         }
 
         @Override public void write(StructWriter out)
         {
-            Struct s = first;
+            Struct s = firstChild;
             do
             {
                 s.write(out);
                 s = s.next();
             }
             while(s != null);
+        }
+
+        public TFeature firstChild()
+        {
+            return firstChild;
+        }
+
+        @Override public void setLocation(int pos)
+        {
+            super.setLocation(pos);
+            if(pos > 0)
+            {
+                Struct f = firstChild;
+                do
+                {
+                    f.setLocation(pos);
+                    pos += f.size();
+                    f = f.next();
+                }
+                while(f != null);
+            }
         }
     }
 
@@ -197,9 +223,14 @@ public class TIndex extends Struct implements SpatialTreeFactory<TIndex.Branch>
                 out.writeInt(child.maxY());
             }
         }
+
+        @Override public Branch[] children()
+        {
+            return children;
+        }
     }
 
-    private static class Root implements Comparable<Root>
+    public static class Root implements Comparable<Root>
     {
         int indexBits;
         Trunk trunk;
@@ -282,7 +313,7 @@ public class TIndex extends Struct implements SpatialTreeFactory<TIndex.Branch>
         }
         else
         {
-            roots[rootCount].add(mixedRoot);
+            if(!mixedRoot.isEmpty()) roots[rootCount].add(mixedRoot);
             for (int i = rootCount + 1; i < roots.length; i++)
             {
                 Root other = roots[i];
@@ -311,6 +342,10 @@ public class TIndex extends Struct implements SpatialTreeFactory<TIndex.Branch>
         setSize(rootCount * 8);
     }
 
+    public void forEachTrunk(Consumer<Trunk> consumer)
+    {
+        for(int i=0; i<rootCount; i++) consumer.accept(roots[i].trunk);
+    }
 
 	@Override public void write(StructWriter out)
 	{

@@ -9,6 +9,8 @@ package com.geodesk.gol.tiles;
 
 import com.clarisma.common.soar.SString;
 import com.clarisma.common.soar.Struct;
+import com.clarisma.common.soar.StructOutputStream;
+import com.clarisma.common.soar.StructWriter;
 import com.geodesk.core.Box;
 import com.geodesk.core.Tile;
 import com.geodesk.feature.FeatureId;
@@ -16,16 +18,15 @@ import com.geodesk.feature.FeatureType;
 import com.geodesk.geom.Bounds;
 import com.geodesk.gol.build.Project;
 import com.geodesk.gol.build.TileCatalog;
+import com.geodesk.gol.compiler.SIndexTree;
 import com.geodesk.gol.compiler.SRelation;
 import org.eclipse.collections.api.map.primitive.*;
 import org.eclipse.collections.impl.map.mutable.primitive.LongLongHashMap;
 import org.eclipse.collections.impl.map.mutable.primitive.LongObjectHashMap;
 import org.eclipse.collections.impl.map.mutable.primitive.ObjectIntHashMap;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.io.IOException;
+import java.util.*;
 
 public class TTile
 {
@@ -42,11 +43,59 @@ public class TTile
     private final MutableLongObjectMap<TRelation> relations = new LongObjectHashMap<>();
     private final Map<TTagTable, TTagTable> tagTables = new HashMap<>();
     private final Map<TRelationTable, TRelationTable> relationTables = new HashMap<>();
+    Header header;
 
-    private TIndex nodeIndex;
-    private TIndex wayIndex;
-    private TIndex areaIndex;
-    private TIndex relationIndex;
+    public class Header extends Struct
+    {
+        int payloadSize;
+        TIndex nodeIndex;
+        TIndex wayIndex;
+        TIndex areaIndex;
+        TIndex relationIndex;
+
+        Header()
+        {
+            setSize(32);
+        }
+
+        @Override public void write(StructWriter out)
+        {
+            out.writeInt(payloadSize);    // payload size (excluding first 4 bytes)
+            out.writeInt(0);    // TODO
+            // TODO: We're going to remove flags, pointers are always to a Root
+            //  or null
+            /*
+            out.writePointer(nodeIndex, 1);
+            out.writePointer(wayIndex, 1);
+            out.writePointer(areaIndex, 1);
+            out.writePointer(relationIndex, 1);
+             */
+            writeIndexPointer(out, nodeIndex);
+            writeIndexPointer(out, wayIndex);
+            writeIndexPointer(out, areaIndex);
+            writeIndexPointer(out, relationIndex);
+            out.writeInt(0);    // TODO
+            out.writeInt(0);    // TODO
+        }
+
+        private static void writeIndexPointer(StructWriter out, TIndex index)
+        {
+            // We have to do an explicit null check here, so we don't write flags
+            // Clear up spec on how to treat null-pointers with flags
+            // If index does not exist, current spec expects 0 (no flags)
+            if(index != null)
+            {
+                // TODO: We're going to remove flags, pointers are always to a Root
+                //  or null
+                out.writePointer(index, 1);
+            }
+            else
+            {
+                out.writeInt(0);
+            }
+        }
+
+    }
 
     public TTile(int tile, ObjectIntMap<String> globalStrings,
         TileCatalog tileCatalog, IndexSettings indexSettings)
@@ -78,6 +127,21 @@ public class TTile
     public Bounds bounds()
     {
         return tileBounds;
+    }
+
+    public Iterable<TTagTable> tagTables()
+    {
+        return tagTables.values();
+    }
+
+    public Iterable<SString> localStrings()
+    {
+        return localStringList;
+    }
+
+    public Iterable<TRelationTable> relationTables()
+    {
+        return relationTables.values();
     }
 
     /*
@@ -220,15 +284,16 @@ public class TTile
 
     public void build()
     {
-        nodeIndex = new TIndex(indexSettings);
-        wayIndex = new TIndex(indexSettings);
-        areaIndex = new TIndex(indexSettings);
-        relationIndex = new TIndex(indexSettings);
+        TIndex nodeIndex = new TIndex(indexSettings);
+        TIndex wayIndex = new TIndex(indexSettings);
+        TIndex areaIndex = new TIndex(indexSettings);
+        TIndex relationIndex = new TIndex(indexSettings);
 
         // relations.forEach(SRelation::addToMembers); // TODO
 
         nodes.forEach(node ->
         {
+            node.setLocation(0);
             node.build(this);
             if (!node.isForeign()) nodeIndex.add(node);
         });
@@ -237,9 +302,11 @@ public class TTile
         {
             // While building the way, it may turn foreign
 
+            way.setLocation(0);
             way.build(this);
             if (!way.isForeign())
             {
+                way.body().setLocation(0);
                 (way.isArea() ? areaIndex : wayIndex).add(way);
             }
         });
@@ -247,10 +314,33 @@ public class TTile
         // buildRelations();  // TODO
         relations.forEach(rel ->
         {
+            rel.setLocation(0);
             if (!rel.isForeign())
             {
+                rel.body().setLocation(0);
                 (rel.isArea() ? areaIndex : relationIndex).add(rel);
             }
         });
+
+        tagTables.values().forEach(tt -> tt.setLocation(0));
+        localStringList.forEach(s -> s.setLocation(0));
+        relationTables.values().forEach(rt -> rt.setLocation(0));
+
+        // for(TRelationTable rt : relationTables.values()) rt.build();
+
+        nodeIndex.build();
+        wayIndex.build();
+        areaIndex.build();
+        relationIndex.build();
+
+        header = new Header();
+        header.nodeIndex     = nodeIndex;
+        header.wayIndex      = wayIndex;
+        header.areaIndex     = areaIndex;
+        header.relationIndex = relationIndex;
+
+        FeatureLayout layout = new FeatureLayout(this);
+        layout.layout();
+        header.payloadSize = layout.size() - 4;
     }
 }

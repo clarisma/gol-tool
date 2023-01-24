@@ -46,7 +46,7 @@ public class TileCompiler extends Processor<TileCompiler.Task>
     private final FeatureStore store;
     private final TileCatalog tileCatalog;
     private final ObjectIntMap<String> globalStrings;
-    private final Project project;
+    private final IndexSettings indexSettings;
 
     private static final int DEFAULT_LINK_DB_PAGE_SIZE = 1 << 13; // TODO: configurable
 
@@ -55,7 +55,7 @@ public class TileCompiler extends Processor<TileCompiler.Task>
         store = ctx.getFeatureStore();
         tileCatalog = ctx.getTileCatalog();
         globalStrings = store.stringsToCodes();
-        project = ctx.project();
+        indexSettings = new IndexSettings(store, ctx.project());
     }
 
     protected class Task implements Runnable
@@ -71,9 +71,10 @@ public class TileCompiler extends Processor<TileCompiler.Task>
         {
             try
             {
-                TTile tile = new TTile(tip, globalStrings, tileCatalog, project);
+                TTile tile = new TTile(tip, globalStrings, tileCatalog, indexSettings);
                 TileReader reader = new TileReader(tile, store, tip);
                 reader.read();
+                tile.build();
             }
             catch (Throwable ex)
             {

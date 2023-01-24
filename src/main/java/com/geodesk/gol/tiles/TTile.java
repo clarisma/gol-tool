@@ -8,6 +8,7 @@
 package com.geodesk.gol.tiles;
 
 import com.clarisma.common.soar.SString;
+import com.clarisma.common.soar.Struct;
 import com.geodesk.core.Box;
 import com.geodesk.core.Tile;
 import com.geodesk.feature.FeatureId;
@@ -15,6 +16,7 @@ import com.geodesk.feature.FeatureType;
 import com.geodesk.geom.Bounds;
 import com.geodesk.gol.build.Project;
 import com.geodesk.gol.build.TileCatalog;
+import com.geodesk.gol.compiler.SRelation;
 import org.eclipse.collections.api.map.primitive.*;
 import org.eclipse.collections.impl.map.mutable.primitive.LongLongHashMap;
 import org.eclipse.collections.impl.map.mutable.primitive.LongObjectHashMap;
@@ -29,7 +31,7 @@ public class TTile
 {
     private final int tile;
     private final TileCatalog tileCatalog;
-    private final Project project;
+    private final IndexSettings indexSettings;
     private final ObjectIntMap<String> globalStrings;
     private final MutableObjectIntMap<String> localStrings = new ObjectIntHashMap<>();
     private final List<SString> localStringList = new ArrayList<>();
@@ -41,13 +43,18 @@ public class TTile
     private final Map<TTagTable, TTagTable> tagTables = new HashMap<>();
     private final Map<TRelationTable, TRelationTable> relationTables = new HashMap<>();
 
+    private TIndex nodeIndex;
+    private TIndex wayIndex;
+    private TIndex areaIndex;
+    private TIndex relationIndex;
+
     public TTile(int tile, ObjectIntMap<String> globalStrings,
-        TileCatalog tileCatalog, Project project)
+        TileCatalog tileCatalog, IndexSettings indexSettings)
     {
         this.tile = tile;
         this.globalStrings = globalStrings;
         this.tileCatalog = tileCatalog;
-        this.project = project;
+        this.indexSettings = indexSettings;
         if(tile != TileCatalog.PURGATORY_TILE)
         {
             tileBounds = Tile.bounds(tile);
@@ -72,6 +79,13 @@ public class TTile
     {
         return tileBounds;
     }
+
+    /*
+    public String globalString(int code)
+    {
+        return globalStrings.getIfAbsent(str, -1);
+    }
+     */
 
     public int globalStringCode(String str)
     {
@@ -203,4 +217,40 @@ public class TTile
     }
 
      */
+
+    public void build()
+    {
+        nodeIndex = new TIndex(indexSettings);
+        wayIndex = new TIndex(indexSettings);
+        areaIndex = new TIndex(indexSettings);
+        relationIndex = new TIndex(indexSettings);
+
+        // relations.forEach(SRelation::addToMembers); // TODO
+
+        nodes.forEach(node ->
+        {
+            node.build(this);
+            if (!node.isForeign()) nodeIndex.add(node);
+        });
+
+        ways.forEach(way ->
+        {
+            // While building the way, it may turn foreign
+
+            way.build(this);
+            if (!way.isForeign())
+            {
+                (way.isArea() ? areaIndex : wayIndex).add(way);
+            }
+        });
+
+        // buildRelations();  // TODO
+        relations.forEach(rel ->
+        {
+            if (!rel.isForeign())
+            {
+                (rel.isArea() ? areaIndex : relationIndex).add(rel);
+            }
+        });
+    }
 }

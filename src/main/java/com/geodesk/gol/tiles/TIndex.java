@@ -10,17 +10,17 @@ package com.geodesk.gol.tiles;
 import com.clarisma.common.soar.Struct;
 import com.clarisma.common.soar.StructWriter;
 import com.geodesk.geom.*;
-import com.geodesk.gol.build.KeyIndexSchema;
-import com.geodesk.gol.compiler.SIndexTree;
+import org.eclipse.collections.api.map.primitive.IntIntMap;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
-public class TIndex extends Struct implements SpatialTreeFactory<Bounds, TIndex.Branch>
+public class TIndex extends Struct implements SpatialTreeFactory<TIndex.Branch>
 {
-    private final Map<Integer,Integer> keyToCategory;
+    private final IndexSettings settings;
+    private final IntIntMap keysToCategory;
     private final int maxIndexedKey;
     private final BoxBuilder boxBuilder = new BoxBuilder();
     private final Root[] roots;
@@ -29,10 +29,11 @@ public class TIndex extends Struct implements SpatialTreeFactory<Bounds, TIndex.
 
     private final static int MAX_CATEGORIES = 30;
 
-    public TIndex(Map<Integer,Integer> keyToCategory, int maxIndexedKey)
+    public TIndex(IndexSettings settings)
     {
-        this.keyToCategory = keyToCategory;
-        this.maxIndexedKey = maxIndexedKey;
+        this.settings = settings;
+        this.keysToCategory = settings.keysToCategory;
+        this.maxIndexedKey = settings.maxKeyIndexes;
         roots = new Root[MAX_CATEGORIES + 1];
         for(int i=0; i<roots.length; i++) roots[i] = new Root();
         mixedRoot = new Root();
@@ -55,8 +56,8 @@ public class TIndex extends Struct implements SpatialTreeFactory<Bounds, TIndex.
             k = (((k & 4) << 16) | k) >>> 3;
                 // put the local-key flag into a higher bit position,
                 // so tags with local keys always have a number > maxIndexedKey
-            Integer keyCategory = keyToCategory.get(k);
-            if(keyCategory != null)
+            int keyCategory = keysToCategory.getIfAbsent(k, 0);
+            if(keyCategory > 0)
             {
                 if(category != 0) multiCategory = true;
                 category = keyCategory;
@@ -75,7 +76,7 @@ public class TIndex extends Struct implements SpatialTreeFactory<Bounds, TIndex.
         return ((BoundedItem<TFeature>)item).get();
     }
 
-    @Override public Branch createLeaf(List<Bounds> childList, int start, int end)
+    @Override public Branch createLeaf(List<? extends Bounds> childList, int start, int end)
     {
         TFeature first = unwrap(childList.get(start));
         TFeature prev = first;
@@ -239,9 +240,9 @@ public class TIndex extends Struct implements SpatialTreeFactory<Bounds, TIndex.
             return count == 0;
         }
 
-        ArrayList<Bounds> toList()
+        ArrayList<TFeature> toFeatureList()
         {
-            ArrayList<Bounds> list = new ArrayList<>(count);
+            ArrayList<TFeature> list = new ArrayList<>(count);
             TFeature f = first;
             do
             {
@@ -256,10 +257,17 @@ public class TIndex extends Struct implements SpatialTreeFactory<Bounds, TIndex.
         {
             return Long.compare(other.count, count);
         }
+
+        public Trunk trunk()
+        {
+            return trunk;
+        }
     }
 
-    public void build(int maxRoots, int minFeatures, int rtreeBucketSize)
+    public void build()
     {
+        int maxRoots = settings.maxKeyIndexes;
+        int minFeatures = settings.keyIndexMinFeatures;
         // Consolidate the roots
 
         Arrays.sort(roots);
@@ -284,12 +292,12 @@ public class TIndex extends Struct implements SpatialTreeFactory<Bounds, TIndex.
             rootCount++;
 
             // TODO: constrain feature bboxes to tile bbox
-            SpatialTreeBuilder<Bounds, Branch> builder =
-                new OmtTreeBuilder<>(this, rtreeBucketSize);
+            SpatialTreeBuilder<Branch> builder =
+                new OmtTreeBuilder<>(this, settings.rtreeBucketSize);
             for (int i = 0; i < rootCount; i++)
             {
                 Root root = roots[i];
-                Branch branch = builder.build(root.toList());
+                Branch branch = builder.build(root.toFeatureList());
                 if(branch instanceof Trunk trunk)
                 {
                     root.trunk = trunk;

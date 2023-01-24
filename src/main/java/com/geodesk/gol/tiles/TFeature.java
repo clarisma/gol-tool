@@ -54,6 +54,11 @@ public abstract class TFeature extends SharedStruct implements Bounds, Comparabl
         return (flags & LOCAL_FLAG) == 0;
     }
 
+    public boolean isArea()
+    {
+        return (flags & AREA_FLAG) != 0;
+    }
+
     public boolean isRelationMember()
     {
         return (flags & RELATION_MEMBER_FLAG) != 0;
@@ -119,5 +124,10 @@ public abstract class TFeature extends SharedStruct implements Bounds, Comparabl
     public void markAsLast()
     {
         flags |= FeatureFlags.LAST_SPATIAL_ITEM_FLAG;
+    }
+
+    public void build(TTile tile)
+    {
+        // TODO
     }
 }

@@ -241,9 +241,9 @@ public class TTagTable extends SharedStruct
     }
 
     /**
-     * Sorts tags in representation order:
-     * - local keys first, descending key string
-     * - then global keys, ascending key code
+     * Sorts tags:
+     * - global keys first, ascending key code
+     * - then local keys, ascending key string
      *
      * @param tile
      * @param tags
@@ -355,9 +355,20 @@ public class TTagTable extends SharedStruct
         return tags[n];
     }
 
+    /*
+    public String getKey(int n)
+    {
+        int k = (int)tags[n];
+        if((k & LOCAL_KEY) == 0)
+        {
+            return tile.globalStringCode()
+        }
+    }
+     */
+
     public boolean hasUncommonKeys()
     {
-        return (tags[0] & LOCAL_KEY) != 0;
+        return (tags[tags.length-1] & LOCAL_KEY) != 0;
     }
 
     private void writeValue(StructWriter out, long tag)

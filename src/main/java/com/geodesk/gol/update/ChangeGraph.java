@@ -459,9 +459,12 @@ public class ChangeGraph
             */
 
             Log.debug("Reading tile %06X...", tip);
+            /*
             TTile tile = new TTile(tip, store.stringsToCodes(), tileCatalog, project);
             TileReader reader = new TileReader(tile, store, buf, pTile);
             reader.read();
+
+             */
         }
 
         @Override public void node(int p)

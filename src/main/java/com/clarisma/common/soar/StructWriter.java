@@ -17,12 +17,14 @@ public class StructWriter
     private ByteBuffer buf;
 	private int start;
 	private int pos;
+	private int end;
 	private PbfOutputStream links;
 
-	public StructWriter(ByteBuffer buf, int start)
+	public StructWriter(ByteBuffer buf, int start, int maxLen)
 	{
 		this.buf = buf;
 		this.start = start;
+		this.end = start + maxLen;
 		this.pos = start;
 	}
 
@@ -167,6 +169,7 @@ public class StructWriter
 		assert pos == oldPos + s.size():
 			String.format("Size of %s is %d, but %d bytes were written",
 				s, s.size(), pos-oldPos);
+		assert pos <= end: "Wrote beyond end of buffer";
 	}
 
     public void writeForeignPointer(int tile, long id, int shift, int flags)
@@ -183,6 +186,7 @@ public class StructWriter
 	{
 		do
 		{
+			assert start+s.location() >= pos: "Chained structs are out of order";
 			write(s);
 			s = s.next();
 		}

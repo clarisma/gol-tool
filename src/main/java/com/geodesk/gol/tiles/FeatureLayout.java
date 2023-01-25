@@ -110,7 +110,7 @@ public class FeatureLayout extends StructLayout
 
     private void placeIndex(TIndex index)
     {
-        if(index == null) return;
+        if(index.isEmpty()) return;
         place(index);
         index.forEachTrunk(this::placeSpatialIndex);
     }

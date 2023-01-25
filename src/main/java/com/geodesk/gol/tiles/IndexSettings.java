@@ -17,6 +17,8 @@ public class IndexSettings
     public final int rtreeBucketSize;;
 	public final int maxKeyIndexes;
 	public final int keyIndexMinFeatures;
+    public final int maxIndexedKey;
+        // TODO: better names, easy to confuse
     public final IntIntMap keysToCategory;
 
     public IndexSettings(FeatureStore store, Project settings)
@@ -25,6 +27,7 @@ public class IndexSettings
         this.maxKeyIndexes = settings.maxKeyIndexes();
         this.keyIndexMinFeatures = settings.keyIndexMinFeatures();
         keysToCategory = store.keysToCategories();
+        maxIndexedKey = keysToCategory.keySet().max();
     }
 
 }

@@ -33,7 +33,7 @@ public class TIndex extends Struct implements SpatialTreeFactory<TIndex.Branch>
     {
         this.settings = settings;
         this.keysToCategory = settings.keysToCategory;
-        this.maxIndexedKey = settings.maxKeyIndexes;
+        this.maxIndexedKey = settings.maxIndexedKey;
         roots = new Root[MAX_CATEGORIES + 1];
         for(int i=0; i<roots.length; i++) roots[i] = new Root();
         mixedRoot = new Root();
@@ -52,10 +52,15 @@ public class TIndex extends Struct implements SpatialTreeFactory<TIndex.Branch>
         for(int i=0; i<tagCount; i++)
         {
             long tag = tags.getTag(i);
-            int k = (int)tag;
-            k = (((k & 4) << 16) | k) >>> 3;
-                // put the local-key flag into a higher bit position,
-                // so tags with local keys always have a number > maxIndexedKey
+            int k = (int)tag >>> 2;
+                // This shift preserves the LOCAL_KEY flag, which moves form
+                // bit 31 to bit 29 (unsigned shift)
+                // A local key will always be beyond the range of global-key
+                // codes. Since local keys always come after globals in a
+                // TTagTable, if we encounter a local key, we know there are
+                // no further possible indexed keys (as indexed keys always
+                // use global strings)
+            if(k > maxIndexedKey) break;
             int keyCategory = keysToCategory.getIfAbsent(k, 0);
             if(keyCategory > 0)
             {
@@ -64,7 +69,6 @@ public class TIndex extends Struct implements SpatialTreeFactory<TIndex.Branch>
                 assert category >= 1 && category <= MAX_CATEGORIES;
                 indexBits |= (1 << (category-1));
             }
-            if(k >= maxIndexedKey) break;
         }
         Root root = multiCategory ? mixedRoot : roots[category];
         root.add(feature, indexBits);
@@ -273,6 +277,7 @@ public class TIndex extends Struct implements SpatialTreeFactory<TIndex.Branch>
 
         ArrayList<TFeature> toFeatureList()
         {
+            assert !isEmpty();
             ArrayList<TFeature> list = new ArrayList<>(count);
             TFeature f = first;
             do
@@ -281,12 +286,13 @@ public class TIndex extends Struct implements SpatialTreeFactory<TIndex.Branch>
                 f = (TFeature)f.next();
             }
             while(f != first);
+            assert list.size() == count;
             return list;
         }
 
         @Override public int compareTo(Root other)
         {
-            return Long.compare(other.count, count);
+            return Integer.compare(other.count, count);
         }
 
         public Trunk trunk()
@@ -320,7 +326,7 @@ public class TIndex extends Struct implements SpatialTreeFactory<TIndex.Branch>
                 if (other.isEmpty()) break;
                 roots[rootCount].add(other);
             }
-            rootCount++;
+            if(!roots[rootCount].isEmpty()) rootCount++;
 
             // TODO: constrain feature bboxes to tile bbox
             SpatialTreeBuilder<Branch> builder =
@@ -347,12 +353,19 @@ public class TIndex extends Struct implements SpatialTreeFactory<TIndex.Branch>
         for(int i=0; i<rootCount; i++) consumer.accept(roots[i].trunk);
     }
 
+    public boolean isEmpty()
+    {
+        return rootCount == 0;
+    }
+
 	@Override public void write(StructWriter out)
 	{
+        assert rootCount > 0;
         for(int i=0; i<rootCount; i++)
         {
             Root root = roots[i];
             if(root.isEmpty()) break;
+            assert root.trunk != null;
             out.writePointer(root.trunk, i == rootCount-1 ? 1 : 0);
             out.writeInt(root.indexBits);
         }

@@ -26,6 +26,11 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 
+// TODO: Pointers are relative to buffer start, NOT tile start
+//  Will need to be adjusted if we ever use a keep-in-place approach
+//  (Currently, the TileCompiler will recalculate the layout, so this
+//  is not an issue)
+
 public class TileReader
 {
     private final TTile tile;

@@ -80,21 +80,15 @@ public class TTile
 
         private static void writeIndexPointer(StructWriter out, TIndex index)
         {
-            // We have to do an explicit null check here, so we don't write flags
-            // Clear up spec on how to treat null-pointers with flags
-            // If index does not exist, current spec expects 0 (no flags)
-            if(index != null)
-            {
-                // TODO: We're going to remove flags, pointers are always to a Root
-                //  or null
-                out.writePointer(index, 1);
-            }
-            else
+            if(index.isEmpty())
             {
                 out.writeInt(0);
+                return;
             }
+            // TODO: We're going to remove flags, pointers are always to a Root
+            //  or null
+            out.writePointer(index, 1);
         }
-
     }
 
     public TTile(int tile, ObjectIntMap<String> globalStrings,

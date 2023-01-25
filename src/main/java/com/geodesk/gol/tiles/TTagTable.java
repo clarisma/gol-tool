@@ -25,8 +25,8 @@ import java.util.List;
 /**
  * Bit 0:       0 = number, 1 = string
  * Bit 1:       0 = narrow, 1 = wide
- * Bit 2:       0 = global-string key code, 1 = local-string key code
- * Bits 3-31:   global/local string code
+ * Bits 2-30:   global/local string code
+ * Bit 31:      0 = global-string key code, 1 = local-string key code
  * Bits 32-63:  If numeric or global-string value: encoded value
  *              If local-string value: local-string value code
  */
@@ -36,7 +36,9 @@ public class TTagTable extends SharedStruct implements Comparable<TTagTable>
     private final int hashCode;
     private final long[] tags;
 
-    private final static int LOCAL_KEY = 4;
+    private final static long LOCAL_KEY = 0x8000_0000L;
+        // has to be long, because int -> long conversion
+        // sign-extends, setting the upper 32 bits to 1
 
     private static long EMPTY_TAG = 0x8000L;
     // TODO: Change TagValues.EMPTY_TABLE_MARKER to match this patter
@@ -52,15 +54,19 @@ public class TTagTable extends SharedStruct implements Comparable<TTagTable>
         int size;
         int p = pTable;
 
+        // Do an initial scan of the stored tag table to count the tags
+        // and get the size of the structure
+
         if(uncommonTagsFlag != 0)
         {
+            // Scan uncommon (local-key) tags first
             for (;;)
             {
                 p -= 4;
                 int k = buf.getInt(p);
                 p -= (k & 2) + 2;
                 uncommonTagCount++;
-                if((k & 4) != 0) break;
+                if((k & 4) != 0) break;     // bit 2 is last-item flag
             }
             size = pTable - p;
             setAnchor(size);
@@ -94,7 +100,7 @@ public class TTagTable extends SharedStruct implements Comparable<TTagTable>
 			int rawPointer = (int) (tag >> 16);
 			int flags = rawPointer & 7;
 			int pKey = ((rawPointer ^ flags) >> 1) + origin;    // preserve sign
-            assert (pKey & 3) == 0; // 4-byte aligned
+            assert (pKey & 3) == 0; // must be 4-byte aligned
 			int keyCode = reader.readString(pKey);
             tile.useLocalStringAsKey(keyCode);
                 // ensure that key is 4-byte aligned (when we're reading, this
@@ -117,7 +123,7 @@ public class TTagTable extends SharedStruct implements Comparable<TTagTable>
                 }
                 tag = (long)val << 32;
             }
-            tag |= (keyCode << 3) | (flags & 3) | LOCAL_KEY;
+            tag |= (keyCode << 2) | (flags & 3) | LOCAL_KEY;
             tags[i] = tag;
 
             assert tag !=0; // TODO: check!!!!
@@ -152,8 +158,7 @@ public class TTagTable extends SharedStruct implements Comparable<TTagTable>
                     val = reader.readString(p + val);
                 }
             }
-            long tag = ((k & 0x7ffc) << 1) | (k & 3);
-            tag |= (long)val << 32;
+            long tag = (k & 0x7fff) | ((long)val << 32);
             tags[i] = tag;
 
             p += 4;
@@ -189,7 +194,7 @@ public class TTagTable extends SharedStruct implements Comparable<TTagTable>
             if(k >= 0 && k <= TagValues.MAX_COMMON_KEY)
             {
                 // global key
-                tag = k << 3;
+                tag = k << 2;
                 size += 2;
             }
             else
@@ -198,7 +203,7 @@ public class TTagTable extends SharedStruct implements Comparable<TTagTable>
                 int keyCode = tile.localStringCode(key);
                 tile.useLocalStringAsKey(keyCode);
                     // ensure that string will be 4-byte aligned
-                tag = (keyCode << 3) | LOCAL_KEY;
+                tag = (keyCode << 2) | LOCAL_KEY;
                 size += 4;
                 anchor += 4;
             }
@@ -275,8 +280,8 @@ public class TTagTable extends SharedStruct implements Comparable<TTagTable>
             while (j >= 0)
             {
                 long other = tags[j];
-                int localKeyFlag = (int)tag & LOCAL_KEY;
-                int otherLocalKeyFlag = (int)other & LOCAL_KEY;
+                int localKeyFlag = (int)tag >>> 31;
+                int otherLocalKeyFlag = (int)other >>> 31;
                 int compare = localKeyFlag - otherLocalKeyFlag;
                 if(compare > 0) break;
                 if(compare == 0)
@@ -301,56 +306,6 @@ public class TTagTable extends SharedStruct implements Comparable<TTagTable>
         }
     }
 
-
-    /*
-    @Override public void writeTo(StructOutputStream out) throws IOException
-    {
-        int origin = anchorLocation() & 0xffff_fffc;
-        int lastTag = tags.length-1;
-        for(int i=0; i<tags.length; i++)
-        {
-            long tag = tags[i];
-            int keyCode = (int)tag >>> 3;
-            int flags = (int)tag & 3;
-            if((tag & LOCAL_KEY) == 0)
-            {
-                int k = (keyCode << 2) | flags;
-                out.writeShort(i != lastTag ? k : (k | 0x8000));
-            }
-            int val = (int)(tag >>> 32);
-            if((tag & 2) == 0)
-            {
-                // narrow value
-                out.writeShort(val);
-            }
-            else
-            {
-                // wide value
-                if((tag & 1) != 0)
-                {
-                    // wide string
-                    out.writePointer(tile.localStringStruct(val));
-                }
-                else
-                {
-                    // wide number
-                    out.writeInt(val);
-                }
-            }
-            if((tag & LOCAL_KEY) != 0)
-            {
-                SString keyString = tile.localStringStruct(keyCode);
-                int ptr = keyString.location() - origin;
-				assert (ptr & 3) == 0;
-				ptr <<= 1;
-                ptr |= flags;
-				out.writeInt(i != 0 ? ptr : (ptr | 4));
-					// don't use writePointer, pointers to uncommon
-					// keys require special handling
-            }
-        }
-    }
-     */
 
     @Override public int hashCode()
     {
@@ -419,7 +374,8 @@ public class TTagTable extends SharedStruct implements Comparable<TTagTable>
             long tag = tags[i];
             assert (tag & LOCAL_KEY) != 0;
             writeValue(out, tag);
-            SString keyString = tile.localStringStruct((int)tag >>> 3);
+            SString keyString = tile.localStringStruct(
+                ((int)tag >>> 2) & 0x1fff_ffff);
             int ptr = keyString.location() - origin;
 			assert (ptr & 3) == 0;
 			ptr <<= 1;
@@ -442,9 +398,8 @@ public class TTagTable extends SharedStruct implements Comparable<TTagTable>
             }
             else
             {
-                int k = ((int) tag >>> 1) & 0x7ffc;
-                k |= (int) tag & 3;
-                if (i == lastGlobalTagIndex) tag |= 0x8000;
+                int k = (char)tag;
+                k |= (i == lastGlobalTagIndex) ? 0x8000 : 0;
                 out.writeShort((short) k);
                 writeValue(out, tag);
             }
@@ -458,7 +413,7 @@ public class TTagTable extends SharedStruct implements Comparable<TTagTable>
             long tag = tags[i];
             if((tag & LOCAL_KEY) != 0)
             {
-                int k = ((int)tag) >>> 3;
+                int k = (((int)tag) >>> 2) & 0x1fff_ffff;
                 strings.add(tile.localStringStruct(k));
             }
             if((tag & 3) == 3)  // local-string value
@@ -473,6 +428,7 @@ public class TTagTable extends SharedStruct implements Comparable<TTagTable>
     {
         // We just compare the keys of the first tags; we only need
         // a rough order // TODO: or no sort at all?
+        // TODO: this will sort local keys first, but it may not matter
         return Integer.compare((int)tags[0], (int)other.tags[0]);
     }
 }

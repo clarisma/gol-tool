@@ -100,7 +100,7 @@ public class TileCompiler extends Processor<TileCompiler.Task>
             // because Archive.writeToBuffer() will clobber it
             int oldHeader = buf.getInt(ofs);
             int prevBlobFreeFlag = oldHeader & BlobStoreConstants.PRECEDING_BLOB_FREE_FLAG;
-            StructWriter writer = new StructWriter(buf, ofs);
+            StructWriter writer = new StructWriter(buf, ofs, payloadSize+4);
             writer.setLinks(imports);
             writer.writeChain(tile.header);
             // put the flag back in
@@ -127,6 +127,7 @@ public class TileCompiler extends Processor<TileCompiler.Task>
     public void compileAll() throws IOException
     {
         Path copyPath = Path.of("c:\\geodesk\\tests\\copy.gol");
+        Files.deleteIfExists(copyPath);
         store.createCopy(copyPath);
         destinationStore = new FeatureStore();
         destinationStore.setPath(copyPath);

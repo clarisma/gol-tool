@@ -431,4 +431,26 @@ public class TTagTable extends SharedStruct implements Comparable<TTagTable>
         // TODO: this will sort local keys first, but it may not matter
         return Integer.compare((int)tags[0], (int)other.tags[0]);
     }
+
+    /*
+    public String[] toStringArray()
+    {
+        int n = 0;
+        int tagCount = tags.length;
+        if(tags[0] == EMPTY_TAG)
+        {
+            n = 1;
+            tagCount--;
+        }
+        String[] kv = new String[tagCount * 2];
+        for(int i=n*2; n<tags.length; n++, i+=2)
+        {
+            long tag = tags[n];
+            int k = (int)tag;
+            if(k >= 0)
+            {
+                kv[i] = tile.k >>> 2
+        }
+    }
+     */
 }

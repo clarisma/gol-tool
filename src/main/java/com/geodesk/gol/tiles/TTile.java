@@ -168,6 +168,13 @@ public class TTile
         return localStringList.get(code);
     }
 
+    /*
+    public String globalString(int code)
+    {
+        // TODO
+    }
+     */
+
     public String localString(int code)
     {
         return localStringStruct(code).toString();

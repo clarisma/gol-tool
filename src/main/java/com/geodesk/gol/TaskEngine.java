@@ -34,18 +34,12 @@ public abstract class TaskEngine<T>
         outputQueue = new LinkedBlockingQueue<>(queueSize);
         startTime = System.currentTimeMillis();
         workerThreads = new Thread[threadCount];
-        for(int i=0; i<threadCount; i++)
-        {
-            WorkerThread thread = createWorker();
-            thread.setName("worker-" + i);
-            workerThreads[i] = thread;
-        }
+        phases = new CountDownLatch[groups * 2];
         if(useOutputThread)
         {
             outputThread = new OutputThread();
             outputThread.setName("output");
         }
-        phases = new CountDownLatch[groups * 2];
         for(int i=0; i<phases.length; i++)
         {
             phases[i] = new CountDownLatch(threadCount);
@@ -235,6 +229,15 @@ public abstract class TaskEngine<T>
     public void start()
     {
         startTime = System.currentTimeMillis();
+
+        // We create the workers here instead of in the constructor since
+        // they may depend on initialization fo the subclass
+        for(int i=0; i<threadCount; i++)
+        {
+            WorkerThread thread = createWorker();
+            thread.setName("worker-" + i);
+            workerThreads[i] = thread;
+        }
         if (outputThread != null) outputThread.start();
         for (int i = 0; i < workerThreads.length; i++) workerThreads[i].start();
     }

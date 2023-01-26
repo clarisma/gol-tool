@@ -326,4 +326,13 @@ public class TileCatalog
 	{
 		return tileToTip.values().max();
 	}
+
+	public int parentTile(int childTile)
+	{
+		int zoom = Tile.zoom(childTile);
+		assert zoom > 0: "Root tile has no parent";
+		int nextLevels = zoomLevels << (32 - zoom);
+		int zoomDelta = Integer.numberOfLeadingZeros(nextLevels) + 1;
+		return Tile.zoomedOut(childTile, zoom - zoomDelta);
+	}
 }

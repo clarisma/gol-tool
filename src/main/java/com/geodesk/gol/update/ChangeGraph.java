@@ -18,9 +18,7 @@ import com.geodesk.gol.build.BuildContext;
 import com.geodesk.gol.build.Project;
 import com.geodesk.gol.build.TileCatalog;
 import org.eclipse.collections.api.list.primitive.LongList;
-import org.eclipse.collections.api.map.primitive.MutableLongLongMap;
-import org.eclipse.collections.api.map.primitive.MutableLongObjectMap;
-import org.eclipse.collections.api.map.primitive.ObjectIntMap;
+import org.eclipse.collections.api.map.primitive.*;
 import org.eclipse.collections.impl.map.mutable.primitive.LongLongHashMap;
 import org.eclipse.collections.impl.map.mutable.primitive.LongObjectHashMap;
 
@@ -85,29 +83,31 @@ public class ChangeGraph
     private final String[] globalStrings;
     private final Map<String,String> localStrings = new HashMap<>();
 
-    private final boolean useIdIndexes;
-    private final FeatureStore store;
-    private final IntIndex nodeIndex;
-    private final IntIndex wayIndex;
-    private final IntIndex relationIndex;
-    private final TileCatalog tileCatalog;
-    private final Path wayNodeIndexPath;
-    private final Features<?> duplicateNodes;
-    private final Project project;
 
-    public ChangeGraph(BuildContext ctx) throws IOException
+    public ChangeGraph(FeatureStore store) throws IOException
     {
-        store = ctx.getFeatureStore();
-        nodeIndex = ctx.getNodeIndex();
-        wayIndex = ctx.getWayIndex();
-        relationIndex = ctx.getRelationIndex();
-        useIdIndexes = nodeIndex != null & wayIndex != null & relationIndex != null;
-        tileCatalog = ctx.getTileCatalog();
-        wayNodeIndexPath = ctx.indexPath().resolve("waynodes");
-        duplicateNodes = new WorldView<>(store).select("n[geodesk:duplicate]");
-        project = ctx.project();
         globalStringsToCodes = store.stringsToCodes();
         globalStrings = store.codesToStrings();
+    }
+
+    public LongObjectMap<CNode> nodes()
+    {
+        return nodes;
+    }
+
+    public LongObjectMap<CWay> ways()
+    {
+        return ways;
+    }
+
+    public LongObjectMap<CRelation> relations()
+    {
+        return relations;
+    }
+
+    public LongLongMap locations()
+    {
+        return locations;
     }
 
     private CNode getNode(long id)
@@ -235,5 +235,24 @@ public class ChangeGraph
         Log.debug("  %d local", localStringUseCount);
         Log.debug("    %d unique", localStrings.size());
          */
+    }
+
+    // TODO
+    private void gatherLocations()
+    {
+        nodes.forEach(node -> locations.put(node.id(), -1));
+        ways.forEach(way ->
+        {
+            CWay.Change change = way.change;
+            if(change != null && change.nodeIds != null)
+            {
+                for(long nodeId: change.nodeIds) locations.put(nodeId, -1);
+            }
+        });
+    }
+
+    public void prepare()
+    {
+        gatherLocations();
     }
 }

@@ -16,6 +16,7 @@ import com.geodesk.gol.build.Project;
 import com.geodesk.gol.build.ProjectReader;
 import com.geodesk.gol.build.Utils;
 import com.geodesk.gol.tiles.TileCompiler;
+import com.geodesk.gol.update.ChangeAnalyzer;
 import com.geodesk.gol.update.ChangeGraph;
 import com.geodesk.gol.update.ChangeReader;
 import org.xml.sax.SAXException;
@@ -116,10 +117,10 @@ public class UpdateCommand extends GolCommand
         compiler.compileAll();
         */
 
-        ChangeGraph changes = new ChangeGraph(context);
+        ChangeGraph changes = new ChangeGraph(features.store());
         readFiles(changes);
-        changes.dump();
-        // changes.report();
+        ChangeAnalyzer analyzer = new ChangeAnalyzer(changes, context);
+        analyzer.analyze();
 
         System.err.format("Processed updates in %s\n" , Format.formatTimespan(System.currentTimeMillis() - start));
     }

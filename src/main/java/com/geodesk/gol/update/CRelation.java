@@ -19,10 +19,10 @@ public class CRelation extends CFeature<CRelation.Change>
         CFeature<?>[] members;
         String[] roles;
 
-        public Change(ChangeType changeType, int version, String[] tags,
+        public Change(int version, int flags, String[] tags,
             CFeature<?>[] members, String[] roles)
         {
-            super(changeType, version, tags);
+            super(version, flags, tags);
             this.members = members;
             this.roles = roles;
         }

@@ -19,9 +19,9 @@ public class CNode extends CFeature<CNode.Change>
         final int x;
         final int y;
 
-        public Change(ChangeType changeType, int version, String[] tags, int x, int y)
+        public Change(int version, int flags, String[] tags, int x, int y)
         {
-            super(changeType, version, tags);
+            super(version, flags, tags);
             this.x = x;
             this.y = y;
         }

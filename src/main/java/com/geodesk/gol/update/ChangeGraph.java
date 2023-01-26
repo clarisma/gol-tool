@@ -8,12 +8,8 @@
 package com.geodesk.gol.update;
 
 import com.clarisma.common.index.IntIndex;
-import com.clarisma.common.pbf.PbfDecoder;
 import com.clarisma.common.util.Log;
-import com.geodesk.core.Mercator;
-import com.geodesk.core.XY;
 import com.geodesk.feature.FeatureId;
-import com.geodesk.feature.FeatureLibrary;
 import com.geodesk.feature.FeatureType;
 import com.geodesk.feature.Features;
 import com.geodesk.feature.query.WorldView;
@@ -21,39 +17,22 @@ import com.geodesk.feature.store.*;
 import com.geodesk.gol.build.BuildContext;
 import com.geodesk.gol.build.Project;
 import com.geodesk.gol.build.TileCatalog;
-import com.geodesk.gol.tiles.TTile;
-import com.geodesk.gol.tiles.TileReader;
-import com.geodesk.gol.util.TileReaderTask;
-import org.eclipse.collections.api.map.primitive.MutableLongIntMap;
+import org.eclipse.collections.api.list.primitive.LongList;
 import org.eclipse.collections.api.map.primitive.MutableLongLongMap;
 import org.eclipse.collections.api.map.primitive.MutableLongObjectMap;
 import org.eclipse.collections.api.map.primitive.ObjectIntMap;
-import org.eclipse.collections.api.set.primitive.IntSet;
-import org.eclipse.collections.api.set.primitive.MutableIntSet;
-import org.eclipse.collections.impl.map.mutable.primitive.LongIntHashMap;
 import org.eclipse.collections.impl.map.mutable.primitive.LongLongHashMap;
 import org.eclipse.collections.impl.map.mutable.primitive.LongObjectHashMap;
-import org.eclipse.collections.impl.set.mutable.primitive.IntHashSet;
-import org.xml.sax.SAXException;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.nio.ByteBuffer;
-import java.nio.channels.FileChannel;
 import java.nio.file.Path;
-import java.util.HashSet;
-import java.util.Set;
-import java.util.concurrent.*;
-
-import static java.nio.file.StandardOpenOption.READ;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 // TODO: rename ChangeInventory?
 //  Better name: RevisionSet, or just Revision
 
-// TODO: changes that are created and then deleted?
-
-// TODO: When coalescing changes, need to inspect the order; parser may
-//  see delete before create
 
 public class ChangeGraph
 {
@@ -93,7 +72,7 @@ public class ChangeGraph
      * modified or deleted nodes, as well as all future nodes referenced by
      * new/modified ways.
      */
-    private final MutableLongLongMap idToPastLocation = new LongLongHashMap();
+    private final MutableLongLongMap locations = new LongLongHashMap();
     /**
      * A mapping of x/y to one of the nodes (non-deterministic) located there
      * in the future. This helps us discover potential duplicate nodes.
@@ -102,7 +81,9 @@ public class ChangeGraph
      * // TODO: also orphans can be duplicate
      */
     private final MutableLongObjectMap<CNode> futureLocationToNode = new LongObjectHashMap<>();
-
+    private final ObjectIntMap<String> globalStringsToCodes;
+    private final String[] globalStrings;
+    private final Map<String,String> localStrings = new HashMap<>();
 
     private final boolean useIdIndexes;
     private final FeatureStore store;
@@ -125,6 +106,8 @@ public class ChangeGraph
         wayNodeIndexPath = ctx.indexPath().resolve("waynodes");
         duplicateNodes = new WorldView<>(store).select("n[geodesk:duplicate]");
         project = ctx.project();
+        globalStringsToCodes = store.stringsToCodes();
+        globalStrings = store.codesToStrings();
     }
 
     private CNode getNode(long id)
@@ -176,377 +159,81 @@ public class ChangeGraph
         return getRelation(id);
     }
 
-    private class Reader extends ChangeSetReader
+    // The strings delivered by the XML parser are all unique; looking them
+    // up in the global string table and creating unique local strings
+    // reduces required memory for strings by 95%
+    private String getString(String s)
     {
-        private boolean acceptChange(CFeature<?> f, ChangeType changeType)
+        int code = globalStringsToCodes.getIfAbsent(s, -1);
+        if(code >= 0)
         {
-            if(f.change == null) return true;
-            if (version > f.change.version) return true;
-            if (version < f.change.version) return false;
-            if(changeType == ChangeType.DELETE) return true;
-            return ((f.change.flags & CFeature.DELETE) == 0);
+            s = globalStrings[code];
         }
-
-        @Override protected void node(ChangeType change, long id, double lon, double lat, String[] tags)
+        else
         {
-            CNode node = getNode(id);
-            if(!acceptChange(node, change)) return;
-            int x = (int)Math.round(Mercator.xFromLon(lon));
-            int y = (int)Math.round(Mercator.yFromLat(lat));
-            node.change = new CNode.Change(change, version, tags, x, y);
+            String exisiting = localStrings.putIfAbsent(s, s);
+            if(exisiting != null) s = exisiting;
         }
-
-        @Override protected void way(ChangeType change, long id, String[] tags, long[] nodeIds)
-        {
-            CWay way = getWay(id);
-            if(!acceptChange(way, change)) return;
-            way.change = new CWay.Change(change, version, tags, nodeIds);
-        }
-
-        @Override protected void relation(ChangeType change, long id, String[] tags, long[] memberIds, String[] roles)
-        {
-            CRelation rel = getRelation(id);
-            if(!acceptChange(rel, change)) return;
-            CFeature<?>[] members = new CFeature[memberIds.length];
-            for(int i=0; i<memberIds.length; i++)
-            {
-                members[i] = getFeature(memberIds[i]);
-            }
-            rel.change = new CRelation.Change(change, version, tags, members, roles);
-        }
+        return s;
     }
 
-    public void read(String fileName) throws IOException, SAXException
+    private String[] getTags(List<String> kv)
     {
-        new Reader().read(fileName);
+        String[] tags = new String[kv.size()];
+        for(int i=0; i<tags.length; i++)
+        {
+            tags[i] = getString(kv.get(i));
+        }
+        return tags;
     }
 
-    public void read(InputStream in) throws IOException, SAXException
+    public void changeNode(int version, long id, List<String> tags, int x, int y)
     {
-        new Reader().read(in);
+        getNode(id).change(new CNode.Change(version, 0, getTags(tags), x, y));
     }
 
-    /*
-
-    // TODO: What about features that have no Change (and hence have no flags)?
-
-    private void markFutureRelationMembers()
+    public void deleteNode(int version, long id)
     {
-        for(CRelation rel: relations)
-        {
-
-        }
-    }
-     */
-
-    private void markNodesWithFutureSharedLocations()
-    {
-        for(CNode node: nodes)
-        {
-            CNode.Change change = node.change;
-            if(change==null) continue;
-            long futureXY = XY.of(change.x, change.y);
-            CNode otherNode = futureLocationToNode.getIfAbsentPut(futureXY, node);
-            if(otherNode != node)
-            {
-                otherNode.change.flags |= CFeature.SHARED_FUTURE_LOCATION;
-                change.flags |= CFeature.SHARED_FUTURE_LOCATION;
-            }
-        }
+        getNode(id).change(new CNode.Change(version, CFeature.DELETE, null, 0,0));
     }
 
-
-    private class FeatureFinderTask extends TileReaderTask
+    public void changeWay(int version, long id, List<String> tags, LongList nodes)
     {
-        final int tip;
-
-        public FeatureFinderTask(int tip, ByteBuffer buf, int pTile)
-        {
-            super(buf, pTile);
-            this.tip = tip;
-        }
-
-        @Override protected void node(int p)
-        {
-            long id = StoredFeature.id(buf, p);
-            CNode node = nodes.get(id);
-            if(node == null) return;
-            // TODO
-        }
-
-        @Override protected void way(int p)
-        {
-            // do nothing
-        }
-
-        @Override protected void relation(int p)
-        {
-            // do nothing
-        }
+        getWay(id).change(new CWay.Change(version, 0, getTags(tags), nodes.toArray()));
     }
 
-    public void report() throws Exception
-	{
-        Log.debug("In graph: %,d nodes, %,d ways, %,d relations",
-            nodes.size(), ways.size(), relations.size());
-        IntSet piles = getPiles();
-        Log.debug("Affected tiles: %,d of %,d", piles.size(), tileCatalog.tileCount());
-        Log.debug("New/changed nodes in %,d tiles", getNodeTiles().size());
-
-        gatherNodes();
-        Log.debug("Relevant nodes: %,d", idToPastLocation.size());
-
-
-        scanTiles(piles);
-	}
-
-    private void gatherNodes()
+    public void deleteWay(int version, long id)
     {
-        nodes.forEach(node -> idToPastLocation.put(node.id(), -1));
-        ways.forEach(way ->
-        {
-            CWay.Change change = way.change;
-            if(change != null)
-            {
-                for(long nodeId: change.nodeIds) idToPastLocation.put(nodeId, -1);
-            }
-        });
+        getWay(id).change(new CWay.Change(version, CFeature.DELETE, null, null));
     }
 
-    public IntSet getPiles() throws IOException
+    public void changeRelation(int version, long id, List<String> tags,
+        LongList memberList, List<String> roleList)
     {
-        MutableIntSet piles = new IntHashSet();
-        for(CNode node: nodes.values())
+        CFeature<?>[] members = new CFeature[memberList.size()];
+        for(int i=0; i<members.length; i++)
         {
-            if(node.change != null) piles.add(nodeIndex.get(node.id()));
+            members[i] = getFeature(memberList.get(i));
         }
-        gatherFeaturePiles(ways, wayIndex, piles);
-        gatherFeaturePiles(relations, relationIndex, piles);
-        return piles;
+        getRelation(id).change(new CRelation.Change(version, 0, getTags(tags),
+            members, getTags(roleList)));
+            // TODO: We can use same method for tags and roles for now;
+            //  either change approach or use more appropriate method name
     }
 
-    private void gatherFeaturePiles(
-        MutableLongObjectMap<? extends CFeature<?>> features, IntIndex index,
-        MutableIntSet piles) throws IOException
+    public void deleteRelation(int version, long id)
     {
-        for(CFeature<?> f : features)
-        {
-            if(f.change != null)
-            {
-                int pileQuad = index.get(f.id());
-                piles.add(pileQuad >>> 2);
-                if ((pileQuad & 3) == 3)
-                {
-                    // TODO: add adjacent quad as well;
-                }
-            }
-        }
+        getRelation(id).change(new CRelation.Change(version, CFeature.DELETE,
+            null, null, null));
     }
 
-    private IntSet getNodeTiles() throws IOException
-    {
-        MutableIntSet tiles = new IntHashSet();
-        for(CNode node: nodes)
-        {
-            if(node.change != null)
-            {
-                int tile = tileCatalog.tileOfPile(tileCatalog
-                    .resolvePileOfXY(node.change.x, node.change.y));
-                tiles.add(tile);
-            }
-        }
-        return tiles;
-    }
-
-
-    public void scanTiles(IntSet piles)
+    public void dump()
     {
         /*
-        int threadCount = Runtime.getRuntime().availableProcessors();
-        ThreadPoolExecutor executor = new ThreadPoolExecutor(
-            threadCount, threadCount, 1, TimeUnit.SECONDS,
-            new LinkedBlockingQueue<>(threadCount * 4),
-            new ThreadPoolExecutor.CallerRunsPolicy());
-
+        Log.debug("Total strings used: %d", globalStringUseCount + localStringUseCount);
+        Log.debug("  %d global", globalStringUseCount);
+        Log.debug("  %d local", localStringUseCount);
+        Log.debug("    %d unique", localStrings.size());
          */
-        ExecutorService executor = Executors.newSingleThreadExecutor();
-
-
-        piles.forEach(pile ->
-        {
-            int tip = tileCatalog.tipOfTile(tileCatalog.tileOfPile(pile));
-            int tilePage = store.fetchTile(tip);
-            executor.submit(new ScanTask(tip,
-                store.bufferOfPage(tilePage), store.offsetOfPage(tilePage)));
-        });
-
-        executor.shutdown();
-        try
-        {
-            executor.awaitTermination(30, TimeUnit.DAYS);
-        }
-        catch (InterruptedException ex)
-        {
-            // don't care about being interrupted, we're done anyway
-        }
-    }
-
-    private class ScanTask extends TileReaderTask
-    {
-        private final int tip;
-        private final MutableLongIntMap nodeIdsOfWays = new LongIntHashMap();
-        private int waysScanned;
-        private int foundWays;
-        private int foundNodes;
-        private int foundDupes;
-
-        ScanTask(int tip, ByteBuffer buf, int pTile)
-        {
-            super(buf, pTile);
-            this.tip = tip;
-        }
-
-        private void readWayNodes()
-        {
-            Path path = Tip.path(wayNodeIndexPath, tip, ".wnx");
-            try(FileChannel channel = FileChannel.open(path, READ))
-            {
-                long count = 0;
-                long foundWays = 0;
-                long foundNodes = 0;
-                int len = (int) channel.size();
-                ByteBuffer buf = ByteBuffer.allocateDirect(len);
-                channel.read(buf);
-                // buf.flip();
-                PbfDecoder pbf = new PbfDecoder(buf, 0);
-                long prevWayId = 0;
-                while (pbf.pos() < len)
-                {
-                    long wayId = pbf.readSignedVarint() + prevWayId;
-                    nodeIdsOfWays.put(wayId, pbf.pos());
-                    int nodeCount = (int) pbf.readVarint();
-                    long prevNodeId = 0;
-                    for (int i = 0; i < nodeCount; i++)
-                    {
-                        long nodeId = pbf.readSignedVarint() + prevNodeId;
-                        if(idToPastLocation.get(nodeId) != 0) foundNodes++;
-                        count++;
-                        prevNodeId = nodeId;
-                    }
-                    prevWayId = wayId;
-                    if(ways.get(wayId) != null) foundWays++;
-                }
-                // Log.debug("Read %,d nodes from %s", count, path);
-                // Log.debug("Found %,d ways  in %s", foundWays, Tip.toString(tip));
-                Log.debug("Found %,d nodes in %s", foundNodes, Tip.toString(tip));
-                Log.debug("%d ways", nodeIdsOfWays.size());
-            }
-            catch (IOException ex)
-            {
-                Log.error("Failed to read waynodes from %s: %s", path, ex.getMessage());
-            }
-        }
-
-        @Override public void run()
-        {
-            /*
-            readWayNodes();
-            super.run();
-             Log.debug("%d ways scanned (%d ways found, %d nodes found, %d dupes)",
-                waysScanned, foundWays, foundNodes, foundDupes);
-            //Log.debug("%d ways scanned (%d ways found, %d nodes found)",
-            //    waysScanned, foundWays, foundNodes);
-            */
-
-            Log.debug("Reading tile %06X...", tip);
-            /*
-            TTile tile = new TTile(tip, store.stringsToCodes(), tileCatalog, project);
-            TileReader reader = new TileReader(tile, store, buf, pTile);
-            reader.read();
-
-             */
-        }
-
-        @Override public void node(int p)
-        {
-            StoredNode node = new StoredNode(store, buf, p);
-            if(nodes.containsKey(node.id())) foundNodes++;
-            if(duplicateNodes.contains(node)) foundDupes++;
-        }
-
-        @Override public void way(int p)
-        {
-            StoredWay way = new StoredWay(store, buf, p);
-            if(ways.containsKey(way.id())) foundWays++;
-            StoredWay.XYIterator iter = way.iterXY(0);
-            while(iter.hasNext())
-            {
-                long xy = iter.nextXY();
-                if(futureLocationToNode.containsKey(xy))
-                {
-                    Log.debug("Potential duplicate node in way/%d", way.id());
-                }
-            }
-            waysScanned++;
-        }
-    }
-
-    /**
-     * Since we cannot concurrently write to `nodes`, `ways`, `relations` and
-     * `idToPastLocation` (at least without lots of expensive locking), we
-     * stash the results of a scan in unordered circular linked lists. Each
-     * entry contains the ID of the feature, and two integer values. For the
-     * feature maps, `val1`/'val2` are the TIP/offset of the features; for
-     * node locations, `val1`/'val2` are the x/y coordinates.
-     */
-    private static class ScanResult
-    {
-        long id;
-        int val1;
-        int val2;
-        ScanResult next;
-    }
-
-    /**
-     * Adds a single result to an unordered circular linked list.
-     *
-     * @param first     the first item of the circular linked list
-     *                  (can be `null`)
-     * @param item      the single result (must not be `null`)
-     * @return          the first item of the circular linked list
-     */
-    static ScanResult addResult(ScanResult first, ScanResult item)
-    {
-        if(first == null)
-        {
-            item.next = item;
-            return item;
-        }
-        item.next = first.next;
-        first.next = item;
-        return first;
-    }
-
-    /**
-     * Combines two unordered circular linked lists.
-     *
-     * @param a  the first item of the first linked list (can be `null`)
-     * @param b  the first item of the second linked list (can be `null`)
-     * @return   the first item of the combined circular linked list
-     */
-    static ScanResult mergeResults(ScanResult a, ScanResult b)
-    {
-        if(a == null) return b;
-        if(b == null) return a;
-        ScanResult aNext = a.next;
-        a.next = b.next;
-        b.next = aNext;
-        return a;
-    }
-
-    private class FeatureFinder
-    {
-        private int tilesRemaining;
-
     }
 }

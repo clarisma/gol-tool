@@ -17,6 +17,7 @@ import com.geodesk.gol.build.ProjectReader;
 import com.geodesk.gol.build.Utils;
 import com.geodesk.gol.tiles.TileCompiler;
 import com.geodesk.gol.update.ChangeGraph;
+import com.geodesk.gol.update.ChangeReader;
 import org.xml.sax.SAXException;
 
 import java.io.FileInputStream;
@@ -43,22 +44,23 @@ public class UpdateCommand extends GolCommand
         if(verbosity >= Verbosity.NORMAL) System.err.print("Reading changes ...\r");
         long start = System.currentTimeMillis();
 
+        ChangeReader reader = new ChangeReader(changes);
         for(String file : sourceFiles)
         {
             String ext = FileUtils.getExtension(file);
             if(ext.isEmpty())
             {
-                if (readFile(changes, file + ".osc", false, false)) continue;
-                if (readFile(changes, file + ".osc.gz", true, false)) continue;
+                if (readFile(reader, file + ".osc", false, false)) continue;
+                if (readFile(reader, file + ".osc.gz", true, false)) continue;
                 throw new IllegalArgumentException("No .osc or .osc.gz file found with name " + file);
             }
             switch(ext)
             {
             case "osc":
-                readFile(changes, file, false, true);
+                readFile(reader, file, false, true);
                 break;
             case "gz":
-                readFile(changes, file, true, true);
+                readFile(reader, file, true, true);
                 break;
             default:
                 throw new IllegalArgumentException("Unknown change file format: " + file);
@@ -73,7 +75,7 @@ public class UpdateCommand extends GolCommand
         }
     }
 
-    private boolean readFile(ChangeGraph changes, String file,
+    private boolean readFile(ChangeReader reader, String file,
         boolean zipped, boolean mustExist) throws IOException
     {
         if (!mustExist && !Files.exists(Path.of(file))) return false;
@@ -82,7 +84,7 @@ public class UpdateCommand extends GolCommand
         {
             InputStream in = fin;
             if (zipped) in = new GZIPInputStream(fin);
-            changes.read(in);
+            reader.read(in);
             in.close();
         }
         catch(SAXException ex)
@@ -109,13 +111,16 @@ public class UpdateCommand extends GolCommand
 
         // TODO: do we need a work path?
         BuildContext context = new BuildContext(features.store(), null, project);
+        /*
         TileCompiler compiler = new TileCompiler(context);
         compiler.compileAll();
-        /*
+        */
+
         ChangeGraph changes = new ChangeGraph(context);
         readFiles(changes);
-        changes.report();
-         */
+        changes.dump();
+        // changes.report();
+
         System.err.format("Processed updates in %s\n" , Format.formatTimespan(System.currentTimeMillis() - start));
     }
 }

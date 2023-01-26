@@ -61,6 +61,10 @@ public class CFeature<T extends CFeature.Change>
      * A feature has moved into (or out of) one or more tiles.
      */
     public static final int CHANGED_TILES = 1 << 5;
+
+
+    public static final int CREATE = 1 << 8;
+
     /**
      * The feature will be deleted. Ways and relations are only deleted
      * explicitly. Nodes can be deleted explicitly or implicitly (loss of
@@ -68,7 +72,7 @@ public class CFeature<T extends CFeature.Change>
      * not be part of relations AND will not be a duplicate AND will not
      * be an orphan).
      */
-    public static final int DELETE = 1 << 6;
+    public static final int DELETE = 1 << 9;
 
     /**
      * A node's future x/y is the same as one or more other nodes.
@@ -76,7 +80,7 @@ public class CFeature<T extends CFeature.Change>
      * (even if it does not have tags), because it may be included in a
      * relation.
      */
-    public static final int SHARED_FUTURE_LOCATION = 1 << 8;
+    public static final int SHARED_FUTURE_LOCATION = 1 << 10;
     /**
      * A feature will be member of at least one relation in the future.
      */
@@ -93,6 +97,30 @@ public class CFeature<T extends CFeature.Change>
         return id;
     }
 
+    public void change(T newChange)
+    {
+        if(newChange.version == 1) newChange.flags |= CREATE;
+        if(change != null)
+        {
+            if (newChange.version >= change.version)
+            {
+                int createFlag = change.flags & CREATE;
+                if (createFlag != 0 && (newChange.flags & DELETE) != 0)
+                {
+                    change = null;
+                    return;
+                }
+                // continue...
+            }
+            else
+            {
+                change.flags |= newChange.flags & CREATE;
+                return;
+            }
+        }
+        change = newChange;
+    }
+
     public static class Change
     {
         int flags;
@@ -106,10 +134,11 @@ public class CFeature<T extends CFeature.Change>
          */
         String[] tags;
 
-        protected Change(ChangeType changeType, int version, String[] tags)
+        protected Change(int version, int flags, String[] tags)
         {
-            this.flags = changeType==ChangeType.DELETE ? DELETE : 0;
             this.version = version;
+            assert flags == (flags & (CREATE | DELETE));
+            this.flags = flags;
             this.tags = tags;
         }
     }

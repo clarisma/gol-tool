@@ -38,9 +38,9 @@ public class CWay extends CFeature<CWay.Change>
          */
         Box bbox;
 
-        public Change(ChangeType changeType, int version, String[] tags, long[] nodeIds)
+        public Change(int version, int flags, String[] tags, long[] nodeIds)
         {
-            super(changeType, version, tags);
+            super(version, flags, tags);
             this.nodeIds = nodeIds;
         }
     }

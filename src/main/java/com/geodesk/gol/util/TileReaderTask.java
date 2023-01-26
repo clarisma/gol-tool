@@ -11,15 +11,25 @@ import java.nio.ByteBuffer;
 
 public class TileReaderTask implements Runnable
 {
-    protected final ByteBuffer buf;
-    protected final int pTile;
+    protected ByteBuffer buf;
+    protected int pTile;
 
     public static final int NODES = 0;
     public static final int WAYS = 1;
     public static final int AREAS = 2;
     public static final int RELATIONS = 3;
 
+    public TileReaderTask()
+    {
+        // do nothing
+    }
+
     public TileReaderTask(ByteBuffer buf, int pTile)
+    {
+        start(buf, pTile);
+    }
+
+    public void start(ByteBuffer buf, int pTile)
     {
         this.buf = buf;
         this.pTile = pTile;
@@ -27,14 +37,31 @@ public class TileReaderTask implements Runnable
 
     @Override public void run()
     {
-        scanNodes(pTile + 8);
+        scanNodes();
+        scanLinearWays();
+        scanAreas();
+        scanNonAreaRelations();
+    }
+
+    public void scanLinearWays()
+    {
         scanFeatures(WAYS, pTile+12);
+    }
+
+    public void scanAreas()
+    {
         scanFeatures(AREAS, pTile+16);
+    }
+
+    public void scanNonAreaRelations()
+    {
         scanFeatures(RELATIONS, pTile+20);
     }
 
-    private void scanNodes(int ppTree)
+
+    public void scanNodes()
     {
+        int ppTree = pTile + 8;
         int p = buf.getInt(ppTree);
         if(p == 0) return;
         if((p & 1) == 0)

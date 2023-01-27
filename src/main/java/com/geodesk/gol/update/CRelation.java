@@ -7,11 +7,18 @@
 
 package com.geodesk.gol.update;
 
+import com.geodesk.feature.FeatureType;
+
 public class CRelation extends CFeature<CRelation.Change>
 {
     public CRelation(long id)
     {
         super(id);
+    }
+
+    @Override public FeatureType type()
+    {
+        return FeatureType.RELATION;
     }
 
     public static class Change extends CFeature.Change

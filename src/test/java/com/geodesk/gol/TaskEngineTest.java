@@ -26,7 +26,7 @@ public class TaskEngineTest
 
         class TestWorker extends WorkerThread
         {
-            @Override protected void process(Task task) throws Throwable
+            @Override protected void process(Task task) throws Exception
             {
                 if(task.number == 5) throw new RuntimeException("Testing: Some error occurred");
                 Log.debug("[%s] Processed task %d", Thread.currentThread().getName(), task.number);

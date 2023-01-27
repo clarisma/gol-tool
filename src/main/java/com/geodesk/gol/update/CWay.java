@@ -8,6 +8,7 @@
 package com.geodesk.gol.update;
 
 import com.geodesk.core.Box;
+import com.geodesk.feature.FeatureType;
 
 public class CWay extends CFeature<CWay.Change>
 {
@@ -16,6 +17,11 @@ public class CWay extends CFeature<CWay.Change>
     public CWay(long id)
     {
         super(id);
+    }
+
+    @Override public FeatureType type()
+    {
+        return FeatureType.WAY;
     }
 
     public static class Change extends CFeature.Change

@@ -7,6 +7,8 @@
 
 package com.geodesk.gol.update;
 
+import com.geodesk.feature.FeatureType;
+
 /**
  * A class that describes a feature within a ChangeGraph. Used for both features
  * that have been changed and nodes/members of changed ways/relations.
@@ -17,7 +19,7 @@ package com.geodesk.gol.update;
  * @param <T> a `Change` object specific to node, way or relation that
  *            describes what (if anything) about this feature has changed
  */
-public class CFeature<T extends CFeature.Change>
+public abstract class CFeature<T extends CFeature.Change>
 {
     private final long id;
     /**
@@ -92,9 +94,27 @@ public class CFeature<T extends CFeature.Change>
         this.id = id;
     }
 
+    public abstract FeatureType type();
+
     public long id()
     {
         return id;
+    }
+
+    public int tip()
+    {
+        return tip;
+    }
+
+    public int pointer()
+    {
+        return ptr;
+    }
+
+    public void found(int tip, int ptr)
+    {
+        this.tip = tip;
+        this.ptr = ptr;
     }
 
     public void change(T newChange)
@@ -141,5 +161,19 @@ public class CFeature<T extends CFeature.Change>
             this.flags = flags;
             this.tags = tags;
         }
+
+        @Override public String toString()
+        {
+            String action = "Modified #";
+            if ((flags & CREATE) != 0) action = "Created #";
+            if ((flags & DELETE) != 0) action = "Deleted #";
+            return action + version;
+        }
+    }
+
+    @Override public String toString()
+    {
+        return "%s/%d (%s)".formatted(FeatureType.toString(type()), id,
+            change != null ? change : "referenced");
     }
 }

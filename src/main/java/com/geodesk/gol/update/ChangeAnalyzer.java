@@ -14,11 +14,11 @@ import com.geodesk.core.Tile;
 import com.geodesk.feature.FeatureId;
 import com.geodesk.feature.Features;
 import com.geodesk.feature.query.WorldView;
-import com.geodesk.feature.store.FeatureStore;
-import com.geodesk.feature.store.Tip;
+import com.geodesk.feature.store.*;
 import com.geodesk.gol.TaskEngine;
 import com.geodesk.gol.build.BuildContext;
 import com.geodesk.gol.build.TileCatalog;
+import com.geodesk.gol.util.TileReaderTask;
 import org.eclipse.collections.api.map.primitive.LongLongMap;
 import org.eclipse.collections.api.map.primitive.LongObjectMap;
 import org.eclipse.collections.api.map.primitive.MutableIntObjectMap;
@@ -46,9 +46,11 @@ public class ChangeAnalyzer extends TaskEngine<ChangeAnalyzer.CTile>
     private final Features<?> duplicateNodes;
     private final MutableIntObjectMap<CTile> tiles = new IntObjectHashMap<>();
 
+    private long testLocationUpdateCount;
+
     public ChangeAnalyzer(ChangeGraph graph, BuildContext ctx) throws IOException
     {
-        super(new CTile(-1), 2, false);
+        super(new CTile(-1), 2, true);
         this.graph = graph;
         store = ctx.getFeatureStore();
         nodeIndex = ctx.getNodeIndex();
@@ -85,6 +87,9 @@ public class ChangeAnalyzer extends TaskEngine<ChangeAnalyzer.CTile>
         int count = 0;
         for(CTile tile: tiles) if(tile.isProcessed()) count++;
         Log.debug("Analyzed %,d tiles", count);
+        graph.readRelations();
+        graph.reportMissing();
+        Log.debug("%,d locations updated", testLocationUpdateCount);
     }
 
     private CTile getTile(int tile)
@@ -162,17 +167,27 @@ public class ChangeAnalyzer extends TaskEngine<ChangeAnalyzer.CTile>
                     int tile = tileCatalog.tileOfPile(pile);
                     CTile t = getTile(tile);
                     t.addFlags(FLAGS);
-                    markParentTiles(tile, FLAGS);
+                    markParentTiles(tile, FLAGS);   // TODO: waynodes only!
                 }
             }
         }
+    }
+
+    // TODO: move to FeatureStore
+    private StoredWay getWay(int tip, int ptr)
+    {
+        int tilePage = store.fetchTile(tip);
+        return new StoredWay(store, store.bufferOfPage(tilePage),
+            store.offsetOfPage(tilePage) + ptr);
     }
 
     private void submitTiles()
     {
         for(CTile tile: tiles)
         {
+            /*  // possibly unsafe for concurrent access
             if(tile.isSubmitted()) continue;
+            */
             tile.addFlags(CTile.SUBMITTED);
             submit(tile);
         }
@@ -185,6 +200,7 @@ public class ChangeAnalyzer extends TaskEngine<ChangeAnalyzer.CTile>
         private final LongObjectMap<CWay> ways;
         private final LongObjectMap<CRelation> relations;
         private final LongLongMap locations;
+        private final TileScanner tileReader = new TileScanner();
 
         private int currentTip;
         private int pTile;
@@ -242,12 +258,21 @@ public class ChangeAnalyzer extends TaskEngine<ChangeAnalyzer.CTile>
             featuresFound[i] = typedId;
             featuresFound[i+1] = (((long)currentTip) << 32) | (long)(p - pTile);
             foundFeatureCount++;
-            if(foundFeatureCount == BATCH_SIZE)
+            if(foundFeatureCount == BATCH_SIZE) flush();
+        }
+
+        private void flush()
+        {
+            // Log.debug("Dispatching %d features", foundFeatureCount);
+            try
             {
-                // TODO: dispatch the batch
-                Log.debug("Dispatching %d features", foundFeatureCount);
-                nextBatch();
+                output(new UpdateGraphTask(featuresFound, wayNodesFound));
             }
+            catch(InterruptedException ex)
+            {
+                // TODO
+            }
+            nextBatch();
         }
 
         private void foundWay(long id, int p)
@@ -257,15 +282,32 @@ public class ChangeAnalyzer extends TaskEngine<ChangeAnalyzer.CTile>
             foundFeature(FeatureId.ofWay(id), p);
         }
 
-        @Override protected void process(CTile tile) throws Throwable
+        @Override protected void process(CTile tile) throws Exception
         {
             currentTip = tile.tip;
-            if((tile.flags & CTile.FIND_WAY_NODES) != 0)
+            if((tile.flags & CTile.FIND_WAY_NODES) != 0) findWayNodes();
+
+
+            int tilePage = store.fetchTile(currentTip);
+            pTile = store.offsetOfPage(tilePage);
+            tileReader.start(store.bufferOfPage(tilePage), pTile);
+            if((tile.flags & CTile.FIND_NODES) != 0) tileReader.scanNodes();
+            if((tile.flags & CTile.FIND_WAYS) != 0) tileReader.scanLinearWays();
+            if((tile.flags & (CTile.FIND_WAYS | CTile.FIND_RELATIONS)) != 0)
             {
-                findWayNodes();
-                tile.markProcessed();
+                tileReader.scanAreas();
             }
-            // tile.markProcessed();        // TODO
+            if((tile.flags & CTile.FIND_RELATIONS) != 0) tileReader.scanNonAreaRelations();
+            tile.markProcessed();
+        }
+
+        @Override protected void postProcess()
+        {
+            if(foundFeatureCount > 0) flush();
+            if(currentPhase() == 3)
+            {
+                Log.debug("%,d way-node coordinates scanned.", tileReader.nodesScanned);
+            }
         }
 
         private void findWayNodes()
@@ -319,6 +361,55 @@ public class ChangeAnalyzer extends TaskEngine<ChangeAnalyzer.CTile>
             }
         }
 
+        // TODO: fold functionality into the Worker
+        private class TileScanner extends TileReaderTask
+        {
+            long nodesScanned;
+
+            @Override public void node(int p)
+            {
+                // StoredNode node = new StoredNode(store, buf, p);
+                long id = StoredNode.id(buf, p);
+                if(nodes.containsKey(id))
+                {
+                    foundFeature(FeatureId.ofNode(id), p);
+                }
+                // if(duplicateNodes.contains(node)) foundDupes++;
+            }
+
+            @Override public void way(int p)
+            {
+                long id = StoredWay.id(buf, p);
+                if(ways.containsKey(id))
+                {
+                    foundWay(id, p);
+                }
+                StoredWay way = new StoredWay(store, buf, p);
+                StoredWay.XYIterator iter = way.iterXY(0);
+                while(iter.hasNext())
+                {
+                    long xy = iter.nextXY();
+                    /*
+                    if(futureLocationToNode.containsKey(xy))
+                    {
+                        Log.debug("Potential duplicate node in way/%d", way.id());
+                    }
+                    */
+                    nodesScanned++;
+                }
+            }
+
+            @Override public void relation(int p)
+            {
+                long id = StoredFeature.id(buf, p);
+                if (relations.containsKey(id))
+                {
+                    foundFeature(FeatureId.ofRelation(id), p);
+                }
+            }
+
+        }
+
     }
 
     protected static class CTile
@@ -363,5 +454,54 @@ public class ChangeAnalyzer extends TaskEngine<ChangeAnalyzer.CTile>
         }
     }
 
+    private class UpdateGraphTask implements Runnable
+    {
+        private final long[] featuresFound;
+        private final long[][] wayNodesFound;
+
+        UpdateGraphTask(long[] featuresFound, long[][] wayNodesFound)
+        {
+            this.featuresFound = featuresFound;
+            this.wayNodesFound = wayNodesFound;
+        }
+
+        @Override public void run()
+        {
+            // Log.debug("Updating the graph...");
+            for(int i=0; i<featuresFound.length; i += 2)
+            {
+                long typedId = featuresFound[i];
+                if (typedId == 0) break;
+                long tipAndOffset = featuresFound[i + 1];
+                // TODO: This should be safe as it never creates features,
+                //  therefore does not modify the maps concurrently;
+                //  still, we could make this cleaner
+                CFeature<?> feature = graph.getFeature(typedId);
+                int tip = (int)(tipAndOffset >>> 32);
+                int ptr = (int)tipAndOffset;
+                feature.found(tip, ptr);
+                long[] wayNodes = wayNodesFound[i >>> 1];
+                if(wayNodes != null)
+                {
+                    // TODO
+
+                    assert FeatureId.isWay(typedId);
+                    StoredWay way = getWay(tip, ptr);
+                    // Log.debug("Adding node coordinates for way/%d...", way.id());
+                    StoredWay.XYIterator iter = way.iterXY(0);
+                    int n=0;
+                    while (iter.hasNext())
+                    {
+                        long xy = iter.nextXY();
+                        long nodeId = wayNodes[n++];
+                        if(graph.locations().containsKey(nodeId)) testLocationUpdateCount++;
+                        graph.addLocation(nodeId, xy);
+                    }
+                    assert n == wayNodes.length ||
+                        (n == wayNodes.length-1 && wayNodes[n] == wayNodes[0]);
+                }
+            }
+        }
+    }
 
 }

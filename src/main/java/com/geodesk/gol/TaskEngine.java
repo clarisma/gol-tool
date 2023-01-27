@@ -126,6 +126,11 @@ public abstract class TaskEngine<T>
             Log.debug(Thread.currentThread().getName() + ": " + msg, args);
         }
 
+        protected int currentPhase()
+        {
+            return currentPhase;
+        }
+
         /**
          * Moves the current thread into the specified phase. The thread waits until all other threads have completed
          * the preceding phases.
@@ -148,6 +153,7 @@ public abstract class TaskEngine<T>
                 CountDownLatch phase = phases[i];
                 if (outputThread != null)
                 {
+                    //debug("Placed countDown instruction into output thread.");
                     outputQueue.put(() -> phase.countDown());
                 }
                 else
@@ -157,6 +163,7 @@ public abstract class TaskEngine<T>
             }
             phases[newPhase - 1].await();
             currentPhase = newPhase;
+            //debug("Proceeding with phase %d", currentPhase);
             //debug("All threads completed phase %d...", newPhase-1);
         }
 
@@ -170,11 +177,6 @@ public abstract class TaskEngine<T>
             {
                 phases[currentPhase++].countDown();
             }
-        }
-
-        protected int phaseOfTask(T task)
-        {
-            return 0;
         }
 
         @Override public void run()
@@ -213,9 +215,9 @@ public abstract class TaskEngine<T>
             }
         }
 
-        protected abstract void process(T task) throws Throwable;
+        protected abstract void process(T task) throws Exception;
 
-        protected void postProcess() throws Throwable
+        protected void postProcess() throws Exception
         {
             // do nothing
         }

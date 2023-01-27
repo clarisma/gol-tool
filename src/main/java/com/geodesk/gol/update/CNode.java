@@ -7,11 +7,19 @@
 
 package com.geodesk.gol.update;
 
+import com.geodesk.feature.FeatureType;
+import com.geodesk.feature.store.FeatureStore;
+
 public class CNode extends CFeature<CNode.Change>
 {
     public CNode(long id)
     {
         super(id);
+    }
+
+    @Override public FeatureType type()
+    {
+        return FeatureType.NODE;
     }
 
     public static class Change extends CFeature.Change

@@ -20,6 +20,15 @@ import static com.geodesk.feature.store.FeatureFlags.*;
 
 public class TWay extends TFeature2D<TWay.Body>
 {
+    /**
+     * The full list of this way's node IDs, or `null` if the way has not
+     * been changed.
+     */
+    private long[] nodeIds;
+
+    /**
+     * This way's feature nodes, in occurrence order.
+     */
     private TNode[] featureNodes;
 
     public TWay(long id)
@@ -38,7 +47,7 @@ public class TWay extends TFeature2D<TWay.Body>
     class Body extends Struct
     {
         private final byte[] encodedCoords;
-        private final int[] tips;
+        private final int[] tips;       // not needed; store in foreign TNode
 
         public Body(TileReader reader, int pBody)
         {
@@ -64,7 +73,7 @@ public class TWay extends TFeature2D<TWay.Body>
             }
             if ((flags & WAYNODE_FLAG) != 0)
             {
-                int pBefore = reader.readTable(p, 2, -1,
+                int pBefore = reader.readFeatureTable(p, 2, -1,
                     TypeBits.NODES & TypeBits.WAYNODE_FLAGGED, false);
                 featureNodes = reader.getCurrentNodes();
                 tips = reader.getCurrentTips();

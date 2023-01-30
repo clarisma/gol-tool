@@ -19,6 +19,12 @@ import java.util.List;
 
 public class TRelationTable extends SharedStruct
 {
+    // TODO: Change this
+    //  Use a MutableLongSet to track relations while the TTile is being built;
+    //  once the TRelationTable is built, drop this set and transform it into
+    //  a TRelation[] array; at this point, the RT is frozen (with its hashCode
+    //  calculated)
+
     /**
      * The list of relations, sorted by ID. Does not contain duplicates.
      */
@@ -32,7 +38,7 @@ public class TRelationTable extends SharedStruct
      * Since `relations` is already sorted by ID, a lower index position
      * represents a lower ID, so we can use default ordering for sorting.
      */
-    private int[] tips;
+    private int[] tips;     // TODO: remove
     private int hashCode;
 
     public TRelationTable(List<TRelation> relations, int[] tips, int size)

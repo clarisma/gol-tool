@@ -23,49 +23,97 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-// TODO: rename ChangeInventory?
-//  Better name: RevisionSet, or just Revision
 
-
-public class ChangeGraph
+public class ChangeModel
 {
-    private final FeatureStore store;
     /**
-     * - All explicitly changed nodes (tags, x/y) - All implicitly changed or created nodes (promoted to feature,
-     * demoted to anonymous, purgatory node) - An anonymous node is promoted to feature if in the future: - it has tags
-     * OR - it is a relation member OR - it is a "duplicate" OR - it is an "orphan" - A feature node is demoted to
-     * anonymous if in the future: - it has no tags AND - it isn't referenced by any relations AND - it is not a
-     * "duplicate" AND - it is not an "orphan" - All nodes (potentially) referenced by relations
+     * The FeatureStore to which these changes apply.
+     */
+    private final FeatureStore store;
+
+    /**
+     * - All explicitly changed nodes (tags, x/y)
+     * - All implicitly changed or created nodes (promoted to feature,
+     *   demoted to anonymous, purgatory node)
+     *
+     * An anonymous node is promoted to feature if in the future:
+     *   - it has tags OR
+     *   - it is a relation member OR
+     *   - it is a "duplicate" OR
+     *   - it is an "orphan" -
+     *
+     * A feature node is demoted to anonymous if in the future:
+     *   - it has no tags AND
+     *   - it isn't referenced by any relations AND
+     *   - it is not a "duplicate" AND
+     *   - it is not an "orphan"
+     *   - All nodes (potentially) referenced by relations
      */
     private final MutableLongObjectMap<CNode> nodes = new LongObjectHashMap<>();
+
     /**
-     * - All explicitly changed ways (tags, node IDs) - All implicitly changed ways (a way-node moved, was promoted to
-     * feature or demoted to anonymous) - All ways (potentially) referenced by relations
+     * - All explicitly changed ways (tags, node IDs)
+     * - All implicitly changed ways (a way-node moved, was promoted to
+     *   feature or demoted to anonymous)
+     * - All ways (potentially) referenced by relations
      */
     private final MutableLongObjectMap<CWay> ways = new LongObjectHashMap<>();
+
     /**
-     * - All explicitly changed relations (tags, member IDs, roles) - All implicitly changed relations (member feature's
-     * geometry change caused the relation's bbox or quad to change) - All relations (potentially) referenced by other
-     * relations
+     * - All explicitly changed relations (tags, member IDs, roles)
+     * - All implicitly changed relations (member feature's
+     *   geometry change caused the relation's bbox or quad to change)
+     * - All relations (potentially) referenced by other relations
      */
     private final MutableLongObjectMap<CRelation> relations = new LongObjectHashMap<>();
+
     /**
-     * A mapping of node IDs to past locations. Contains the locations of all modified or deleted nodes, as well as all
-     * future nodes referenced by new/modified ways.
+     * A mapping of node IDs to past locations. Contains the locations of all
+     * modified or deleted nodes, as well as all future nodes referenced
+     * by new/modified ways.
      */
     private final MutableLongLongMap locations = new LongLongHashMap();
+
     /**
-     * A mapping of x/y to one of the nodes (non-deterministic) located there in the future. This helps us discover
-     * potential duplicate nodes. (If more than one node lives at a location, we promote those that are anonymous nodes
-     * to feature status, tagged with geodesk:duplicate) // TODO: also orphans can be duplicate
+     * A mapping of x/y to one of the nodes (non-deterministic) located there
+     * in the future. This helps us discover potential duplicate nodes.
+     * (If more than one node lives at a location, we promote those that
+     * are anonymous nodes to feature status, tagged with geodesk:duplicate)
+     * // TODO: also orphans can be duplicate
      */
     private final MutableLongObjectMap<CNode> futureLocationToNode = new LongObjectHashMap<>();
     private final ObjectIntMap<String> globalStringsToCodes;
     private final String[] globalStrings;
     private final Map<String, String> localStrings = new HashMap<>();
 
+    /**
+     * A map of feature nodes found during the tile scans that will belong to a
+     * way in the future, but are not yet in `nodes` (because they have not been
+     * explicitly changed and are not referenced by any explicitly changed
+     * relations).
+     * We cannot store these nodes in `nodes` because `nodes` must not be
+     * mutated concurrently while the tile-scanning is ongoing.
+     * Once tile scan is completed, we transfer these additional nodes to
+     * `nodes`.
+     */
+    private final MutableLongObjectMap<CNode> moreNodes = new LongObjectHashMap<>();
 
-    public ChangeGraph(FeatureStore store) throws IOException
+    /**
+     * A map of ways discovered during the tile scan that have been implicitly
+     * changed. Like `moreNodes`, we cannot store these ways in `ways` during
+     * the tile scan because we cannot write to `ways` concurrently. Once tile
+     * scanning is completed, we transfer these ways to `ways`
+     */
+    private final MutableLongObjectMap<CWay> implicitlyChangedWays = new LongObjectHashMap<>();
+
+    /**
+     * A map of nodes that have been dropped from one or more ways or relations,
+     * and which potentially may become orphans, lose their way-node status, or
+     * may be demoted to anonymous node.
+     */
+    private MutableLongObjectMap<CNode> droppedNodes = new LongObjectHashMap<>();
+
+    public ChangeModel(FeatureStore store) throws IOException
     {
         this.store = store;
         globalStringsToCodes = store.stringsToCodes();
@@ -141,6 +189,14 @@ public class ChangeGraph
         return getRelation(id);
     }
 
+    /**
+     * If the feature with the specified ID already exists in the mappings,
+     * returns it. Unlike `getFeature`, no `CFeature` is created if it does
+     * not exist already.
+     *
+     * @param typedId
+     * @return
+     */
     public CFeature<?> peekFeature(long typedId)
     {
         FeatureType type = FeatureId.type(typedId);
@@ -219,7 +275,7 @@ public class ChangeGraph
             null, null, null));
     }
 
-    public void addLocation(long nodeId, long xy)
+    public void setLocation(long nodeId, long xy)
     {
         // TODO: need to re-design, may not be threadsafe
         //  Setting a value for a key which is already contained in the map
@@ -269,7 +325,7 @@ public class ChangeGraph
         {
             if (f.tip() < 0 && (f.change==null || (f.change.flags & CFeature.CREATE) == 0))
             {
-                Log.debug("Missing %s", f);
+                // Log.debug("Missing %s", f);
                 count++;
             }
         }
@@ -392,5 +448,138 @@ public class ChangeGraph
     public void readRelations()
     {
         for(CRelation rel: relations) readRelation(rel);
+    }
+
+    /**
+     * Updates the model with the results from a tile scan.
+     * Careful: As the tile scan may still be in progress, we cannot safely
+     * manipulate any of the mappings.
+     *
+     * @param featuresFound   an array of typed feature IDs (even positions)
+     *                        and their corresponding tips/ptr (odd positions)
+     * @param wayNodesFound   an array of node ID arrays that correspond to
+     *                        ways in `featuresFound`, or null if the found
+     *                        feature is a node or relation
+     */
+    public void processScanResults(long[] featuresFound, long[][] wayNodesFound)
+    {
+        for(int i=0; i<featuresFound.length; i += 2)
+        {
+            long typedId = featuresFound[i];
+            if (typedId == 0) break;
+            long id = FeatureId.id(typedId);
+            long tipAndOffset = featuresFound[i + 1];
+            int tip = (int)(tipAndOffset >>> 32);
+            int ptr = (int)tipAndOffset;
+
+            switch(FeatureId.type(typedId))
+            {
+            case NODE:
+                processNode(id, tip, ptr);
+                break;
+            case WAY:
+                long[] nodeIds = wayNodesFound[i >>> 1];
+                processWay(id, tip, ptr, nodeIds);
+                break;
+            case RELATION:
+                processRelation(id, tip, ptr);
+                break;
+            }
+        }
+    }
+
+    private void processNode(long nodeId, int tip, int ptr)
+    {
+        // TODO
+    }
+
+    /**
+     * - If one or more of the way's anonymous nodes coincide with a future
+     *   location (resulting in the node being promoted to a feature node
+     *   tagged as geodesk:duplicate), the way is considered "dirty" since
+     *   its waynode table has to be rewritten (even though the way itself
+     *   may not have changed).
+     *
+     * - Likewise, if one or more of the way's anonymous nodes have been
+     *   promoted to feature nodes due to being included in a relation
+     *   for the first time, the way is considered "dirty"
+     *
+     * - The contrary case (a feature node being demoted to anonymous node
+     *   due to being dropped from its last relation, or because it is no
+     *   longer duplicate in the future) *also* results in the way becoming
+     *   "dirty" -- however, we cannot handle this situation here // TODO
+     *
+     * @param wayId
+     * @param tip
+     * @param ptr
+     * @param nodeIds
+     */
+    private void processWay(long wayId, int tip, int ptr, long[] nodeIds)
+    {
+        CWay way = ways.get(wayId);
+            // don't use getWay() here, because we are not allowed to create
+            // insert new CWay objects into `ways` due to concurrent access
+            // by the ChangeAnalyzer's worker threads
+            // If `way` is null, that means the way is not explicitly changed
+            // We then have to determine if the way is implicitly changed
+            // (one of its nodes moved, in which case we add it to
+            // `implicitlyChangedWays`) or if it is merely a "donor" of
+            // anonymous node locations referenced by other (explicitly changed)
+            // ways (in this case, we don't need to do anything else)
+
+        boolean geometryChanged = false;
+        if(nodeIds != null)
+        {
+            StoredWay storedWay = store.getWay(tip, ptr);
+            StoredWay.XYIterator iter = storedWay.iterXY(0);
+            int n = 0;
+            while (iter.hasNext())
+            {
+                long xy = iter.nextXY();
+                long nodeId = nodeIds[n++];
+                CNode node = nodes.get(nodeId);
+                if (node != null && node.change != null)
+                {
+                    if (!node.change.xyEquals(xy)) geometryChanged = true;
+                }
+                setLocation(nodeId, xy);
+                // TODO: verify that this is threadsafe
+                //  We are never adding a key/value entry; only setting the
+                //  velue of an existing entry
+            }
+
+            // TODO: also get way's feature nodes; if no CNode exists for a node
+            //  whose ID is listed in `locations`, we need to create a CNode
+            //  (but we cannot add it to `nodes` yet due to concurrency)
+
+
+            assert n == nodeIds.length ||
+                (n == nodeIds.length - 1 && nodeIds[n] == nodeIds[0]) :
+                "way/%d has %d coordinate pairs, but nodeIds has %d entries"
+                    .formatted(wayId, n, nodeIds.length);
+        }
+
+        if(way != null)
+        {
+            way.found(tip, ptr);
+        }
+        else
+        {
+            // way is not explicitly changed
+            if(geometryChanged)
+            {
+                way = new CWay(wayId, new CWay.Change(0,
+                    CFeature.CHANGED_GEOMETRY, null, nodeIds));
+                implicitlyChangedWays.put(wayId, way);
+                    // We are potentially replacing an existing record
+                    // if the way is multi-tile and more than one of its
+                    // tiles are being scanned, but that's ok
+            }
+        }
+    }
+
+    private void processRelation(long relId, int tip, int ptr)
+    {
+        // TODO
     }
 }

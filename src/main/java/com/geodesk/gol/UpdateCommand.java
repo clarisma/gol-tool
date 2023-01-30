@@ -14,10 +14,8 @@ import com.clarisma.common.text.Format;
 import com.geodesk.gol.build.BuildContext;
 import com.geodesk.gol.build.Project;
 import com.geodesk.gol.build.ProjectReader;
-import com.geodesk.gol.build.Utils;
-import com.geodesk.gol.tiles.TileCompiler;
 import com.geodesk.gol.update.ChangeAnalyzer;
-import com.geodesk.gol.update.ChangeGraph;
+import com.geodesk.gol.update.ChangeModel;
 import com.geodesk.gol.update.ChangeReader;
 import org.xml.sax.SAXException;
 
@@ -26,7 +24,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.zip.GZIPInputStream;
 
 public class UpdateCommand extends GolCommand
@@ -40,7 +37,7 @@ public class UpdateCommand extends GolCommand
         this.sourceFiles = sourceFiles;
     }
 
-    private void readFiles(ChangeGraph changes) throws IOException
+    private void readFiles(ChangeModel changes) throws IOException
     {
         if(verbosity >= Verbosity.NORMAL) System.err.print("Reading changes ...\r");
         long start = System.currentTimeMillis();
@@ -117,7 +114,7 @@ public class UpdateCommand extends GolCommand
         compiler.compileAll();
         */
 
-        ChangeGraph changes = new ChangeGraph(features.store());
+        ChangeModel changes = new ChangeModel(features.store());
         readFiles(changes);
         ChangeAnalyzer analyzer = new ChangeAnalyzer(changes, context);
         analyzer.analyze();

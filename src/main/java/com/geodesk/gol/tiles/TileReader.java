@@ -31,6 +31,10 @@ import java.util.List;
 //  (Currently, the TileCompiler will recalculate the layout, so this
 //  is not an issue)
 
+// TODO: Consider making this class more general; move the compiler-specific
+//  parts into TTile?
+//  Idea: general part is TileReader, specific is TileStructReader
+
 public class TileReader
 {
     private final TTile tile;
@@ -370,7 +374,7 @@ public class TileReader
      *   local pointers don't reference a (previously loaded) local feature,
      *   or the referenced feature's type is not compatible with the table
      */
-    public int readTable(int p, int shift, int direction, int allowedTypes, boolean roles)
+    public int readFeatureTable(int p, int shift, int direction, int allowedTypes, boolean roles)
     {
         int currentRole = 0;
 
@@ -462,7 +466,7 @@ public class TileReader
         TRelationTable relTable = relTables.get(pTable);
         if(relTable == null)
         {
-            int pEnd = readTable(pTable, 2, 1, TypeBits.RELATIONS, false);
+            int pEnd = readFeatureTable(pTable, 2, 1, TypeBits.RELATIONS, false);
             List<TRelation> relations = new ArrayList<>(currentFeatures.size());
             for(TFeature f: currentFeatures) relations.add((TRelation)f);
             relTable = new TRelationTable(relations, getCurrentTips(), pEnd - pTable);

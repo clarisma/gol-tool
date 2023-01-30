@@ -28,7 +28,7 @@ import java.util.List;
 
 public class ChangeReader extends DefaultHandler
 {
-	private final ChangeGraph graph;
+	private final ChangeModel graph;
 	private final SAXParser parser;
 	private ChangeType currentChangeType;
 	private long currentId;
@@ -43,7 +43,7 @@ public class ChangeReader extends DefaultHandler
 	 */
 	protected int version;
 
-	public ChangeReader(ChangeGraph graph)
+	public ChangeReader(ChangeModel graph)
 	{
 		this.graph = graph;
 		SAXParserFactory factory = SAXParserFactory.newInstance();

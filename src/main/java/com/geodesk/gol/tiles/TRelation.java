@@ -9,15 +9,12 @@ package com.geodesk.gol.tiles;
 
 import com.clarisma.common.soar.SString;
 import com.clarisma.common.soar.Struct;
-import com.clarisma.common.soar.StructOutputStream;
 import com.clarisma.common.soar.StructWriter;
 import com.geodesk.feature.FeatureId;
 import com.geodesk.feature.match.TypeBits;
 import com.geodesk.feature.store.FeatureConstants;
 import com.geodesk.feature.store.Tip;
 
-import java.io.IOException;
-import java.util.Iterator;
 import java.util.List;
 
 import static com.geodesk.feature.store.FeatureFlags.FEATURE_TYPE_BITS;
@@ -27,7 +24,7 @@ public class TRelation extends TFeature2D<TRelation.Body>
     private TTile tile;
     private TFeature[] members;
     private int[] roles;
-    private int[] tips;
+    private int[] tips;         // not needed; store in foreign TFeature
 
     public TRelation(TTile tile, long id)
     {
@@ -54,7 +51,7 @@ public class TRelation extends TFeature2D<TRelation.Body>
                 bodySize = 4;
                 setAnchor(4);
             }
-            bodySize += reader.readTable(pBody, 3, 1,
+            bodySize += reader.readFeatureTable(pBody, 3, 1,
                 TypeBits.ALL & TypeBits.RELATION_MEMBER, true) - pBody;
             members = reader.getCurrentFeatures();
             tips = reader.getCurrentTips();

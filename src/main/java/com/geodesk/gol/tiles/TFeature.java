@@ -20,6 +20,27 @@ import java.nio.ByteBuffer;
 
 import static com.geodesk.feature.store.FeatureFlags.*;
 
+/**
+ * A struct representing a feature stored in the current tile, or a foreign
+ * feature referenced by one or more features in the current tile.
+ *
+ * Foreign Features
+ * ================
+ *
+ * Foreign features have LOCAL_FLAG cleared. The `location` property of the
+ * struct contains the location within the foreign tile, based on the foreign
+ * feature's TIP.
+ *
+ * When building a GOL from an .osm.pbf, a local way or relation can become
+ * foreign if it is multi-tile and the current tile is not in its tileset.
+ * Since the Sorter has no knowledge of a feature's true geometry (only the
+ * tiles it occupies), it treats all tile quads as dense. When the Compiler
+ * calculates a feature's actual geometry, it may turn out that the feature
+ * doesn't actually occupy all four tiles of the quad (i.e. the uad is "sparse").
+ * In that case, the feature is treated as foreign within the tiles that it
+ * doesn't occupy (Typically, only one quadrant is omitted, but it is also
+ * possible that tow diagonal tiles are omitted)
+ */
 public abstract class TFeature extends SharedStruct implements Bounds, Comparable<TFeature>
 {
     protected final long id;
@@ -28,8 +49,7 @@ public abstract class TFeature extends SharedStruct implements Bounds, Comparabl
     protected int flags;
     protected int minX;
     protected int minY;
-    protected int tileQuad = -1;
-    protected int group;
+    protected int tileQuad = -1;        // TODO: quadOrTIp
 
     protected static final int LOCAL_FLAG = 1 << 15;
 

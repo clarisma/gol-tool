@@ -31,11 +31,10 @@ import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
-import java.util.Set;
 
 public class ChangeAnalyzer extends TaskEngine<ChangeAnalyzer.CTile>
 {
-    private final ChangeGraph graph;
+    private final ChangeModel model;
     private final FeatureStore store;
     private final IntIndex nodeIndex;
     private final IntIndex wayIndex;
@@ -48,10 +47,10 @@ public class ChangeAnalyzer extends TaskEngine<ChangeAnalyzer.CTile>
 
     private long testLocationUpdateCount;
 
-    public ChangeAnalyzer(ChangeGraph graph, BuildContext ctx) throws IOException
+    public ChangeAnalyzer(ChangeModel model, BuildContext ctx) throws IOException
     {
         super(new CTile(-1), 2, true);
-        this.graph = graph;
+        this.model = model;
         store = ctx.getFeatureStore();
         nodeIndex = ctx.getNodeIndex();
         wayIndex = ctx.getWayIndex();
@@ -70,14 +69,14 @@ public class ChangeAnalyzer extends TaskEngine<ChangeAnalyzer.CTile>
     public void analyze() throws IOException, InterruptedException
     {
         Log.debug("Starting analysis...");
-        graph.prepare();
+        model.prepare();
         gatherFutureNodeTiles();
         Log.debug("Future locations: %,d tiles", tiles.size());
         gatherTilesForNodes();
         Log.debug("+ nodes/waynodes: %,d tiles", tiles.size());
-        gatherTilesForFeatures(graph.ways(), wayIndex, CTile.FIND_WAYS);
+        gatherTilesForFeatures(model.ways(), wayIndex, CTile.FIND_WAYS);
         Log.debug("+ ways:           %,d tiles", tiles.size());
-        gatherTilesForFeatures(graph.relations(), relationIndex, CTile.FIND_RELATIONS);
+        gatherTilesForFeatures(model.relations(), relationIndex, CTile.FIND_RELATIONS);
         Log.debug("+ relations:      %,d tiles", tiles.size());
         Log.debug("Need to analyze %,d tiles", tiles.size());
         start();
@@ -87,8 +86,8 @@ public class ChangeAnalyzer extends TaskEngine<ChangeAnalyzer.CTile>
         int count = 0;
         for(CTile tile: tiles) if(tile.isProcessed()) count++;
         Log.debug("Analyzed %,d tiles", count);
-        graph.readRelations();
-        graph.reportMissing();
+        model.readRelations();
+        model.reportMissing();
         Log.debug("%,d locations updated", testLocationUpdateCount);
     }
 
@@ -116,7 +115,7 @@ public class ChangeAnalyzer extends TaskEngine<ChangeAnalyzer.CTile>
 
     private void gatherFutureNodeTiles()
     {
-        for (CNode node : graph.nodes())
+        for (CNode node : model.nodes())
         {
             CNode.Change change = node.change;
             if (change != null)
@@ -157,7 +156,7 @@ public class ChangeAnalyzer extends TaskEngine<ChangeAnalyzer.CTile>
     private void gatherTilesForNodes() throws IOException
     {
         final int FLAGS = CTile.FIND_NODES | CTile.FIND_WAY_NODES;
-        for(CNode node: graph.nodes())
+        for(CNode node: model.nodes())
         {
             if(node.change != null)
             {
@@ -173,13 +172,6 @@ public class ChangeAnalyzer extends TaskEngine<ChangeAnalyzer.CTile>
         }
     }
 
-    // TODO: move to FeatureStore
-    private StoredWay getWay(int tip, int ptr)
-    {
-        int tilePage = store.fetchTile(tip);
-        return new StoredWay(store, store.bufferOfPage(tilePage),
-            store.offsetOfPage(tilePage) + ptr);
-    }
 
     private void submitTiles()
     {
@@ -204,6 +196,17 @@ public class ChangeAnalyzer extends TaskEngine<ChangeAnalyzer.CTile>
 
         private int currentTip;
         private int pTile;
+
+        /**
+         * A collection of all the way-node IDs of relevant ways in the
+         * currently scanned tile. A way is considered "relevant" if it
+         * - is explicitly changed, OR
+         * - contains a node that has been explicitly changed
+         *   (therefore implicitly changing the way) OR
+         * - contains a node referenced by an explicitly changed way
+         *   (in which case we need to extract yhe coordinates of such
+         *   nodes)
+         */
         private final MutableLongObjectMap<long[]> currentTileWayNodes =
             new LongObjectHashMap<>();
 
@@ -218,12 +221,20 @@ public class ChangeAnalyzer extends TaskEngine<ChangeAnalyzer.CTile>
         private long[][] wayNodesFound;
         private int foundFeatureCount;
 
+        // TODO: Looking up CFeature objects multiple times is inefficient;
+        //  it would be better to pass references to the CFeature instead
+        //  of typed IDs. However, in the case of ways that are implicitly
+        //  changed, or ways that are merely "donors" of anonymous nodes,
+        //  there is no existing CWay object in the ChangeModel. For implicitly
+        //  changed ways, we need to create a CWay' for donor ways, we don't
+        //  create a CWay (we're only interested in the node coordinates)
+
         Worker()
         {
-            nodes = graph.nodes();
-            ways = graph.ways();
-            relations = graph.relations();
-            locations = graph.locations();
+            nodes = model.nodes();
+            ways = model.ways();
+            relations = model.relations();
+            locations = model.locations();
             nextBatch();
         }
 
@@ -266,7 +277,7 @@ public class ChangeAnalyzer extends TaskEngine<ChangeAnalyzer.CTile>
             // Log.debug("Dispatching %d features", foundFeatureCount);
             try
             {
-                output(new UpdateGraphTask(featuresFound, wayNodesFound));
+                output(() -> model.processScanResults(featuresFound, wayNodesFound));
             }
             catch(InterruptedException ex)
             {
@@ -297,6 +308,7 @@ public class ChangeAnalyzer extends TaskEngine<ChangeAnalyzer.CTile>
             {
                 tileReader.scanAreas();
             }
+            currentTileWayNodes.clear();
             if((tile.flags & CTile.FIND_RELATIONS) != 0) tileReader.scanNonAreaRelations();
             tile.markProcessed();
         }
@@ -310,7 +322,7 @@ public class ChangeAnalyzer extends TaskEngine<ChangeAnalyzer.CTile>
             }
         }
 
-        private void findWayNodes()
+        private void findWayNodes() throws IOException
         {
             Path path = Tip.path(wayNodeIndexPath, currentTip, ".wnx");
             try(FileChannel channel = FileChannel.open(path, StandardOpenOption.READ))
@@ -328,6 +340,13 @@ public class ChangeAnalyzer extends TaskEngine<ChangeAnalyzer.CTile>
                     CWay way = ways.get(wayId);
                     if(way != null && way.change != null)
                     {
+                        // In 99.9% of cases, we could merely check if a way's node
+                        // is contained in the ChangeModel in order to determine
+                        // if we should pick up this way's nodeIDs. However,
+                        // it is possible that a way changed completely, retaining
+                        // none of its past nodes -- therefore, we check if the way
+                        // is modified explicitly
+
                         extract = true;
                     }
                     else
@@ -355,10 +374,6 @@ public class ChangeAnalyzer extends TaskEngine<ChangeAnalyzer.CTile>
                     prevWayId = wayId;
                 }
             }
-            catch (IOException ex)
-            {
-                Log.error("Failed to read waynodes from %s: %s", path, ex.getMessage());
-            }
         }
 
         // TODO: fold functionality into the Worker
@@ -380,8 +395,13 @@ public class ChangeAnalyzer extends TaskEngine<ChangeAnalyzer.CTile>
             @Override public void way(int p)
             {
                 long id = StoredWay.id(buf, p);
-                if(ways.containsKey(id))
+                if(ways.containsKey(id) || currentTileWayNodes.containsKey(id))
                 {
+                    // We have to check *both* maps, because an unmodified way
+                    // could be referenced by a relation (It is in `ways` but
+                    // not in `currentTileWayNodes` -- we only need a reference
+                    // to its past version), or it could be implicitly changed
+                    // (It is in `currentTileWayNodes`, but not in `ways`)
                     foundWay(id, p);
                 }
                 StoredWay way = new StoredWay(store, buf, p);
@@ -425,6 +445,7 @@ public class ChangeAnalyzer extends TaskEngine<ChangeAnalyzer.CTile>
 
         int tip;
         int flags;
+        // TODO: store tile number as well, makes it easier to calc quad of features
 
         CTile(int tip)
         {
@@ -441,6 +462,7 @@ public class ChangeAnalyzer extends TaskEngine<ChangeAnalyzer.CTile>
             return (flags & PROCESSED) != 0;
         }
 
+        // TODO: not threadsafe! (WE don't really need this)
         void markProcessed()
         {
             assert isSubmitted();
@@ -453,55 +475,4 @@ public class ChangeAnalyzer extends TaskEngine<ChangeAnalyzer.CTile>
             this.flags |= flags;
         }
     }
-
-    private class UpdateGraphTask implements Runnable
-    {
-        private final long[] featuresFound;
-        private final long[][] wayNodesFound;
-
-        UpdateGraphTask(long[] featuresFound, long[][] wayNodesFound)
-        {
-            this.featuresFound = featuresFound;
-            this.wayNodesFound = wayNodesFound;
-        }
-
-        @Override public void run()
-        {
-            // Log.debug("Updating the graph...");
-            for(int i=0; i<featuresFound.length; i += 2)
-            {
-                long typedId = featuresFound[i];
-                if (typedId == 0) break;
-                long tipAndOffset = featuresFound[i + 1];
-                // TODO: This should be safe as it never creates features,
-                //  therefore does not modify the maps concurrently;
-                //  still, we could make this cleaner
-                CFeature<?> feature = graph.getFeature(typedId);
-                int tip = (int)(tipAndOffset >>> 32);
-                int ptr = (int)tipAndOffset;
-                feature.found(tip, ptr);
-                long[] wayNodes = wayNodesFound[i >>> 1];
-                if(wayNodes != null)
-                {
-                    // TODO
-
-                    assert FeatureId.isWay(typedId);
-                    StoredWay way = getWay(tip, ptr);
-                    // Log.debug("Adding node coordinates for way/%d...", way.id());
-                    StoredWay.XYIterator iter = way.iterXY(0);
-                    int n=0;
-                    while (iter.hasNext())
-                    {
-                        long xy = iter.nextXY();
-                        long nodeId = wayNodes[n++];
-                        if(graph.locations().containsKey(nodeId)) testLocationUpdateCount++;
-                        graph.addLocation(nodeId, xy);
-                    }
-                    assert n == wayNodes.length ||
-                        (n == wayNodes.length-1 && wayNodes[n] == wayNodes[0]);
-                }
-            }
-        }
-    }
-
 }

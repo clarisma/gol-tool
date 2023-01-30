@@ -11,6 +11,8 @@ import com.geodesk.feature.FeatureType;
 
 public class CRelation extends CFeature<CRelation.Change>
 {
+    // TODO: past quad
+
     public CRelation(long id)
     {
         super(id);
@@ -25,6 +27,7 @@ public class CRelation extends CFeature<CRelation.Change>
     {
         CFeature<?>[] members;
         String[] roles;
+        // TODO: bbox, quad
 
         public Change(int version, int flags, String[] tags,
             CFeature<?>[] members, String[] roles)

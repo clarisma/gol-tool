@@ -12,11 +12,18 @@ import com.geodesk.feature.FeatureType;
 
 public class CWay extends CFeature<CWay.Change>
 {
-    // TODO: need current nodeIDs?
+    // TODO: need current nodeIDs? (No)
+    // TODO: past quad
 
     public CWay(long id)
     {
         super(id);
+    }
+
+    public CWay(long id, Change change)
+    {
+        super(id);
+        this.change = change;
     }
 
     @Override public FeatureType type()
@@ -43,6 +50,7 @@ public class CWay extends CFeature<CWay.Change>
          * (or has not yet been calculated).
          */
         Box bbox;
+        // TODO: quad
 
         public Change(int version, int flags, String[] tags, long[] nodeIds)
         {

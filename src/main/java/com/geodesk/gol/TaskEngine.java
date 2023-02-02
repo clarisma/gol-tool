@@ -53,7 +53,7 @@ public abstract class TaskEngine<T>
      *
      * @return a new WorkerThread instance
      */
-    protected abstract WorkerThread createWorker();
+    protected abstract WorkerThread createWorker() throws Exception;
 
     /**
      * Aborts all processing. Interrupts all threads and shuts down.
@@ -236,9 +236,17 @@ public abstract class TaskEngine<T>
         // they may depend on initialization fo the subclass
         for(int i=0; i<threadCount; i++)
         {
-            WorkerThread thread = createWorker();
-            thread.setName("worker-" + i);
-            workerThreads[i] = thread;
+            try
+            {
+                WorkerThread thread = createWorker();
+                thread.setName("worker-" + i);
+                workerThreads[i] = thread;
+            }
+            catch(Exception ex)
+            {
+                throw new RuntimeException(
+                    "Failed to create worker thread: " + ex.getMessage(), ex);
+            }
         }
         if (outputThread != null) outputThread.start();
         for (int i = 0; i < workerThreads.length; i++) workerThreads[i].start();

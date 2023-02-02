@@ -7,23 +7,18 @@
 
 package com.geodesk.gol.update;
 
-import com.clarisma.common.index.IntIndex;
 import com.clarisma.common.pbf.PbfDecoder;
 import com.clarisma.common.util.Log;
-import com.geodesk.core.Tile;
 import com.geodesk.feature.FeatureId;
 import com.geodesk.feature.Features;
 import com.geodesk.feature.query.WorldView;
 import com.geodesk.feature.store.*;
 import com.geodesk.gol.TaskEngine;
 import com.geodesk.gol.build.BuildContext;
-import com.geodesk.gol.build.TileCatalog;
 import com.geodesk.gol.util.TileReaderTask;
 import org.eclipse.collections.api.map.primitive.LongLongMap;
 import org.eclipse.collections.api.map.primitive.LongObjectMap;
-import org.eclipse.collections.api.map.primitive.MutableIntObjectMap;
 import org.eclipse.collections.api.map.primitive.MutableLongObjectMap;
-import org.eclipse.collections.impl.map.mutable.primitive.IntObjectHashMap;
 import org.eclipse.collections.impl.map.mutable.primitive.LongObjectHashMap;
 
 import java.io.IOException;
@@ -31,157 +26,119 @@ import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+import static com.geodesk.gol.update.SearchTile.*;
 
-public class ChangeAnalyzer extends TaskEngine<ChangeAnalyzer.CTile>
+public class ChangeAnalyzer extends TaskEngine<SearchTile>
 {
     private final ChangeModel model;
     private final FeatureStore store;
-    private final IntIndex nodeIndex;
-    private final IntIndex wayIndex;
-    private final IntIndex relationIndex;
-    private final boolean useIdIndexes;
-    private final TileCatalog tileCatalog;
     private final Path wayNodeIndexPath;
     private final Features<?> duplicateNodes;
-    private final MutableIntObjectMap<CTile> tiles = new IntObjectHashMap<>();
+    private final SearchScope searchScope;
 
     private long testLocationUpdateCount;
+    private AtomicInteger debugGlobalTilesScannedCount = new AtomicInteger();
+    private AtomicLong debugGlobalWaynodesScannedCount = new AtomicLong();
+    private AtomicLong debugFeaturesFoundCount = new AtomicLong();
 
     public ChangeAnalyzer(ChangeModel model, BuildContext ctx) throws IOException
     {
-        super(new CTile(-1), 2, true);
+        super(new SearchTile(-1), 2, true);
         this.model = model;
         store = ctx.getFeatureStore();
-        nodeIndex = ctx.getNodeIndex();
-        wayIndex = ctx.getWayIndex();
-        relationIndex = ctx.getRelationIndex();
-        useIdIndexes = nodeIndex != null & wayIndex != null & relationIndex != null;
-        tileCatalog = ctx.getTileCatalog();
         wayNodeIndexPath = ctx.indexPath().resolve("waynodes");
         duplicateNodes = new WorldView<>(store).select("n[geodesk:duplicate]");
+        searchScope = new SearchScope(ctx);
     }
 
-    @Override protected TaskEngine<CTile>.WorkerThread createWorker()
+    @Override protected TaskEngine<SearchTile>.WorkerThread createWorker()
     {
         return new Worker();
     }
 
     public void analyze() throws IOException, InterruptedException
     {
+        model.prepare();
+
         Log.debug("Starting analysis...");
         model.prepare();
-        gatherFutureNodeTiles();
-        Log.debug("Future locations: %,d tiles", tiles.size());
-        gatherTilesForNodes();
-        Log.debug("+ nodes/waynodes: %,d tiles", tiles.size());
-        gatherTilesForFeatures(model.ways(), wayIndex, CTile.FIND_WAYS);
-        Log.debug("+ ways:           %,d tiles", tiles.size());
-        gatherTilesForFeatures(model.relations(), relationIndex, CTile.FIND_RELATIONS);
-        Log.debug("+ relations:      %,d tiles", tiles.size());
-        Log.debug("Need to analyze %,d tiles", tiles.size());
+        prepareSearch();
+        Log.debug("Need to analyze %,d tiles", searchScope.size());
         start();
-        submitTiles();
+        submitTasks();
         awaitCompletionOfGroup(0);
-        awaitCompletionOfGroup(1);
-        int count = 0;
-        for(CTile tile: tiles) if(tile.isProcessed()) count++;
-        Log.debug("Analyzed %,d tiles", count);
         model.readRelations();
         model.reportMissing();
+        prepareSecondSearch();
+        submitTasks();
+        awaitCompletionOfGroup(1);
+
+        model.reportMissing();
         Log.debug("%,d locations updated", testLocationUpdateCount);
+
+        Log.debug("%,d tiles scanned", debugGlobalTilesScannedCount.get());
+        Log.debug("%,d waynodes scanned", debugGlobalWaynodesScannedCount.get());
+        Log.debug("%,d features found", debugFeaturesFoundCount.get());
     }
 
-    private CTile getTile(int tile)
-    {
-        CTile t = tiles.get(tile);
-        if (t == null)
-        {
-            t = new CTile(tileCatalog.tipOfTile(tile));
-            tiles.put(tile, t);
-        }
-        return t;
-    }
-
-
-    private void markParentTiles(int childTile, int flags)
-    {
-        if (Tile.zoom(childTile) == 0) return;
-        int parentTile = tileCatalog.parentTile(childTile);
-        CTile tile = getTile(parentTile);
-        if ((tile.flags & flags) == flags) return;
-        tile.addFlags(flags);
-        markParentTiles(parentTile, flags);
-    }
-
-    private void gatherFutureNodeTiles()
+    private void prepareSearch() throws IOException
     {
         for (CNode node : model.nodes())
         {
             CNode.Change change = node.change;
             if (change != null)
             {
-                int x = change.x;
-                int y = change.y;
-                // TODO: this is inefficnet, could look up tile directly
-                //  without mapping pile <--> tile
-                int pile = tileCatalog.resolvePileOfXY(x, y);
-                CTile tile = getTile(tileCatalog.tileOfPile(pile));
-                tile.addFlags(CTile.FIND_EVERYTHING);
+                searchScope.findDuplicates(change.x, change.y);
+                searchScope.findNode(node.id());
             }
         }
-    }
-
-    private void gatherTilesForFeatures(
-        LongObjectMap<? extends CFeature> features,
-        IntIndex index, int flags) throws IOException
-    {
-        for(CFeature f: features)
+        Log.debug("Find nodes:  %,d tiles", searchScope.size());
+        for(CWay way: model.ways())
         {
-            if(f.change != null)
-            {
-                int pileQuad = index.get(f.id());
-                if(pileQuad != 0)
-                {
-                    // TODO: For features with > 2 tiles, we need to
-                    //  also scan the adjacent tile (in case feature's
-                    //  quad is sparse)
-                    int tile = tileCatalog.tileOfPile(pileQuad >>> 2);
-                    CTile t = getTile(tile);
-                    t.addFlags(flags);
-                }
-            }
+            if (way.change != null) searchScope.findWay(way.id());
         }
+        Log.debug("+ ways:      %,d tiles", searchScope.size());
+        for(CRelation rel: model.relations())
+        {
+            if(rel.change != null) searchScope.findRelation(rel.id());
+        }
+        Log.debug("+ relations: %,d tiles", searchScope.size());
     }
 
-    private void gatherTilesForNodes() throws IOException
+    private void prepareSecondSearch() throws IOException
     {
-        final int FLAGS = CTile.FIND_NODES | CTile.FIND_WAY_NODES;
+        int prevScopeSize = searchScope.size();;
         for(CNode node: model.nodes())
         {
-            if(node.change != null)
+            if(node.tip() == CFeature.TIP_NOT_FOUND && node.change == null)
             {
-                int pile = nodeIndex.get(node.id());
-                if(pile != 0)
-                {
-                    int tile = tileCatalog.tileOfPile(pile);
-                    CTile t = getTile(tile);
-                    t.addFlags(FLAGS);
-                    markParentTiles(tile, FLAGS);   // TODO: waynodes only!
-                }
+                searchScope.findNode(node.id());
             }
         }
+        for(CWay way: model.ways())
+        {
+            if(way.tip() == CFeature.TIP_NOT_FOUND && way.change == null)
+            {
+                searchScope.findWay(way.id());
+            }
+        }
+        for(CRelation rel: model.relations())
+        {
+            if (rel.tip() == CFeature.TIP_NOT_FOUND && rel.change == null)
+            {
+                searchScope.findRelation(rel.id());
+            }
+        }
+        Log.debug("Analyzing %,d additional tiles", searchScope.size() - prevScopeSize);
     }
 
-
-    private void submitTiles()
+    private void submitTasks()
     {
-        for(CTile tile: tiles)
+        for(SearchTile tile: searchScope)
         {
-            /*  // possibly unsafe for concurrent access
-            if(tile.isSubmitted()) continue;
-            */
-            tile.addFlags(CTile.SUBMITTED);
-            submit(tile);
+            if (tile.hasTasks()) submit(tile);
         }
     }
 
@@ -196,6 +153,9 @@ public class ChangeAnalyzer extends TaskEngine<ChangeAnalyzer.CTile>
 
         private int currentTip;
         private int pTile;
+        private boolean findDuplicateLocations;
+
+        private int debugTileProcessedCount;
 
         /**
          * A collection of all the way-node IDs of relevant ways in the
@@ -277,7 +237,16 @@ public class ChangeAnalyzer extends TaskEngine<ChangeAnalyzer.CTile>
             // Log.debug("Dispatching %d features", foundFeatureCount);
             try
             {
-                output(() -> model.processScanResults(featuresFound, wayNodesFound));
+                // Need to assign the structures that we want to pass to the
+                // ChangeModel via the output thread to local variables first,
+                // in order for lambda capture to work properly
+                // This does not work: output(() -> model.processScanResults(featuresFound, wayNodesFound));
+
+                final long[] dispatchFeaturesFound = featuresFound;
+                final long[][] dispatchWayNodesFound = wayNodesFound;
+                output(() -> model.processScanResults(dispatchFeaturesFound, dispatchWayNodesFound));
+                // output(new FoundFeaturesTask(model, featuresFound, wayNodesFound));
+                debugFeaturesFoundCount.addAndGet(foundFeatureCount);
             }
             catch(InterruptedException ex)
             {
@@ -293,24 +262,28 @@ public class ChangeAnalyzer extends TaskEngine<ChangeAnalyzer.CTile>
             foundFeature(FeatureId.ofWay(id), p);
         }
 
-        @Override protected void process(CTile tile) throws Exception
+        @Override protected void process(SearchTile tile) throws Exception
         {
             currentTip = tile.tip;
-            if((tile.flags & CTile.FIND_WAY_NODES) != 0) findWayNodes();
-
+            if((tile.flags & FIND_WAY_NODES) != 0) findWayNodes();
+            findDuplicateLocations = (tile.flags & FIND_DUPLICATE_XY) != 0;
 
             int tilePage = store.fetchTile(currentTip);
             pTile = store.offsetOfPage(tilePage);
             tileReader.start(store.bufferOfPage(tilePage), pTile);
-            if((tile.flags & CTile.FIND_NODES) != 0) tileReader.scanNodes();
-            if((tile.flags & CTile.FIND_WAYS) != 0) tileReader.scanLinearWays();
-            if((tile.flags & (CTile.FIND_WAYS | CTile.FIND_RELATIONS)) != 0)
+            if((tile.flags & FIND_NODES) != 0) tileReader.scanNodes();
+            if((tile.flags & (FIND_WAYS | FIND_DUPLICATE_XY)) != 0)
+            {
+                tileReader.scanLinearWays();
+            }
+            if((tile.flags & (FIND_WAYS | FIND_RELATIONS | FIND_DUPLICATE_XY)) != 0)
             {
                 tileReader.scanAreas();
             }
             currentTileWayNodes.clear();
-            if((tile.flags & CTile.FIND_RELATIONS) != 0) tileReader.scanNonAreaRelations();
-            tile.markProcessed();
+            if((tile.flags & FIND_RELATIONS) != 0) tileReader.scanNonAreaRelations();
+            debugTileProcessedCount++;
+            tile.done();
         }
 
         @Override protected void postProcess()
@@ -318,7 +291,11 @@ public class ChangeAnalyzer extends TaskEngine<ChangeAnalyzer.CTile>
             if(foundFeatureCount > 0) flush();
             if(currentPhase() == 3)
             {
+                Log.debug("%,d tiles scanned.", debugTileProcessedCount);
                 Log.debug("%,d way-node coordinates scanned.", tileReader.nodesScanned);
+
+                debugGlobalTilesScannedCount.addAndGet(debugTileProcessedCount);
+                debugGlobalWaynodesScannedCount.addAndGet(tileReader.nodesScanned);
             }
         }
 
@@ -338,7 +315,7 @@ public class ChangeAnalyzer extends TaskEngine<ChangeAnalyzer.CTile>
                     long wayId = pbf.readSignedVarint() + prevWayId;
                     int savedPos = pbf.pos();
                     CWay way = ways.get(wayId);
-                    if(way != null && way.change != null)
+                    if(way != null && way.change != null)       // TODO: concurrency!!!
                     {
                         // In 99.9% of cases, we could merely check if a way's node
                         // is contained in the ChangeModel in order to determine
@@ -346,6 +323,8 @@ public class ChangeAnalyzer extends TaskEngine<ChangeAnalyzer.CTile>
                         // it is possible that a way changed completely, retaining
                         // none of its past nodes -- therefore, we check if the way
                         // is modified explicitly
+
+                        // TODO: concurrent access to way.change!
 
                         extract = true;
                     }
@@ -404,18 +383,21 @@ public class ChangeAnalyzer extends TaskEngine<ChangeAnalyzer.CTile>
                     // (It is in `currentTileWayNodes`, but not in `ways`)
                     foundWay(id, p);
                 }
-                StoredWay way = new StoredWay(store, buf, p);
-                StoredWay.XYIterator iter = way.iterXY(0);
-                while(iter.hasNext())
+                if(findDuplicateLocations)
                 {
-                    long xy = iter.nextXY();
-                    /*
-                    if(futureLocationToNode.containsKey(xy))
+                    StoredWay way = new StoredWay(store, buf, p);
+                    StoredWay.XYIterator iter = way.iterXY(0);
+                    while (iter.hasNext())
                     {
-                        Log.debug("Potential duplicate node in way/%d", way.id());
+                        long xy = iter.nextXY();
+                        /*
+                        if(futureLocationToNode.containsKey(xy))
+                        {
+                            Log.debug("Potential duplicate node in way/%d", way.id());
+                        }
+                        */
+                        nodesScanned++;
                     }
-                    */
-                    nodesScanned++;
                 }
             }
 
@@ -432,47 +414,24 @@ public class ChangeAnalyzer extends TaskEngine<ChangeAnalyzer.CTile>
 
     }
 
-    protected static class CTile
+    /*
+    protected static class FoundFeaturesTask implements Runnable
     {
-        static final int FIND_NODES     = 1;
-        static final int FIND_WAYS      = 1 << 1;
-        static final int FIND_RELATIONS = 1 << 2;
-        static final int FIND_WAY_NODES = 1 << 3;
-        static final int FIND_FEATURES  = FIND_NODES | FIND_WAYS | FIND_RELATIONS;
-        static final int FIND_EVERYTHING = FIND_FEATURES | FIND_WAY_NODES;
-        static final int SUBMITTED      = 1 << 8;
-        static final int PROCESSED      = 1 << 9;
+        private final ChangeModel model;
+        private final long[]  featuresFound;
+        private final long[][] wayNodesFound;
 
-        int tip;
-        int flags;
-        // TODO: store tile number as well, makes it easier to calc quad of features
-
-        CTile(int tip)
+        public FoundFeaturesTask(ChangeModel model, long[] featuresFound, long[][] wayNodesFound)
         {
-            this.tip = tip;
+            this.model = model;
+            this.featuresFound = featuresFound;
+            this.wayNodesFound = wayNodesFound;
         }
 
-        boolean isSubmitted()
+        @Override public void run()
         {
-            return (flags & SUBMITTED) != 0;
-        }
-
-        boolean isProcessed()
-        {
-            return (flags & PROCESSED) != 0;
-        }
-
-        // TODO: not threadsafe! (WE don't really need this)
-        void markProcessed()
-        {
-            assert isSubmitted();
-            flags |= PROCESSED;
-        }
-
-        void addFlags(int flags)
-        {
-            assert !isSubmitted();
-            this.flags |= flags;
+            model.processScanResults(featuresFound, wayNodesFound);
         }
     }
+     */
 }

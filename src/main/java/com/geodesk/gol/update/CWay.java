@@ -31,6 +31,12 @@ public class CWay extends CFeature<CWay.Change>
         return FeatureType.WAY;
     }
 
+    public void changeImplicitly(int flags, long[] nodeIds)
+    {
+        assert change == null;
+        change = new Change(0, flags, null, nodeIds);
+    }
+
     public static class Change extends CFeature.Change
     {
         /**

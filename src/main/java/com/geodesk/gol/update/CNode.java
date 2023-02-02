@@ -25,26 +25,28 @@ public class CNode extends CFeature<CNode.Change>
 
     public static class Change extends CFeature.Change
     {
+        /**
+         * The node's future X-coordinate.
+         */
         final int x;
+
+        /**
+         * The node's future Y-coordinate.
+         */
         final int y;
 
         /**
-         * The number of ways from which this node has been removed.
-         * This helps determine whether a feature node will lose its
-         * way-node flag, or whether an anonymous node becomes an orphan.
-         * If this node belongs to any ways in the future, this count
-         * is not used, as the node is not at risk of losing its way-node
-         * status or becoming an orphan.
+         * The number of ways from which this node has been dropped.
+         * We only track this for nodes that will have no tags in the future.
+         * Used to determine whether a node might become an orphan.
+         *
          */
         private int wayDropCount;
 
         /**
-         * The number of relations from which this node has been removed.
-         * This helps determine whether a feature node without tags may
-         * be demoted to anonymous node because it is no longer part of
-         * any relations. If this node has tags in the future or belongs
-         * to any relations in the future, this count is not used, as the
-         * node is not at risk of being demoted.
+         * The number of relations from which this node has been dropped.
+         * We only track this for nodes that will have no tags in the future.
+         * Used to determine whether a node might lose its feature status.
          */
         private int relationDropCount;
 

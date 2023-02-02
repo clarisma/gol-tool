@@ -19,6 +19,7 @@ import org.eclipse.collections.impl.map.mutable.primitive.LongObjectHashMap;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -112,6 +113,13 @@ public class ChangeModel
      * may be demoted to anonymous node.
      */
     private MutableLongObjectMap<CNode> droppedNodes = new LongObjectHashMap<>();
+
+    long debugProcessedCount;
+    long debugUnchangedWaynodeCount;
+
+    private long explicitlyChangedNodeCount;
+    private long explicitlyChangedWayCount;
+    private long explicitlyChangedRelationCount;
 
     public ChangeModel(FeatureStore store) throws IOException
     {
@@ -219,8 +227,8 @@ public class ChangeModel
         }
         else
         {
-            String exisiting = localStrings.putIfAbsent(s, s);
-            if (exisiting != null) s = exisiting;
+            String existing = localStrings.putIfAbsent(s, s);
+            if (existing != null) s = existing;
         }
         return s;
     }
@@ -238,6 +246,7 @@ public class ChangeModel
     public void changeNode(int version, long id, List<String> tags, int x, int y)
     {
         getNode(id).change(new CNode.Change(version, 0, getTags(tags), x, y));
+        explicitlyChangedNodeCount++;
     }
 
     public void deleteNode(int version, long id)
@@ -248,6 +257,7 @@ public class ChangeModel
     public void changeWay(int version, long id, List<String> tags, LongList nodes)
     {
         getWay(id).change(new CWay.Change(version, 0, getTags(tags), nodes.toArray()));
+        explicitlyChangedWayCount++;
     }
 
     public void deleteWay(int version, long id)
@@ -267,6 +277,8 @@ public class ChangeModel
             members, getTags(roleList)));
         // TODO: We can use same method for tags and roles for now;
         //  either change approach or use more appropriate method name
+
+        explicitlyChangedRelationCount++;
     }
 
     public void deleteRelation(int version, long id)
@@ -343,6 +355,13 @@ public class ChangeModel
         Log.debug("Not found: %,d of %,d ways", countMissing(ways), ways.size());
         Log.debug("Not found: %,d of %,d relations", countMissing(relations),relations.size());
         Log.debug("Not found: %,d of %,d locations", countMissingLocations(), locations.size());
+
+        Log.debug("Total features processed: %,d", debugProcessedCount);
+        Log.debug("%,d explicitly changed nodes", explicitlyChangedNodeCount);
+        Log.debug("%,d explicitly changed ways", explicitlyChangedWayCount);
+        Log.debug("  (%,d have unchanged nodeIds)", debugUnchangedWaynodeCount);
+        Log.debug("%,d explicitly changed relations", explicitlyChangedRelationCount);
+
     }
 
     // TODO: consolidate these flags
@@ -438,6 +457,7 @@ public class ChangeModel
                 CFeature<?> member = peekFeature(typedId);
                 if(member != null)
                 {
+                    // Log.debug("Found member %s", member);
                     member.found(memberTip, memberPtr);
                 }
                 if((entry & LAST_FLAG) != 0) break;
@@ -463,6 +483,8 @@ public class ChangeModel
      */
     public void processScanResults(long[] featuresFound, long[][] wayNodesFound)
     {
+        int debugProcessedCount = 0;
+
         for(int i=0; i<featuresFound.length; i += 2)
         {
             long typedId = featuresFound[i];
@@ -485,12 +507,16 @@ public class ChangeModel
                 processRelation(id, tip, ptr);
                 break;
             }
+            debugProcessedCount++;
         }
+        this.debugProcessedCount += debugProcessedCount;
     }
 
     private void processNode(long nodeId, int tip, int ptr)
     {
-        // TODO
+        CNode node = nodes.get(nodeId);
+        assert node != null;
+        node.found(tip, ptr);
     }
 
     /**
@@ -527,6 +553,12 @@ public class ChangeModel
             // anonymous node locations referenced by other (explicitly changed)
             // ways (in this case, we don't need to do anything else)
 
+        // TODO: We have to avoid mutating way.change of any CWay in `ways`,
+        //  because of concurrent access by the changeAnalyzer's worker threads
+        //  Therefore, all implicitly changed ways must be staged, even if
+        //  a CWay object exists for them (due to being referenced by an
+        //  explicitly changed relation in the future)
+
         boolean geometryChanged = false;
         if(nodeIds != null)
         {
@@ -538,9 +570,16 @@ public class ChangeModel
                 long xy = iter.nextXY();
                 long nodeId = nodeIds[n++];
                 CNode node = nodes.get(nodeId);
-                if (node != null && node.change != null)
+                if (node != null)
                 {
-                    if (!node.change.xyEquals(xy)) geometryChanged = true;
+                    if(node.tip() < 0)
+                    {
+                        node.found(CFeature.TIP_ANONYMOUS_NODE, 0);
+                    }
+                    if(node.change != null)
+                    {
+                        if (!node.change.xyEquals(xy)) geometryChanged = true;
+                    }
                 }
                 setLocation(nodeId, xy);
                 // TODO: verify that this is threadsafe
@@ -557,10 +596,25 @@ public class ChangeModel
                 (n == nodeIds.length - 1 && nodeIds[n] == nodeIds[0]) :
                 "way/%d has %d coordinate pairs, but nodeIds has %d entries"
                     .formatted(wayId, n, nodeIds.length);
+
+            if(way != null && way.change != null)
+            {
+                if (Arrays.equals(nodeIds, way.change.nodeIds))
+                {
+                    debugUnchangedWaynodeCount++;
+                }
+            }
+
         }
+
+        // TODO: Also create implicitly changed way if one of its nodes has
+        //  been changed implicitly (even if not moved), since the node may
+        //  change feature-status (We won't know yet at this point)
 
         if(way != null)
         {
+            // way is already in the inventory (explicitly changed or
+            // referenced by a relation in the future)
             way.found(tip, ptr);
         }
         else
@@ -576,10 +630,15 @@ public class ChangeModel
                     // tiles are being scanned, but that's ok
             }
         }
+
+        // TODO: put a Change on a way that is merely referenced
     }
 
     private void processRelation(long relId, int tip, int ptr)
     {
-        // TODO
+        CRelation rel = relations.get(relId);
+        assert rel != null;
+        rel.found(tip, ptr);
+        readRelation(rel);
     }
 }

@@ -28,7 +28,7 @@ import java.util.List;
 
 public class ChangeReader extends DefaultHandler
 {
-	private final ChangeModel graph;
+	private final ChangeModel model;
 	private final SAXParser parser;
 	private ChangeType currentChangeType;
 	private long currentId;
@@ -43,9 +43,9 @@ public class ChangeReader extends DefaultHandler
 	 */
 	protected int version;
 
-	public ChangeReader(ChangeModel graph)
+	public ChangeReader(ChangeModel model)
 	{
-		this.graph = graph;
+		this.model = model;
 		SAXParserFactory factory = SAXParserFactory.newInstance();
 		try
 		{
@@ -133,22 +133,22 @@ public class ChangeReader extends DefaultHandler
 		case "node":
 			if(currentChangeType == ChangeType.DELETE)
 			{
-				graph.deleteNode(version, currentId);
+				model.deleteNode(version, currentId);
 			}
 			else
 			{
-				graph.changeNode(version, currentId, currentTags, currentX, currentY);
+				model.changeNode(version, currentId, currentTags, currentX, currentY);
 			}
 			currentTags.clear();
 			break;
 		case "way":
 			if(currentChangeType == ChangeType.DELETE)
 			{
-				graph.deleteWay(version, currentId);
+				model.deleteWay(version, currentId);
 			}
 			else
 			{
-				graph.changeWay(version, currentId, currentTags, currentChildIds);
+				model.changeWay(version, currentId, currentTags, currentChildIds);
 			}
 			currentTags.clear();
 			currentChildIds.clear();
@@ -156,11 +156,11 @@ public class ChangeReader extends DefaultHandler
 		case "relation":
 			if(currentChangeType == ChangeType.DELETE)
 			{
-				graph.deleteRelation(version, currentId);
+				model.deleteRelation(version, currentId);
 			}
 			else
 			{
-				graph.changeRelation(version, currentId, currentTags,
+				model.changeRelation(version, currentId, currentTags,
 					currentChildIds, currentRoles);
 			}
 			currentTags.clear();

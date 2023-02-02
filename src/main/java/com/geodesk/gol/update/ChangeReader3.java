@@ -11,17 +11,19 @@ import com.clarisma.common.index.IntIndex;
 import com.clarisma.common.util.Log;
 import com.geodesk.core.Heading;
 import com.geodesk.core.Tile;
+import com.geodesk.feature.FeatureId;
 import com.geodesk.feature.FeatureType;
 import com.geodesk.feature.store.FeatureStore;
 import com.geodesk.gol.TaskEngine;
 import com.geodesk.gol.build.BuildContext;
 import com.geodesk.gol.build.TileCatalog;
-import com.geodesk.gol.tiles.StringSource;
 import com.geodesk.gol.tiles.TagTableBuilder;
 import org.eclipse.collections.api.list.primitive.IntList;
 import org.eclipse.collections.api.list.primitive.MutableIntList;
+import org.eclipse.collections.api.list.primitive.MutableLongList;
 import org.eclipse.collections.api.set.primitive.MutableIntSet;
 import org.eclipse.collections.impl.list.mutable.primitive.IntArrayList;
+import org.eclipse.collections.impl.list.mutable.primitive.LongArrayList;
 import org.eclipse.collections.impl.set.mutable.primitive.IntHashSet;
 import org.xml.sax.Attributes;
 import org.xml.sax.SAXException;
@@ -34,19 +36,18 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.zip.GZIPInputStream;
 
-public class ChangeReader2 extends TaskEngine<ChangeReader2.Task>
+public class ChangeReader3 extends TaskEngine<ChangeReader3.Task>
 {
     private ChangeModel model;
     private BuildContext context;
     private final StringManager strings;
 
-    public ChangeReader2(ChangeModel model, BuildContext ctx) throws IOException
+    public ChangeReader3(ChangeModel model, BuildContext ctx) throws IOException
     {
-        super(new Task(null,null), 1, true);
+        super(new Task(null), 1, true);
         this.model = model;
         this.context = ctx;
         FeatureStore store = ctx.getFeatureStore();
@@ -109,45 +110,39 @@ public class ChangeReader2 extends TaskEngine<ChangeReader2.Task>
     private static final int CHANGE_DELETE = 8;
 
 
-    private static int BATCH_SIZE = 8192 * 4;
-    private static int EXTRA_SIZE = 512 * 4;
+    private static int BATCH_SIZE = 8192;
+    private static int EXTRA_SIZE = 512;
 
     protected class Handler extends DefaultHandler
     {
         protected int currentChangeType;
-        protected MutableIntList typeList;
-        protected List<String> stringList;
+        protected final List<String> stringList = new ArrayList<>();
+        protected final MutableLongList memberList = new LongArrayList();
+        protected long[] featureIds;
+        private int featureCount;
 
         Handler()
         {
             newBatch();
         }
 
-        private void collect(int type, String s1, String s2)
-        {
-            typeList.add(type);
-            stringList.add(s1);
-            stringList.add(s2);
-        }
-
-        private void startFeature(int type, Attributes attr)
-        {
-            collect(FEATURE | type | currentChangeType,
-                attr.getValue("id"),
-                attr.getValue("version"));
-        }
-
-
         private void newBatch()
         {
-            typeList = new IntArrayList(BATCH_SIZE + EXTRA_SIZE);
-            stringList = new ArrayList<>((BATCH_SIZE + EXTRA_SIZE) * 2);
+            featureIds = new long[BATCH_SIZE];
+            featureCount = 0;
         }
 
         public void flush()
         {
-            submit(new Task(typeList, stringList));
+            submit(new Task(featureIds));
             newBatch();
+        }
+
+        private void startFeature(FeatureType type, Attributes attr)
+        {
+            featureIds[featureCount++] =
+                FeatureId.of(type, Long.parseLong(attr.getValue("id")));
+            if(featureCount == BATCH_SIZE) flush();
         }
 
         @Override public void startElement (String uri, String localName,
@@ -156,34 +151,22 @@ public class ChangeReader2 extends TaskEngine<ChangeReader2.Task>
             switch(qName)
             {
             case "node":
-                startFeature(FEATURE_NODE, attr);
-                collect(LONLAT,
-                    attr.getValue("lon"),
-                    attr.getValue("lat"));
+                startFeature(FeatureType.NODE, attr);
                 break;
             case "way":
-                startFeature(FEATURE_WAY, attr);
+                startFeature(FeatureType.WAY, attr);
                 break;
             case "relation":
-                startFeature(FEATURE_RELATION, attr);
+                startFeature(FeatureType.RELATION, attr);
                 break;
             case "nd":
-                collect(MEMBER, attr.getValue("ref"), null);
+                memberList.add(Long.parseLong(attr.getValue("ref")));
                 break;
             case "member":
-                String typeString = attr.getValue("type");
-                int type = switch (typeString)
-                {
-                    case "node" -> FEATURE_NODE;
-                    case "way" -> FEATURE_WAY;
-                    case "relation" -> FEATURE_RELATION;
-                    default -> throw new RuntimeException("Illegal member type: " + typeString);
-                };
-                collect(MEMBER | type, attr.getValue("ref"),
-                    attr.getValue("role"));
                 break;
             case "tag":
-                collect(TAG, attr.getValue("k"), attr.getValue("v"));
+                stringList.add(attr.getValue("k"));
+                stringList.add(attr.getValue("v"));
                 break;
             case "create":
                 currentChangeType = CHANGE_CREATE;
@@ -204,11 +187,9 @@ public class ChangeReader2 extends TaskEngine<ChangeReader2.Task>
             case "node":
             case "way":
             case "relation":
-                if(typeList.size() >= BATCH_SIZE)
-                {
-                    // Log.debug("Dispatching %,d elements", typeList.size());
-                    flush();
-                }
+                TagTableBuilder.fromStrings(stringList.toArray(new String[0]), strings);
+                stringList.clear();
+                memberList.clear();
                 break;
             }
         }
@@ -216,13 +197,11 @@ public class ChangeReader2 extends TaskEngine<ChangeReader2.Task>
 
     protected static class Task
     {
-        private final IntList typeList;
-        private final List<String> stringList;
+        private final long[] featureIds;
 
-        public Task(IntList typeList, List<String> stringList)
+        public Task(long[] featureIds)
         {
-            this.typeList = typeList;
-            this.stringList = stringList;
+            this.featureIds = featureIds;
         }
     }
 
@@ -325,37 +304,24 @@ public class ChangeReader2 extends TaskEngine<ChangeReader2.Task>
 
         @Override protected void process(Task task) throws Exception
         {
-            // Log.debug("Processing %,d attributes", task.typeList.size());
-            IntList typeList = task.typeList;
-            List<String> stringList = task.stringList;
-
-            int n=0;
-            while(n < typeList.size())
+            long[] ids = task.featureIds;
+            for(int i=0; i<ids.length; i++)
             {
-                int type = typeList.get(n);
-                String s1 = stringList.get(n * 2);
-                String s2 = stringList.get(n * 2 + 1);
-
-                if((type & FEATURE) != 0)
+                long typedId = ids[i];
+                int type = FeatureId.typeCode(typedId);
+                long id = FeatureId.id(typedId);
+                switch(type)
                 {
-                    // Log.debug("ID = %s", s1);
-                    long id = Long.parseLong(s1);
-                    switch(type & FEATURE_TYPE_MASK)
-                    {
-                    case FEATURE_NODE:
-                        addNodeTile(id);
-                        break;
-                    case FEATURE_WAY:
-                        wayNodeCount += getNodeIds(typeList, stringList, n+1).length;
-                        addFeatureTiles(wayTiles, wayIndex, id);
-                        break;
-                    case FEATURE_RELATION:
-                        addFeatureTiles(relationTiles, relationIndex, id);
-                        break;
-                    }
-                    getTags(typeList, stringList, n+1);
+                case 0:
+                    addNodeTile(id);
+                    break;
+                case 1:
+                    addFeatureTiles(wayTiles, wayIndex, id);
+                    break;
+                case 2:
+                    addFeatureTiles(relationTiles, relationIndex, id);
+                    break;
                 }
-                n++;
             }
         }
 

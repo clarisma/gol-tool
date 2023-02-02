@@ -281,6 +281,7 @@ public class TTagTable extends SharedStruct implements Comparable<TTagTable>
      * @param tile
      * @param tags
      */
+    // TODO: broken, use TagTableBuilder
     private static void sortTags(TTile tile, long[] tags)
     {
         for(int i=1; i<tags.length; i++)

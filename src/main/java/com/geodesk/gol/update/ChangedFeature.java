@@ -11,6 +11,7 @@ public class ChangedFeature
 {
     /*
     final long id;
+    int flags;
     final String[] tags;
     int version
      */

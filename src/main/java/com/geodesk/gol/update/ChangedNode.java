@@ -7,6 +7,8 @@
 
 package com.geodesk.gol.update;
 
-public class ChangedNode
+public class ChangedNode extends ChangedFeature
 {
+    int x;
+    int y;
 }

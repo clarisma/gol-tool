@@ -14,10 +14,7 @@ import com.clarisma.common.text.Format;
 import com.geodesk.gol.build.BuildContext;
 import com.geodesk.gol.build.Project;
 import com.geodesk.gol.build.ProjectReader;
-import com.geodesk.gol.update.ChangeAnalyzer;
-import com.geodesk.gol.update.ChangeModel;
-import com.geodesk.gol.update.ChangeReader;
-import com.geodesk.gol.update.ChangeReader2;
+import com.geodesk.gol.update.*;
 import org.xml.sax.SAXException;
 
 import java.io.FileInputStream;
@@ -116,8 +113,24 @@ public class UpdateCommand extends GolCommand
         */
 
         ChangeModel changes = new ChangeModel(features.store());
+
         ChangeReader2 reader2 = new ChangeReader2(changes, context);
         reader2.read("c:\\geodesk\\research\\world-3795.osc.gz", true);
+        reader2 = null;
+
+        ChangeReader3 reader3 = new ChangeReader3(changes, context);
+        reader3.read("c:\\geodesk\\research\\world-3795.osc.gz", true);
+        reader3 = null;
+
+        reader2 = new ChangeReader2(changes, context);
+        reader2.read("c:\\geodesk\\research\\world-3795.osc.gz", true);
+        reader2 = null;
+
+        reader3 = new ChangeReader3(changes, context);
+        reader3.read("c:\\geodesk\\research\\world-3795.osc.gz", true);
+        reader3 = null;
+
+
         // reader2.read("c:\\geodesk\\research\\de-3530.osc.gz", true);
 
         readFiles(changes);

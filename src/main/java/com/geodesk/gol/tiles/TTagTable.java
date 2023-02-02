@@ -29,6 +29,10 @@ import java.util.List;
  * Bit 31:      0 = global-string key code, 1 = local-string key code
  * Bits 32-63:  If numeric or global-string value: encoded value
  *              If local-string value: local-string value code
+ *
+ * TODO: empty table marker should not be stored
+ *   empty marker must also be written if table consists solely
+ *   of local-key tags
  */
 public class TTagTable extends SharedStruct implements Comparable<TTagTable>
 {
@@ -89,6 +93,11 @@ public class TTagTable extends SharedStruct implements Comparable<TTagTable>
             if((k & 0x8000) != 0) break;
         }
         int globalKeyTagCount = tagCount - uncommonTagCount;
+
+        // TODO: check here if global-tag count is 1 and
+        //  the only global tag is the table-end marker
+        //  adjust size if we switch to a "proper" end marker
+        //  that respects the wide-value flag
 
         tags = new long[tagCount];
         p = pTable;
@@ -170,6 +179,7 @@ public class TTagTable extends SharedStruct implements Comparable<TTagTable>
     }
 
     // TODO: is tagStrings allowed to be null (currently not; can be null in STagTable)
+    // TODO: need explicit <empty> tag if tagtable consists solely of local-key tags
     public TTagTable(TTile tile, String[] tagStrings)
     {
         this.tile = tile;
@@ -387,6 +397,10 @@ public class TTagTable extends SharedStruct implements Comparable<TTagTable>
             lastFlag = 0;
         }
         int lastGlobalTagIndex = i;
+
+        // TODO: if lastGlobalTagIndex is negative, write
+        //  end-table marker
+
         for(i=0; i <= lastGlobalTagIndex; i++)
         {
             long tag = tags[i];

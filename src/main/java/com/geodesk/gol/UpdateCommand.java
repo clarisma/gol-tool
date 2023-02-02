@@ -17,6 +17,7 @@ import com.geodesk.gol.build.ProjectReader;
 import com.geodesk.gol.update.ChangeAnalyzer;
 import com.geodesk.gol.update.ChangeModel;
 import com.geodesk.gol.update.ChangeReader;
+import com.geodesk.gol.update.ChangeReader2;
 import org.xml.sax.SAXException;
 
 import java.io.FileInputStream;
@@ -115,6 +116,10 @@ public class UpdateCommand extends GolCommand
         */
 
         ChangeModel changes = new ChangeModel(features.store());
+        ChangeReader2 reader2 = new ChangeReader2(changes, context);
+        reader2.read("c:\\geodesk\\research\\world-3795.osc.gz", true);
+        // reader2.read("c:\\geodesk\\research\\de-3530.osc.gz", true);
+
         readFiles(changes);
         ChangeAnalyzer analyzer = new ChangeAnalyzer(changes, context);
         analyzer.analyze();

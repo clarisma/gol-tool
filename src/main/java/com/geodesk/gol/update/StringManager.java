@@ -11,8 +11,13 @@ import com.clarisma.common.util.Log;
 import com.geodesk.gol.tiles.StringSource;
 import org.eclipse.collections.api.map.primitive.MutableObjectIntMap;
 import org.eclipse.collections.api.map.primitive.ObjectIntMap;
+import org.eclipse.collections.impl.factory.primitive.ObjectIntMaps;
 import org.eclipse.collections.impl.map.mutable.primitive.ObjectIntHashMap;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -30,6 +35,28 @@ public class StringManager implements StringSource
         localStringsToCodes = new ObjectIntHashMap<>();
         localStrings = new ArrayList<>();
     }
+
+    public StringManager(InputStream in) throws IOException
+    {
+        List<String> strings = new ArrayList<>();
+		strings.add("");
+		BufferedReader reader = new BufferedReader(new InputStreamReader(in));
+        for (;;)
+        {
+            String s = reader.readLine();
+            if (s == null) break;
+            strings.add(s);
+        }
+		globalStrings = strings.toArray(new String[0]);
+        int stringCount = globalStrings.length;
+        MutableObjectIntMap<String> stringMap = new ObjectIntHashMap<>(
+            stringCount + stringCount / 2);
+		for(int i=0; i<stringCount; i++) stringMap.put(globalStrings[i], i);
+		globalStringsToCodes = stringMap;
+        localStringsToCodes = new ObjectIntHashMap<>();
+        localStrings = new ArrayList<>();
+    }
+
 
     @Override public String globalString(int code)
     {

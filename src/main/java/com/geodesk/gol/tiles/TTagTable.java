@@ -237,7 +237,7 @@ public class TTagTable extends SharedStruct implements Comparable<TTagTable>
                     {
                         long mantissa = Decimal.mantissa(d);
             			if(mantissa >= TagValues.MIN_NUMBER &&
-                            mantissa > TagValues.MAX_WIDE_NUMBER)
+                            mantissa <= TagValues.MAX_WIDE_NUMBER)
                         {
                             if(scale == 0 && mantissa <= TagValues.MAX_NARROW_NUMBER)
                             {

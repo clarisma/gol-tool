@@ -118,7 +118,7 @@ public class UpdateCommand extends GolCommand
         reader2.read("c:\\geodesk\\research\\world-3795.osc.gz", true);
         reader2 = null;
 
-        ChangeReader3 reader3 = new ChangeReader3(changes, context);
+        ChangeReader3 reader3 = new ChangeReader3(context);
         reader3.read("c:\\geodesk\\research\\world-3795.osc.gz", true);
         reader3 = null;
 
@@ -126,7 +126,7 @@ public class UpdateCommand extends GolCommand
         reader2.read("c:\\geodesk\\research\\world-3795.osc.gz", true);
         reader2 = null;
 
-        reader3 = new ChangeReader3(changes, context);
+        reader3 = new ChangeReader3(context);
         reader3.read("c:\\geodesk\\research\\world-3795.osc.gz", true);
         reader3 = null;
 

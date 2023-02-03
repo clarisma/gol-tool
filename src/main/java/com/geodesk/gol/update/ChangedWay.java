@@ -7,15 +7,13 @@
 
 package com.geodesk.gol.update;
 
-public class ChangedNode extends ChangedFeature
+public class ChangedWay extends ChangedFeature
 {
-    int x;
-    int y;
+    long[] nodeIds;
 
-    public ChangedNode(long id, int version, int flags, long[] tags, int x, int y)
+    public ChangedWay(long id, int version, int flags, long[] tags, long[] nodeIds)
     {
         super(id, version, flags, tags);
-        this.x = x;
-        this.y = y;
+        this.nodeIds = nodeIds;
     }
 }

@@ -10,19 +10,18 @@ package com.geodesk.gol.update;
 import com.clarisma.common.index.IntIndex;
 import com.clarisma.common.util.Log;
 import com.geodesk.core.Heading;
+import com.geodesk.core.Mercator;
 import com.geodesk.core.Tile;
 import com.geodesk.feature.FeatureId;
 import com.geodesk.feature.FeatureType;
 import com.geodesk.feature.store.FeatureStore;
+import com.geodesk.feature.store.TagValues;
 import com.geodesk.gol.TaskEngine;
 import com.geodesk.gol.build.BuildContext;
 import com.geodesk.gol.build.TileCatalog;
 import com.geodesk.gol.tiles.TagTableBuilder;
-import org.eclipse.collections.api.list.primitive.IntList;
-import org.eclipse.collections.api.list.primitive.MutableIntList;
 import org.eclipse.collections.api.list.primitive.MutableLongList;
 import org.eclipse.collections.api.set.primitive.MutableIntSet;
-import org.eclipse.collections.impl.list.mutable.primitive.IntArrayList;
 import org.eclipse.collections.impl.list.mutable.primitive.LongArrayList;
 import org.eclipse.collections.impl.set.mutable.primitive.IntHashSet;
 import org.xml.sax.Attributes;
@@ -41,14 +40,13 @@ import java.util.zip.GZIPInputStream;
 
 public class ChangeReader3 extends TaskEngine<ChangeReader3.Task>
 {
-    private ChangeModel model;
     private BuildContext context;
     private final StringManager strings;
+    private boolean reportProgress = true;  // TODO
 
-    public ChangeReader3(ChangeModel model, BuildContext ctx) throws IOException
+    public ChangeReader3(BuildContext ctx) throws IOException
     {
         super(new Task(null), 1, true);
-        this.model = model;
         this.context = ctx;
         FeatureStore store = ctx.getFeatureStore();
         strings = new StringManager(store.stringsToCodes(), store.codesToStrings());
@@ -92,33 +90,22 @@ public class ChangeReader3 extends TaskEngine<ChangeReader3.Task>
             throw new IOException("%s: Invalid file (%s)".formatted(file, ex.getMessage()));
         }
 
-        Log.debug("Read %s in %,d ms", file, System.currentTimeMillis() - start);
+        Log.debug("CR3: Read %s in %,d ms", file, System.currentTimeMillis() - start);
     }
 
-    private static final int FEATURE  = 16;
-    private static final int LONLAT = 32;
-    private static final int TAG = 64;
-    private static final int MEMBER = 128;
-
-    private static final int FEATURE_TYPE_MASK  = 3;
-    private static final int FEATURE_NODE = 0;
-    private static final int FEATURE_WAY = 1;
-    private static final int FEATURE_RELATION = 2;
-
-    private static final int CHANGE_MODIFY = 0;
-    private static final int CHANGE_CREATE = 4;
-    private static final int CHANGE_DELETE = 8;
-
-
     private static int BATCH_SIZE = 8192;
-    private static int EXTRA_SIZE = 512;
 
     protected class Handler extends DefaultHandler
     {
-        protected int currentChangeType;
-        protected final List<String> stringList = new ArrayList<>();
-        protected final MutableLongList memberList = new LongArrayList();
-        protected long[] featureIds;
+        private int currentChangeType;
+        private long currentId;
+        private int currentVersion;
+        private int currentX, currentY;
+        private final List<String> tagList = new ArrayList<>();
+        private final MutableLongList memberList = new LongArrayList();
+        private final List<String> roleList = new ArrayList<>();
+        private final List<ChangedFeature> changes = new ArrayList<>();
+        private long[] featureIds;
         private int featureCount;
 
         Handler()
@@ -140,9 +127,17 @@ public class ChangeReader3 extends TaskEngine<ChangeReader3.Task>
 
         private void startFeature(FeatureType type, Attributes attr)
         {
-            featureIds[featureCount++] =
-                FeatureId.of(type, Long.parseLong(attr.getValue("id")));
-            if(featureCount == BATCH_SIZE) flush();
+            currentVersion = Integer.parseInt(attr.getValue("version"));
+            currentId = Long.parseLong(attr.getValue("id"));
+            featureIds[featureCount++] = FeatureId.of(type, currentId);
+            if(featureCount == BATCH_SIZE)
+            {
+                flush();
+                if (reportProgress)
+                {
+                    System.err.format("Reading... %,d changes\r", changes.size());
+                }
+            }
         }
 
         @Override public void startElement (String uri, String localName,
@@ -152,7 +147,11 @@ public class ChangeReader3 extends TaskEngine<ChangeReader3.Task>
             {
             case "node":
                 startFeature(FeatureType.NODE, attr);
-                break;
+                double lon = Double.parseDouble(attr.getValue("lon"));
+			    double lat = Double.parseDouble(attr.getValue("lat"));
+			    currentX = (int)Math.round(Mercator.xFromLon(lon));
+			    currentY = (int)Math.round(Mercator.yFromLat(lat));
+			break;
             case "way":
                 startFeature(FeatureType.WAY, attr);
                 break;
@@ -163,33 +162,104 @@ public class ChangeReader3 extends TaskEngine<ChangeReader3.Task>
                 memberList.add(Long.parseLong(attr.getValue("ref")));
                 break;
             case "member":
+                String type = attr.getValue("type");
+                long id = Long.parseLong(attr.getValue("ref"));
+			    memberList.add(FeatureId.of(FeatureType.from(type), id));
+                roleList.add(attr.getValue("role"));
                 break;
             case "tag":
-                stringList.add(attr.getValue("k"));
-                stringList.add(attr.getValue("v"));
+                tagList.add(attr.getValue("k"));
+                tagList.add(attr.getValue("v"));
                 break;
             case "create":
-                currentChangeType = CHANGE_CREATE;
+                currentChangeType = ChangedFeature.CREATE;
                 break;
             case "modify":
-                currentChangeType = CHANGE_MODIFY;
+                currentChangeType = 0;
                 break;
             case "delete":
-                currentChangeType = CHANGE_DELETE;
+                currentChangeType = ChangedFeature.DELETE;
                 break;
             }
         }
 
+        private long[] getTags()
+        {
+            String[] kv = tagList.toArray(new String[0]);
+            return TagTableBuilder.fromStrings(kv, strings);
+        }
+
+        private int[] getRoles()
+        {
+            int[] roles = new int[roleList.size()];
+            for(int i=0; i<roles.length; i++)
+            {
+                String strRole = roleList.get(i);
+                int roleCode = strings.globalStringCode(strRole);
+                if(roleCode < 0 || roleCode > TagValues.MAX_COMMON_ROLE)
+                {
+                    roleCode = strings.localStringCode(strRole) | 0x8000_0000;
+                }
+                roles[i] = roleCode;
+            }
+            return roles;
+        }
+
         public void endElement (String uri, String localName, String qName)
         {
+            long[] tags;
             switch(qName)
             {
             case "node":
+                if(currentChangeType == ChangedFeature.DELETE)
+                {
+                    tags = null;
+                }
+                else
+                {
+                    tags = getTags();
+                }
+                changes.add(new ChangedNode(currentId, currentVersion, currentChangeType,
+                    tags, currentX, currentY));
+                tagList.clear();
+                break;
             case "way":
-            case "relation":
-                TagTableBuilder.fromStrings(stringList.toArray(new String[0]), strings);
-                stringList.clear();
+                long[] nodeIds;
+                if(currentChangeType == ChangedFeature.DELETE)
+                {
+                    tags = null;
+                    nodeIds = null;
+                }
+                else
+                {
+                    tags = getTags();
+                    nodeIds = memberList.toArray();
+                }
+                changes.add(new ChangedWay(currentId, currentVersion, currentChangeType,
+                    tags, nodeIds));
+                tagList.clear();
                 memberList.clear();
+                break;
+            case "relation":
+                long[] memberIds;
+                int[] roles;
+                if(currentChangeType == ChangedFeature.DELETE)
+                {
+                    tags = null;
+                    memberIds = null;
+                    roles = null;
+                }
+                else
+                {
+                    tags = getTags();
+                    memberIds = memberList.toArray();
+                    roles = getRoles();
+                }
+                changes.add(new ChangedRelation(currentId, currentVersion, currentChangeType,
+                    tags, memberIds, roles));
+                tagList.clear();
+                memberList.clear();
+                roleList.clear();
                 break;
             }
         }
@@ -211,11 +281,9 @@ public class ChangeReader3 extends TaskEngine<ChangeReader3.Task>
         private final IntIndex wayIndex;
         private final IntIndex relationIndex;
         private final TileCatalog tileCatalog;
-        private final StringManager strings;
         private MutableIntSet nodeTiles = new IntHashSet();
         private MutableIntSet wayTiles = new IntHashSet();
         private MutableIntSet relationTiles = new IntHashSet();
-        private long wayNodeCount;
 
         Worker() throws IOException
         {
@@ -223,8 +291,6 @@ public class ChangeReader3 extends TaskEngine<ChangeReader3.Task>
             wayIndex = context.getWayIndex();
             relationIndex = context.getRelationIndex();
             tileCatalog = context.getTileCatalog();
-            FeatureStore store = context.getFeatureStore();
-            strings = new StringManager(store.stringsToCodes(), store.codesToStrings());
         }
 
         private void addNodeTile(long id) throws IOException
@@ -251,56 +317,6 @@ public class ChangeReader3 extends TaskEngine<ChangeReader3.Task>
             }
         }
 
-        private long[] getTags(IntList typeList, List<String> stringList, int start)
-        {
-            while(start < typeList.size())
-            {
-                int type = typeList.get(start);
-                if(type == TAG) break;
-                if((type & FEATURE) != 0) return TagTableBuilder.EMPTY_TABLE;
-                start++;
-            }
-
-            int n = start;
-            while(n < typeList.size())
-            {
-                if(typeList.get(n) != TAG) break;
-                n++;
-            }
-            int tagCount = n - start;
-            if(tagCount == 0) return TagTableBuilder.EMPTY_TABLE;
-            String[] kv = new String[tagCount * 2];
-            for(int i=0; i<kv.length; i++)
-            {
-                kv[i] = stringList.get(start * 2 + i);
-            }
-            return TagTableBuilder.fromStrings(kv, strings);
-        }
-
-        private long[] getNodeIds(IntList typeList, List<String> stringList, int start)
-        {
-            while(start < typeList.size())
-            {
-                int type = typeList.get(start);
-                if(type == MEMBER) break;
-                if((type & FEATURE) != 0) return TagTableBuilder.EMPTY_TABLE;
-                start++;
-            }
-
-            int n = start;
-            while(n < typeList.size())
-            {
-                if(typeList.get(n) != MEMBER) break;
-                n++;
-            }
-            int count = n - start;
-            long[] nodeIds = new long[count];
-            for(int i=0; i<nodeIds.length; i++)
-            {
-                nodeIds[i] = Long.parseLong(stringList.get((start+i) * 2));
-            }
-            return nodeIds;
-        }
 
         @Override protected void process(Task task) throws Exception
         {
@@ -330,7 +346,7 @@ public class ChangeReader3 extends TaskEngine<ChangeReader3.Task>
             Log.debug("%,d node tiles", nodeTiles.size());
             Log.debug("%,d way tiles", wayTiles.size());
             Log.debug("%,d relation tiles", relationTiles.size());
-            Log.debug("%,d way nodes", wayNodeCount);
+            //Log.debug("%,d way nodes", wayNodeCount);
             strings.dump();
             Log.debug("Merging strings...");
             mergeStrings(strings);

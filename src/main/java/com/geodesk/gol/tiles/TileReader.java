@@ -451,6 +451,7 @@ public class TileReader
                             // signed shift (rawRole contains relative pointer)
                             // flag bit is reversed internally: 1 = local string
                         //Log.debug("Read uncommon role: %s", tile.localString(currentRole >>> 1));
+                            // TODO: use Bit 31 to signal local-key role
                         p += 4;
                     }
                 }

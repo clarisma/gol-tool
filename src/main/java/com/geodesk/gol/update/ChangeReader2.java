@@ -237,6 +237,9 @@ public class ChangeReader2 extends TaskEngine<ChangeReader2.Task>
         private MutableIntSet wayTiles = new IntHashSet();
         private MutableIntSet relationTiles = new IntHashSet();
         private long wayNodeCount;
+        private final List<ChangedNode> nodes = new ArrayList<>();
+        private final List<ChangedWay> ways = new ArrayList<>();
+        private final List<ChangedRelation> relations = new ArrayList<>();
 
         Worker() throws IOException
         {
@@ -335,22 +338,46 @@ public class ChangeReader2 extends TaskEngine<ChangeReader2.Task>
                 int type = typeList.get(n);
                 String s1 = stringList.get(n * 2);
                 String s2 = stringList.get(n * 2 + 1);
+                long[] tags;
 
                 if((type & FEATURE) != 0)
                 {
                     // Log.debug("ID = %s", s1);
                     long id = Long.parseLong(s1);
+                    int version = Integer.parseInt(s2);
                     switch(type & FEATURE_TYPE_MASK)
                     {
                     case FEATURE_NODE:
-                        addNodeTile(id);
+                        if(version != 1) addNodeTile(id);
+                        if((type & CHANGE_DELETE) != 0)
+                        {
+                            tags = null;
+                        }
+                        else
+                        {
+                            tags = getTags(typeList, stringList, n+1);
+                        }
+                        nodes.add(new ChangedNode(id, version, 0, tags, 0, 0));
+                        // TODO
                         break;
                     case FEATURE_WAY:
-                        wayNodeCount += getNodeIds(typeList, stringList, n+1).length;
-                        addFeatureTiles(wayTiles, wayIndex, id);
+                        long[] nodeIds;
+                        if(version != 1) addFeatureTiles(wayTiles, wayIndex, id);
+                        if((type & CHANGE_DELETE) != 0)
+                        {
+                            tags = null;
+                            nodeIds = null;
+                        }
+                        else
+                        {
+                            tags = getTags(typeList, stringList, n+1);
+                            nodeIds = getNodeIds(typeList, stringList, n+1);
+                        }
+                        ways.add(new ChangedWay(id, version, 0, tags, nodeIds));
+                        // TODO
                         break;
                     case FEATURE_RELATION:
-                        addFeatureTiles(relationTiles, relationIndex, id);
+                        if(version != 1) addFeatureTiles(relationTiles, relationIndex, id);
                         break;
                     }
                     getTags(typeList, stringList, n+1);

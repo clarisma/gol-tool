@@ -16,7 +16,6 @@ import java.util.concurrent.LinkedBlockingQueue;
 
 public abstract class TaskEngine<T>
 {
-    private long startTime;
     private final CountDownLatch[] phases;
     private Throwable error;
     private int threadCount = Runtime.getRuntime().availableProcessors(); // TODO
@@ -32,7 +31,6 @@ public abstract class TaskEngine<T>
         this.endMarker = endMarker;
         inputQueue = new LinkedBlockingQueue<>(queueSize);
         outputQueue = new LinkedBlockingQueue<>(queueSize);
-        startTime = System.currentTimeMillis();
         workerThreads = new Thread[threadCount];
         phases = new CountDownLatch[groups * 2];
         if(useOutputThread)
@@ -230,7 +228,7 @@ public abstract class TaskEngine<T>
 
     public void start()
     {
-        startTime = System.currentTimeMillis();
+        // startTime = System.currentTimeMillis();
 
         // We create the workers here instead of in the constructor since
         // they may depend on initialization fo the subclass
@@ -258,6 +256,7 @@ public abstract class TaskEngine<T>
         try
         {
             inputQueue.put(task);
+            // Log.debug("%d tasks in queue", inputQueue.size());
         }
         catch(InterruptedException ex)
         {

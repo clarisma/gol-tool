@@ -11,6 +11,7 @@ import com.clarisma.common.cli.Parameter;
 import com.clarisma.common.cli.Verbosity;
 import com.clarisma.common.io.FileUtils;
 import com.clarisma.common.text.Format;
+import com.clarisma.common.util.Log;
 import com.geodesk.gol.build.BuildContext;
 import com.geodesk.gol.build.Project;
 import com.geodesk.gol.build.ProjectReader;
@@ -113,21 +114,48 @@ public class UpdateCommand extends GolCommand
         */
 
         ChangeModel changes = new ChangeModel(features.store());
+        String oscFile = "c:\\geodesk\\research\\world-3803.osc.gz";
 
-        ChangeReader2 reader2 = new ChangeReader2(changes, context);
-        reader2.read("c:\\geodesk\\research\\world-3795.osc.gz", true);
-        reader2 = null;
+        TileFinder tileFinder = new TileFinder(context);
+        ChangeReader5 reader5 = new ChangeReader5(context, tileFinder);
+        reader5.read(oscFile, true);
+        tileFinder.finish();
+        Log.debug("TileFinder finished.");
+        reader5 = null;
+
+        tileFinder = new TileFinder(context);
+        reader5 = new ChangeReader5(context, tileFinder);
+        reader5.read(oscFile, true);
+        reader5 = null;
 
         ChangeReader3 reader3 = new ChangeReader3(context);
-        reader3.read("c:\\geodesk\\research\\world-3795.osc.gz", true);
+        reader3.read(oscFile, true);
         reader3 = null;
 
+        tileFinder = new TileFinder(context);
+        ChangeReader4 reader4 = new ChangeReader4(context, tileFinder);
+        reader4.read(oscFile, true);
+        Log.debug("Waiting for TileFinder to finish...");
+        tileFinder.finish();
+        Log.debug("TileFinder finished.");
+        reader4 = null;
+        tileFinder = null;
+
+        ChangeReader2 reader2 = new ChangeReader2(changes, context);
+        reader2.read(oscFile, true);
+        reader2 = null;
+
+        Log.debug("CR4 without TF:");
+        reader4 = new ChangeReader4(context, null);
+        reader4.read(oscFile, true);
+        reader4 = null;
+
         reader2 = new ChangeReader2(changes, context);
-        reader2.read("c:\\geodesk\\research\\world-3795.osc.gz", true);
+        reader2.read(oscFile, true);
         reader2 = null;
 
         reader3 = new ChangeReader3(context);
-        reader3.read("c:\\geodesk\\research\\world-3795.osc.gz", true);
+        reader3.read(oscFile, true);
         reader3 = null;
 
 

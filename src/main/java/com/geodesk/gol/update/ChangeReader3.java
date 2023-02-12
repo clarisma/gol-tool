@@ -21,9 +21,13 @@ import com.geodesk.gol.build.BuildContext;
 import com.geodesk.gol.build.TileCatalog;
 import com.geodesk.gol.tiles.TagTableBuilder;
 import org.eclipse.collections.api.list.primitive.MutableLongList;
+import org.eclipse.collections.api.map.primitive.MutableLongObjectMap;
 import org.eclipse.collections.api.set.primitive.MutableIntSet;
+import org.eclipse.collections.api.set.primitive.MutableLongSet;
 import org.eclipse.collections.impl.list.mutable.primitive.LongArrayList;
+import org.eclipse.collections.impl.map.mutable.primitive.LongObjectHashMap;
 import org.eclipse.collections.impl.set.mutable.primitive.IntHashSet;
+import org.eclipse.collections.impl.set.mutable.primitive.LongHashSet;
 import org.xml.sax.Attributes;
 import org.xml.sax.SAXException;
 import org.xml.sax.helpers.DefaultHandler;
@@ -81,8 +85,9 @@ public class ChangeReader3 extends TaskEngine<ChangeReader3.Task>
             {
                 // do nothing
             }
-            Log.debug("Strings merged.");
             strings.dump();
+            reportFreeMemory();
+            reportStats(handler);
             in.close();
         }
         catch(SAXException | ParserConfigurationException ex)
@@ -91,6 +96,106 @@ public class ChangeReader3 extends TaskEngine<ChangeReader3.Task>
         }
 
         Log.debug("CR3: Read %s in %,d ms", file, System.currentTimeMillis() - start);
+
+    }
+
+    private void reportFreeMemory()
+    {
+        for(int i=0; i<10; i++) Runtime.getRuntime().gc();
+        Log.debug("Memory used: %d MB",
+            (Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory())
+            / (1024 * 1024));
+        /*
+        Log.debug("%,d bytes free", Runtime.getRuntime().freeMemory());
+        Log.debug("%,d bytes total", Runtime.getRuntime().totalMemory());
+        Log.debug("%,d bytes max", Runtime.getRuntime().maxMemory());
+         */
+    }
+
+    private void reportStats(Handler handler)
+    {
+        Log.debug("Building model...");
+        MutableLongObjectMap<ChangedNode> nodes = getFeatures(handler.nodes);
+        MutableLongObjectMap<ChangedWay> ways = getFeatures(handler.ways);
+        MutableLongObjectMap<ChangedRelation> relations = getFeatures(handler.relations);
+
+        int deletedWayCount = 0;
+        long wayNodeCount = 0;
+        int completeWayCount = 0;
+        for(ChangedWay w: ways)
+        {
+            if((w.flags & ChangedFeature.DELETE) != 0)
+            {
+                deletedWayCount++;
+            }
+            else
+            {
+                boolean complete = true;
+                for (long nodeId : w.nodeIds)
+                {
+                    if (!nodes.containsKey(nodeId))
+                    {
+                        complete = false;
+                        break;
+                    }
+                }
+                if (complete) completeWayCount++;
+                wayNodeCount += w.nodeIds.length;
+            }
+        }
+
+        MutableLongSet nodeIds = new LongHashSet(wayNodeCount);
+        for(ChangedWay w: ways)
+        {
+            if((w.flags & ChangedFeature.DELETE) == 0)
+            {
+                nodeIds.addAll(w.nodeIds);
+            }
+        }
+
+        int deletedRelCount = 0;
+        long memberCount = 0;
+        for(ChangedRelation r: relations)
+        {
+            if((r.flags & ChangedFeature.DELETE) != 0)
+            {
+                deletedRelCount++;
+            }
+            else
+            {
+                memberCount += r.memberIds.length;
+            }
+        }
+
+        MutableLongSet memberIds = new LongHashSet(memberCount);
+        for(ChangedRelation r: relations)
+        {
+            if((r.flags & ChangedFeature.DELETE) != 0)
+            {
+                deletedRelCount++;
+            }
+            else
+            {
+                memberIds.addAll(r.memberIds);
+            }
+        }
+
+        reportFreeMemory();
+
+        Log.debug("%,d way-nodes   (%,d unique)", wayNodeCount, nodeIds.size());
+        Log.debug("%,d rel-members (%,d unique)", memberCount, memberIds.size());
+        Log.debug("%,d of %,d modified ways have complete coordinates",
+            completeWayCount, ways.size() - deletedWayCount);
+        Log.debug("%,d of %,d ways deleted", deletedWayCount, ways.size());
+        Log.debug("%,d of %,d relations deleted", deletedRelCount, relations.size());
+    }
+
+    private <T extends ChangedFeature> MutableLongObjectMap<T> getFeatures(List<T> list)
+    {
+        int count = list.size();
+        MutableLongObjectMap<T> map =new LongObjectHashMap<>(count);
+        for(T f: list) map.put(f.id, f);
+        return map;
     }
 
     private static int BATCH_SIZE = 8192;
@@ -104,7 +209,9 @@ public class ChangeReader3 extends TaskEngine<ChangeReader3.Task>
         private final List<String> tagList = new ArrayList<>();
         private final MutableLongList memberList = new LongArrayList();
         private final List<String> roleList = new ArrayList<>();
-        private final List<ChangedFeature> changes = new ArrayList<>();
+        private final List<ChangedNode> nodes = new ArrayList<>();
+        private final List<ChangedWay> ways = new ArrayList<>();
+        private final List<ChangedRelation> relations = new ArrayList<>();
         private long[] featureIds;
         private int featureCount;
 
@@ -129,13 +236,17 @@ public class ChangeReader3 extends TaskEngine<ChangeReader3.Task>
         {
             currentVersion = Integer.parseInt(attr.getValue("version"));
             currentId = Long.parseLong(attr.getValue("id"));
-            featureIds[featureCount++] = FeatureId.of(type, currentId);
-            if(featureCount == BATCH_SIZE)
+            if(currentVersion != 1)
             {
-                flush();
-                if (reportProgress)
+                featureIds[featureCount++] = FeatureId.of(type, currentId);
+                if (featureCount == BATCH_SIZE)
                 {
-                    System.err.format("Reading... %,d changes\r", changes.size());
+                    flush();
+                    if (reportProgress)
+                    {
+                        System.err.format("Reading... %,d nodes / %,d ways / %,d relations\r",
+                            nodes.size(), ways.size(), relations.size());
+                    }
                 }
             }
         }
@@ -219,7 +330,7 @@ public class ChangeReader3 extends TaskEngine<ChangeReader3.Task>
                 {
                     tags = getTags();
                 }
-                changes.add(new ChangedNode(currentId, currentVersion, currentChangeType,
+                nodes.add(new ChangedNode(currentId, currentVersion, currentChangeType,
                     tags, currentX, currentY));
                 tagList.clear();
                 break;
@@ -235,12 +346,13 @@ public class ChangeReader3 extends TaskEngine<ChangeReader3.Task>
                     tags = getTags();
                     nodeIds = memberList.toArray();
                 }
-                changes.add(new ChangedWay(currentId, currentVersion, currentChangeType,
+                ways.add(new ChangedWay(currentId, currentVersion, currentChangeType,
                     tags, nodeIds));
                 tagList.clear();
                 memberList.clear();
                 break;
             case "relation":
+                /*
                 long[] memberIds;
                 int[] roles;
                 if(currentChangeType == ChangedFeature.DELETE)
@@ -255,8 +367,9 @@ public class ChangeReader3 extends TaskEngine<ChangeReader3.Task>
                     memberIds = memberList.toArray();
                     roles = getRoles();
                 }
-                changes.add(new ChangedRelation(currentId, currentVersion, currentChangeType,
+                relations.add(new ChangedRelation(currentId, currentVersion, currentChangeType,
                     tags, memberIds, roles));
+                */
                 tagList.clear();
                 memberList.clear();
                 roleList.clear();
@@ -343,19 +456,12 @@ public class ChangeReader3 extends TaskEngine<ChangeReader3.Task>
 
         @Override protected void postProcess() throws Exception
         {
+            /*
             Log.debug("%,d node tiles", nodeTiles.size());
             Log.debug("%,d way tiles", wayTiles.size());
             Log.debug("%,d relation tiles", relationTiles.size());
             //Log.debug("%,d way nodes", wayNodeCount);
-            strings.dump();
-            Log.debug("Merging strings...");
-            mergeStrings(strings);
+             */
         }
     }
-
-    private synchronized void mergeStrings(StringManager other)
-    {
-        strings.add(other);
-    }
-
 }

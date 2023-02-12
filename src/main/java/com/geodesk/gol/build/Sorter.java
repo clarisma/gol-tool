@@ -330,6 +330,8 @@ public class Sorter extends OsmPbfReader
             {
                 try
                 {
+                    // TODO: clean string (remove CR/LF etc.)
+
                     byte[] bytes = val.getBytes(StandardCharsets.UTF_8);
                     body.writeVarint(bytes.length << 1);
                     body.write(bytes);
@@ -862,7 +864,7 @@ public class Sorter extends OsmPbfReader
             // However, that leaves the issue of a relation that references
             // a circular relation, but is not part of the reference cycle
             // itself. For this reason, we sort the last remaining batch
-            // (circular relations and their parent relations) be zoom level
+            // (circular relations and their parent relations) by zoom level
             // (higher to lower) to ensure the circular child relations are
             // written before their non-circular parents
 

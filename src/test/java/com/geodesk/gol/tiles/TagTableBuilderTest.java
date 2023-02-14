@@ -1,26 +1,16 @@
 package com.geodesk.gol.tiles;
 
-import com.clarisma.common.util.Log;
-import com.geodesk.feature.FeatureLibrary;
-import com.geodesk.gol.update.StringManager;
+import com.geodesk.gol.update_old.StringManager;
 import org.eclipse.collections.api.list.primitive.MutableLongList;
-import org.eclipse.collections.api.map.primitive.MutableObjectIntMap;
-import org.eclipse.collections.impl.factory.primitive.ObjectIntMaps;
 import org.eclipse.collections.impl.list.mutable.primitive.LongArrayList;
-import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
 
-import static org.junit.Assert.*;
 import static com.geodesk.gol.tiles.TagTableBuilder.*;
 
 public class TagTableBuilderTest

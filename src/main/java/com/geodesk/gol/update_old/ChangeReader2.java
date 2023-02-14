@@ -5,18 +5,16 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-package com.geodesk.gol.update;
+package com.geodesk.gol.update_old;
 
 import com.clarisma.common.index.IntIndex;
 import com.clarisma.common.util.Log;
 import com.geodesk.core.Heading;
 import com.geodesk.core.Tile;
-import com.geodesk.feature.FeatureType;
 import com.geodesk.feature.store.FeatureStore;
 import com.geodesk.gol.TaskEngine;
 import com.geodesk.gol.build.BuildContext;
 import com.geodesk.gol.build.TileCatalog;
-import com.geodesk.gol.tiles.StringSource;
 import com.geodesk.gol.tiles.TagTableBuilder;
 import org.eclipse.collections.api.list.primitive.IntList;
 import org.eclipse.collections.api.list.primitive.MutableIntList;
@@ -34,7 +32,6 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.zip.GZIPInputStream;
 

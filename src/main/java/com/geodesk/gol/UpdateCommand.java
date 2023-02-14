@@ -15,7 +15,7 @@ import com.clarisma.common.util.Log;
 import com.geodesk.gol.build.BuildContext;
 import com.geodesk.gol.build.Project;
 import com.geodesk.gol.build.ProjectReader;
-import com.geodesk.gol.update.*;
+import com.geodesk.gol.update_old.*;
 import org.xml.sax.SAXException;
 
 import java.io.FileInputStream;

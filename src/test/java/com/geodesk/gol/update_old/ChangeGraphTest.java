@@ -1,4 +1,4 @@
-package com.geodesk.gol.update;
+package com.geodesk.gol.update_old;
 
 import com.geodesk.feature.FeatureLibrary;
 import com.geodesk.gol.build.TileCatalog;

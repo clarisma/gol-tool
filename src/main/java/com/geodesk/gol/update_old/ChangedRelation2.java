@@ -5,16 +5,16 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-package com.geodesk.gol.update;
+package com.geodesk.gol.update_old;
 
-public class ChangedRelation extends ChangedFeature
+public class ChangedRelation2 extends ChangedFeature2
 {
     long[] memberIds;
     String[] roles;
     long[] membersAdded;
     long[] membersDropped;
 
-    public ChangedRelation(long id, int version, int flags, String[] tags,
+    public ChangedRelation2(long id, int version, int flags, String[] tags,
         long[] memberIds, String[] roles)
     {
         super(id, version, flags, tags);

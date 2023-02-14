@@ -5,18 +5,9 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-package com.geodesk.gol.update;
+package com.geodesk.gol.update_old;
 
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.util.ArrayList;
-import java.util.List;
-
-import javax.xml.parsers.ParserConfigurationException;
-import javax.xml.parsers.SAXParser;
-import javax.xml.parsers.SAXParserFactory;
-
+import com.geodesk.core.Mercator;
 import com.geodesk.feature.FeatureId;
 import com.geodesk.feature.FeatureType;
 import org.eclipse.collections.api.list.primitive.MutableLongList;
@@ -25,28 +16,36 @@ import org.xml.sax.Attributes;
 import org.xml.sax.SAXException;
 import org.xml.sax.helpers.DefaultHandler;
 
-// TODO: OscReader
-// TODO: could pass LongList, Iterable<String> to avoid needless copying,
-//  but risks introducing subtle bugs if consumer does not copy
-//  (Current implementation assumes consumer uses arrays; consumer may also
-//  iterate and encode as PBF)
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.parsers.SAXParser;
+import javax.xml.parsers.SAXParserFactory;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.List;
 
-public class ChangeSetReader extends DefaultHandler
+
+public class ChangeReader extends DefaultHandler
 {
+	private final ChangeModel model;
 	private final SAXParser parser;
 	private ChangeType currentChangeType;
 	private long currentId;
-	private double currentLon, currentLat;
+	private int currentX, currentY;
 	private final List<String> currentTags = new ArrayList<>();
 	private final MutableLongList currentChildIds = LongLists.mutable.empty();
 	private final List<String> currentRoles = new ArrayList<>();
+	/*
 	protected String timestamp;
 	protected String userName;
 	protected String userId;
+	 */
 	protected int version;
 
-	public ChangeSetReader() 
+	public ChangeReader(ChangeModel model)
 	{
+		this.model = model;
 		SAXParserFactory factory = SAXParserFactory.newInstance();
 		try
 		{
@@ -59,21 +58,6 @@ public class ChangeSetReader extends DefaultHandler
 		}
 	}
 
-	protected void node(ChangeType change, long id, double lon, double lat, String[] tags)
-	{
-		// do nothing
-	}
-
-	protected void way(ChangeType change, long id, String[] tags, long[] nodeIds)
-	{
-		// do nothing
-	}
-
-	protected void relation(ChangeType change, long id, String[] tags, long[] memberIds, String[] roles)
-	{
-		// do nothing
-	}
-	
 	public void read(InputStream in) throws SAXException, IOException
 	{
 		parser.parse(in, this);
@@ -93,9 +77,11 @@ public class ChangeSetReader extends DefaultHandler
 	private void storeId(Attributes attributes)
 	{
 		currentId = Long.parseLong(attributes.getValue("id"));
+		/*
 		userId = attributes.getValue("uid");
 		userName = attributes.getValue("user");
 		timestamp = attributes.getValue("timestamp");
+		 */
 		version = Integer.parseInt(attributes.getValue("version"));
 	}
 		
@@ -106,15 +92,17 @@ public class ChangeSetReader extends DefaultHandler
 		{
 		case "node":
 			storeId(attributes);
-			currentLon = Double.parseDouble(attributes.getValue("lon"));
-			currentLat = Double.parseDouble(attributes.getValue("lat"));
+			double lon = Double.parseDouble(attributes.getValue("lon"));
+			double lat = Double.parseDouble(attributes.getValue("lat"));
+			currentX = (int)Math.round(Mercator.xFromLon(lon));
+			currentY = (int)Math.round(Mercator.yFromLat(lat));
 			break;
 		case "way":
+		case "relation":
 			storeId(attributes);
 			break;
 		case "nd":
-			currentChildIds.add(Long.parseLong(
-				attributes.getValue("ref")));
+			currentChildIds.add(Long.parseLong(attributes.getValue("ref")));
 			break;
 		case "member":
 			currentRoles.add(attributes.getValue("role"));
@@ -125,9 +113,6 @@ public class ChangeSetReader extends DefaultHandler
 		case "tag":
 			currentTags.add(attributes.getValue("k"));
 			currentTags.add(attributes.getValue("v"));
-			break;
-		case "relation":
-			storeId(attributes);
 			break;
 		case "create":
 			currentChangeType = ChangeType.CREATE;
@@ -141,29 +126,44 @@ public class ChangeSetReader extends DefaultHandler
 		}
 	}
 
-	private String[] getTags()
-	{
-		String[] tags = currentTags.toArray(new String[0]);
-		currentTags.clear();
-		return tags;
-	}
-
 	public void endElement (String uri, String localName, String qName)
 	{
 		switch(qName)
 		{
 		case "node":
-			node(currentChangeType, currentId, currentLon, currentLat, getTags());
+			if(currentChangeType == ChangeType.DELETE)
+			{
+				model.deleteNode(version, currentId);
+			}
+			else
+			{
+				model.changeNode(version, currentId, currentTags, currentX, currentY);
+			}
+			currentTags.clear();
 			break;
 		case "way":
-			long[] nodeIds = currentChildIds.toArray();
-			way(currentChangeType, currentId, getTags(), nodeIds);
+			if(currentChangeType == ChangeType.DELETE)
+			{
+				model.deleteWay(version, currentId);
+			}
+			else
+			{
+				model.changeWay(version, currentId, currentTags, currentChildIds);
+			}
+			currentTags.clear();
 			currentChildIds.clear();
 			break;
 		case "relation":
-			long[] memberIds = currentChildIds.toArray();
-			String[] roles = currentRoles.toArray(new String[0]);
-			relation(currentChangeType, currentId, getTags(), memberIds, roles);
+			if(currentChangeType == ChangeType.DELETE)
+			{
+				model.deleteRelation(version, currentId);
+			}
+			else
+			{
+				model.changeRelation(version, currentId, currentTags,
+					currentChildIds, currentRoles);
+			}
+			currentTags.clear();
 			currentChildIds.clear();
 			currentRoles.clear();
 			break;

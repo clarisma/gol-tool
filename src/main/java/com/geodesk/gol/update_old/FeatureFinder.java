@@ -5,7 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-package com.geodesk.gol.update;
+package com.geodesk.gol.update_old;
 
 import com.clarisma.common.pbf.PbfDecoder;
 import com.geodesk.feature.FeatureId;
@@ -34,28 +34,24 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.List;
 
-public class FeatureFinder extends TaskEngine<FeatureFinder.SearchTile>
+import static com.geodesk.gol.update_old.SearchTile.*;
+
+public class FeatureFinder extends TaskEngine<SearchTile>
 {
     private final FeatureStore store;
-    private final LongObjectMap<ChangedNode> changedNodes;
-    private final LongObjectMap<ChangedWay> changedWays;
-    private final LongObjectMap<ChangedRelation> changedRelations;
+    private final LongObjectMap<ChangedNode2> changedNodes;
+    private final LongObjectMap<ChangedWay2> changedWays;
+    private final LongObjectMap<ChangedRelation2> changedRelations;
     private final LongSet nodesOfInterest;
     private final LongSet waysOfInterest;
     private final LongSet relationsOfInterest;
     private final Path wayNodeIndexPath;
     private final Features<?> duplicateNodes;
 
-    private static final int FIND_NODES = 1;
-    private static final int FIND_WAYS = 1 << 1;
-    private static final int FIND_RELATIONS = 1 << 2;
-    private static final int FIND_WAY_NODES = 1 << 3;
-    private static final int FIND_DUPLICATE_XY = 1 << 4;
-
     public FeatureFinder(BuildContext ctx,
-        List<ChangedNode> changedNodeList,
-        List<ChangedWay> changedWayList,
-        List<ChangedRelation> changedRelationList) throws IOException
+        List<ChangedNode2> changedNodeList,
+        List<ChangedWay2> changedWayList,
+        List<ChangedRelation2> changedRelationList) throws IOException
     {
         super(new SearchTile(-1), 2, false);
         store = ctx.getFeatureStore();
@@ -70,10 +66,10 @@ public class FeatureFinder extends TaskEngine<FeatureFinder.SearchTile>
         nodesOfInterest.addAll(changedNodes.keysView());
         waysOfInterest.addAll(changedWays.keysView());
         relationsOfInterest.addAll(changedRelations.keysView());
-        for(ChangedWay way: changedWays) nodesOfInterest.addAll(way.nodeIds);
+        for(ChangedWay2 way: changedWays) nodesOfInterest.addAll(way.nodeIds);
         MutableLongSet[] membersOfInterest = new MutableLongSet[] {
             nodesOfInterest, waysOfInterest, relationsOfInterest };
-        for(ChangedRelation rel: changedRelations)
+        for(ChangedRelation2 rel: changedRelations)
         {
             for(long memberId : rel.memberIds)
             {
@@ -87,7 +83,7 @@ public class FeatureFinder extends TaskEngine<FeatureFinder.SearchTile>
         this.relationsOfInterest = relationsOfInterest;
     }
 
-    private <T extends ChangedFeature> MutableLongObjectMap<T> getChangedFeatures(List<T> list)
+    private <T extends ChangedFeature2> MutableLongObjectMap<T> getChangedFeatures(List<T> list)
     {
         MutableLongObjectMap<T> map =new LongObjectHashMap<>(list.size());
         for(T f: list)
@@ -128,7 +124,7 @@ public class FeatureFinder extends TaskEngine<FeatureFinder.SearchTile>
         private final MutableLongList relationRefs = new LongArrayList();
         private final MutableLongList locations = new LongArrayList();
         private final TileScanner tileReader = new TileScanner();
-        private final MutableLongObjectMap<ChangedWay> implicitlyChangedWays =
+        private final MutableLongObjectMap<ChangedWay2> implicitlyChangedWays =
             new LongObjectHashMap<>();
         private int currentTip;
         private int pTile;
@@ -208,7 +204,7 @@ public class FeatureFinder extends TaskEngine<FeatureFinder.SearchTile>
                     boolean implicitlyChanged = false;
                     long wayId = pbf.readSignedVarint() + prevWayId;
                     int savedPos = pbf.pos();
-                    ChangedWay way = changedWays.get(wayId);
+                    ChangedWay2 way = changedWays.get(wayId);
                     if(way != null)
                     {
                         // In 99.9% of cases, we could merely check if a way's node
@@ -246,7 +242,7 @@ public class FeatureFinder extends TaskEngine<FeatureFinder.SearchTile>
                         currentTileWayNodes.put(wayId, nodeIds);
                         if(implicitlyChanged)
                         {
-                            implicitlyChangedWays.put(wayId, new ChangedWay(wayId,
+                            implicitlyChangedWays.put(wayId, new ChangedWay2(wayId,
                                 Integer.MAX_VALUE, 0, null, nodeIds));
                         }
                     }
@@ -271,7 +267,7 @@ public class FeatureFinder extends TaskEngine<FeatureFinder.SearchTile>
                 long id = StoredNode.id(buf, p);
                 if(nodesOfInterest.contains(id))
                 {
-                    ChangedNode node = changedNodes.get(id);
+                    ChangedNode2 node = changedNodes.get(id);
                     if(node != null)
                     {
                         // TODO: update node
@@ -294,7 +290,7 @@ public class FeatureFinder extends TaskEngine<FeatureFinder.SearchTile>
             {
                 boolean scanWayNodes = findDuplicateLocations;
                 long id = StoredWay.id(buf, p);
-                ChangedWay way = implicitlyChangedWays.get(id);
+                ChangedWay2 way = implicitlyChangedWays.get(id);
                 if (way != null)
                 {
                     // Must always check map of implicitly-changed ways first,
@@ -361,7 +357,7 @@ public class FeatureFinder extends TaskEngine<FeatureFinder.SearchTile>
                 long id = StoredFeature.id(buf, p);
                 if(relationsOfInterest.contains(id))
                 {
-                    ChangedRelation rel = changedRelations.get(id);
+                    ChangedRelation2 rel = changedRelations.get(id);
                     if (rel != null)
                     {
                         // TODO: update relation
@@ -374,47 +370,6 @@ public class FeatureFinder extends TaskEngine<FeatureFinder.SearchTile>
             }
         }
 
-    }
-
-    static class SearchTile
-    {
-        static final int SUBMITTED = 1 << 8;
-
-        int tip;
-        int flags;
-
-        SearchTile(int tip)
-        {
-            this.tip = tip;
-        }
-
-        boolean isSubmitted()
-        {
-            return (flags & SUBMITTED) != 0;
-        }
-
-        // TODO: Can only add one flag at a time, otherwise check becomes
-        //  ambiguous
-        public boolean addFlags(int flags)
-        {
-            assert !isSubmitted();
-            if((this.flags & (flags | (flags << 16))) == 0)
-            {
-                this.flags |= flags;
-                return true;
-            }
-            return false;
-        }
-
-        public void done()
-        {
-            flags <<= 16;
-        }
-
-        public boolean hasTasks()
-        {
-            return (flags & 0xffff) != 0;
-        }
     }
 }
 

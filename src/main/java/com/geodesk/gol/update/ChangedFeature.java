@@ -7,12 +7,37 @@
 
 package com.geodesk.gol.update;
 
-public abstract class ChangedFeature extends FeatureRef
+import java.nio.ByteBuffer;
+
+public abstract class ChangedFeature implements Comparable<ChangedFeature>
 {
     final long id;
     final int version;
     int flags;
-    long[] tags;
+    protected ByteBuffer buf;
+    protected int pFeature;
+    protected int quad;
+    String[] tags;
+
+    /**
+     * Special value for `tip`: The feature has not been looked up in
+     * the index;
+     */
+    public static final int TIP_UNKNOWN = -3;
+
+    /**
+     * Special value for `tip`: The feature was not found during scanning.
+     * This is different from tip 0 (feature is "missing", i.e. in the
+     * Purgatory). This value indicates that the feature isn't in the
+     * Purgatory either, which means it is new and not previously referenced.
+     */
+    public static final int TIP_NOT_FOUND = -2;
+
+    /**
+     * Special value for `tip`: A node exists purely as an anonymous node.
+     */
+    public static final int TIP_ANONYMOUS_NODE = -1;
+
 
     public static final int CREATE = 1 << 8;
 
@@ -25,11 +50,18 @@ public abstract class ChangedFeature extends FeatureRef
      */
     public static final int DELETE = 1 << 9;
 
-    protected ChangedFeature(long id, int version, int flags, long[] tags)
+    protected ChangedFeature(long id, int version, int flags, String[] tags)
     {
         this.id = id;
         this.version = version;
         this.flags = flags;
         this.tags = tags;
+    }
+
+    @Override public int compareTo(ChangedFeature other)
+    {
+        int comp = Long.compare(id, other.id);
+        if(comp != 0) return comp;
+        return Integer.compare(version, other.version);
     }
 }

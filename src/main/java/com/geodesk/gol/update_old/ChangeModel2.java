@@ -5,9 +5,10 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-package com.geodesk.gol.update;
+package com.geodesk.gol.update_old;
 
-public enum ChangeType 
+public class ChangeModel2
 {
-	CREATE, MODIFY, DELETE
+    //private final LongIntMap nodes;
+
 }

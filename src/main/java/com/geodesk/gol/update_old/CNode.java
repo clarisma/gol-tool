@@ -5,11 +5,10 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-package com.geodesk.gol.update;
+package com.geodesk.gol.update_old;
 
 import com.geodesk.core.XY;
 import com.geodesk.feature.FeatureType;
-import com.geodesk.feature.store.FeatureStore;
 
 public class CNode extends CFeature<CNode.Change>
 {

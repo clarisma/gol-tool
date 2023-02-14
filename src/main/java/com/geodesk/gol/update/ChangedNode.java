@@ -12,7 +12,7 @@ public class ChangedNode extends ChangedFeature
     int x;
     int y;
 
-    public ChangedNode(long id, int version, int flags, long[] tags, int x, int y)
+    public ChangedNode(long id, int version, int flags, String[] tags, int x, int y)
     {
         super(id, version, flags, tags);
         this.x = x;

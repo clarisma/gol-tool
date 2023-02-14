@@ -5,7 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-package com.geodesk.gol.update;
+package com.geodesk.gol.update_old;
 
 import com.clarisma.common.util.Log;
 import com.geodesk.core.Mercator;
@@ -31,13 +31,14 @@ import javax.xml.parsers.SAXParserFactory;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.zip.GZIPInputStream;
 
-public class ChangeReader5 extends DefaultHandler
+public class ChangeReader4 extends DefaultHandler
 {
     private final TileFinder tileFinder;
-    private final FeatureStore store;
+    private final StringManager strings;
     private boolean reportProgress = true;  // TODO
 
     private int currentChangeType;
@@ -47,20 +48,16 @@ public class ChangeReader5 extends DefaultHandler
     private final List<String> tagList = new ArrayList<>();
     private final MutableLongList memberList = new LongArrayList();
     private final List<String> roleList = new ArrayList<>();
-    private final List<ChangedNode2> nodes = new ArrayList<>();
-    private final List<ChangedWay2> ways = new ArrayList<>();
-    private final List<ChangedRelation2> relations = new ArrayList<>();
-    private Map<String,String> strings = new HashMap<>();
+    private final List<ChangedNode> nodes = new ArrayList<>();
+    private final List<ChangedWay> ways = new ArrayList<>();
+    private final List<ChangedRelation> relations = new ArrayList<>();
     private long changeCount;
-    private long wayNodeCount;
-    private long memberCount;
 
-    private final static String[] EMPTY_STRING_ARRAY = new String[0];
-
-    public ChangeReader5(BuildContext ctx, TileFinder tileFinder) throws IOException
+    public ChangeReader4(BuildContext ctx, TileFinder tileFinder) throws IOException
     {
         this.tileFinder = tileFinder;
-        this.store = ctx.getFeatureStore();
+        FeatureStore store = ctx.getFeatureStore();
+        strings = new StringManager(store.stringsToCodes(), store.codesToStrings());
     }
 
     public void read(String file, boolean zipped) throws IOException
@@ -75,6 +72,7 @@ public class ChangeReader5 extends DefaultHandler
             SAXParser parser = factory.newSAXParser();
             parser.parse(in, this);
             if(reportProgress) reportProgress();
+            strings.dump();
             reportFreeMemory();
             reportStats();
             in.close();
@@ -84,7 +82,7 @@ public class ChangeReader5 extends DefaultHandler
             throw new IOException("%s: Invalid file (%s)".formatted(file, ex.getMessage()));
         }
 
-        Log.debug("CR5: Read %s in %,d ms", file, System.currentTimeMillis() - start);
+        Log.debug("CR4: Read %s in %,d ms", file, System.currentTimeMillis() - start);
 
     }
 
@@ -104,27 +102,60 @@ public class ChangeReader5 extends DefaultHandler
     private void reportStats()
     {
         Log.debug("Building model...");
-        MutableLongObjectMap<ChangedNode2> nodes = getFeatures(this.nodes);
-        MutableLongObjectMap<ChangedWay2> ways = getFeatures(this.ways);
-        MutableLongObjectMap<ChangedRelation2> relations = getFeatures(this.relations);
+        MutableLongObjectMap<ChangedNode> nodes = getFeatures(this.nodes);
+        MutableLongObjectMap<ChangedWay> ways = getFeatures(this.ways);
+        MutableLongObjectMap<ChangedRelation> relations = getFeatures(this.relations);
 
         int deletedWayCount = 0;
+        long wayNodeCount = 0;
+        int completeWayCount = 0;
+        for(ChangedWay w: ways)
+        {
+            if((w.flags & ChangedFeature.DELETE) != 0)
+            {
+                deletedWayCount++;
+            }
+            else
+            {
+                boolean complete = true;
+                for (long nodeId : w.nodeIds)
+                {
+                    if (!nodes.containsKey(nodeId))
+                    {
+                        complete = false;
+                        break;
+                    }
+                }
+                if (complete) completeWayCount++;
+                wayNodeCount += w.nodeIds.length;
+            }
+        }
+
         MutableLongSet nodeIds = new LongHashSet(wayNodeCount);
-        for(ChangedWay2 w: ways)
+        for(ChangedWay w: ways)
         {
             if((w.flags & ChangedFeature.DELETE) == 0)
             {
                 nodeIds.addAll(w.nodeIds);
             }
-            else
-            {
-                deletedWayCount++;
-            }
         }
 
         int deletedRelCount = 0;
+        long memberCount = 0;
+        for(ChangedRelation r: relations)
+        {
+            if((r.flags & ChangedFeature.DELETE) != 0)
+            {
+                deletedRelCount++;
+            }
+            else
+            {
+                memberCount += r.memberIds.length;
+            }
+        }
+
         MutableLongSet memberIds = new LongHashSet(memberCount);
-        for(ChangedRelation2 r: relations)
+        for(ChangedRelation r: relations)
         {
             if((r.flags & ChangedFeature.DELETE) != 0)
             {
@@ -140,39 +171,15 @@ public class ChangeReader5 extends DefaultHandler
 
         Log.debug("%,d way-nodes   (%,d unique)", wayNodeCount, nodeIds.size());
         Log.debug("%,d rel-members (%,d unique)", memberCount, memberIds.size());
-        /*
         Log.debug("%,d of %,d modified ways have complete coordinates",
             completeWayCount, ways.size() - deletedWayCount);
-         */
         Log.debug("%,d of %,d ways deleted", deletedWayCount, ways.size());
         Log.debug("%,d of %,d relations deleted", deletedRelCount, relations.size());
-
-        Log.debug("Sorting node list...");
-        List<ChangedNode2> sortedNodeList = new ArrayList<>(nodes.values());
-        Collections.sort(sortedNodeList);
-        Log.debug("Sorted node list.");
-        long newNodeCount = 0;
-        long newSimpleNodeCount = 0;
-        for(ChangedNode2 n: sortedNodeList)
-        {
-            if (n.version == 1)
-            {
-                newNodeCount++;
-                if (n.tags.length == 0) newSimpleNodeCount++;
-            }
-        }
-        Log.debug("%,d nodes are new.", newNodeCount);
-        Log.debug("(Of these, %,d nodes are untagged)", newSimpleNodeCount);
     }
 
-    private <T extends ChangedFeature2> MutableLongObjectMap<T> getFeatures(List<T> list)
+    private <T extends ChangedFeature> MutableLongObjectMap<T> getFeatures(List<T> list)
     {
         int dupeCount = 0;
-
-        Log.debug("Sorting list...");
-        Collections.sort(list);
-        Log.debug("Sorted list.");
-
         int count = list.size();
         MutableLongObjectMap<T> map =new LongObjectHashMap<>(count);
         for(T f: list)
@@ -202,7 +209,7 @@ public class ChangeReader5 extends DefaultHandler
         changeCount++;
         if (reportProgress)
         {
-            if((changeCount % (8 * 8192)) == 0) reportProgress();
+            if((changeCount % 8192) == 0) reportProgress();
         }
     }
 
@@ -224,7 +231,7 @@ public class ChangeReader5 extends DefaultHandler
             double lat = Double.parseDouble(attr.getValue("lat"));
             currentX = (int)Math.round(Mercator.xFromLon(lon));
             currentY = (int)Math.round(Mercator.yFromLat(lat));
-            break;
+        break;
         case "way":
             startFeature(FeatureType.WAY, attr);
             break;
@@ -238,11 +245,11 @@ public class ChangeReader5 extends DefaultHandler
             String type = attr.getValue("type");
             long id = Long.parseLong(attr.getValue("ref"));
             memberList.add(FeatureId.of(FeatureType.from(type), id));
-            roleList.add(getString(attr.getValue("role")));
+            roleList.add(attr.getValue("role"));
             break;
         case "tag":
-            tagList.add(getString(attr.getValue("k")));
-            tagList.add(getString(attr.getValue("v")));
+            tagList.add(attr.getValue("k"));
+            tagList.add(attr.getValue("v"));
             break;
         case "create":
             currentChangeType = ChangedFeature.CREATE;
@@ -256,32 +263,31 @@ public class ChangeReader5 extends DefaultHandler
         }
     }
 
-    private String getString(String s)
+    private long[] getTags()
     {
-        int code = store.codeFromString(s);
-        if(code >= 0) return store.stringFromCode(code);
-        String unique = strings.get(s);
-        if(unique == null)
+        String[] kv = tagList.toArray(new String[0]);
+        return TagTableBuilder.fromStrings(kv, strings);
+    }
+
+    private int[] getRoles()
+    {
+        int[] roles = new int[roleList.size()];
+        for(int i=0; i<roles.length; i++)
         {
-            strings.put(s, s);
-            unique = s;
+            String strRole = roleList.get(i);
+            int roleCode = strings.globalStringCode(strRole);
+            if(roleCode < 0 || roleCode > TagValues.MAX_COMMON_ROLE)
+            {
+                roleCode = strings.localStringCode(strRole) | 0x8000_0000;
+            }
+            roles[i] = roleCode;
         }
-        return unique;
-    }
-
-    private String[] getTags()
-    {
-        return tagList.toArray(EMPTY_STRING_ARRAY);
-    }
-
-    private String[] getRoles()
-    {
-        return roleList.toArray(EMPTY_STRING_ARRAY);
+        return roles;
     }
 
     public void endElement (String uri, String localName, String qName)
     {
-        String[] tags;
+        long[] tags;
         switch(qName)
         {
         case "node":
@@ -293,9 +299,8 @@ public class ChangeReader5 extends DefaultHandler
             {
                 tags = getTags();
             }
-            nodes.add(new ChangedNode2(currentId, currentVersion, currentChangeType,
+            nodes.add(new ChangedNode(currentId, currentVersion, currentChangeType,
                 tags, currentX, currentY));
-            // Always clear list, since tags may be listed even for deleted nodes
             tagList.clear();
             break;
         case "way":
@@ -309,17 +314,15 @@ public class ChangeReader5 extends DefaultHandler
             {
                 tags = getTags();
                 nodeIds = memberList.toArray();
-                wayNodeCount+=nodeIds.length;
             }
-            ways.add(new ChangedWay2(currentId, currentVersion, currentChangeType,
+            ways.add(new ChangedWay(currentId, currentVersion, currentChangeType,
                 tags, nodeIds));
-            // Always clear lists, since tags/nodes may be listed even for deleted ways
             tagList.clear();
             memberList.clear();
             break;
         case "relation":
             long[] memberIds;
-            String[] roles;
+            int[] roles;
             if(currentChangeType == ChangedFeature.DELETE)
             {
                 tags = null;
@@ -331,11 +334,9 @@ public class ChangeReader5 extends DefaultHandler
                 tags = getTags();
                 memberIds = memberList.toArray();
                 roles = getRoles();
-                memberCount += memberIds.length;
             }
-            relations.add(new ChangedRelation2(currentId, currentVersion, currentChangeType,
+            relations.add(new ChangedRelation(currentId, currentVersion, currentChangeType,
                 tags, memberIds, roles));
-            // Always clear lists, since tags/members/roles may be listed even for deleted relations
             tagList.clear();
             memberList.clear();
             roleList.clear();

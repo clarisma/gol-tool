@@ -5,7 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-package com.geodesk.gol.update;
+package com.geodesk.gol.update_old;
 
 import com.clarisma.common.pbf.PbfDecoder;
 import com.clarisma.common.util.Log;
@@ -28,7 +28,7 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
-import static com.geodesk.gol.update.SearchTile.*;
+import static com.geodesk.gol.update_old.SearchTile.*;
 
 public class ChangeAnalyzer extends TaskEngine<SearchTile>
 {

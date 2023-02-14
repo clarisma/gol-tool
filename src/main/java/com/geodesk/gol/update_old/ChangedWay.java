@@ -5,17 +5,15 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-package com.geodesk.gol.update;
+package com.geodesk.gol.update_old;
 
-public class ChangedNode2 extends ChangedFeature2
+public class ChangedWay extends ChangedFeature
 {
-    int x;
-    int y;
+    long[] nodeIds;
 
-    public ChangedNode2(long id, int version, int flags, String[] tags, int x, int y)
+    public ChangedWay(long id, int version, int flags, long[] tags, long[] nodeIds)
     {
         super(id, version, flags, tags);
-        this.x = x;
-        this.y = y;
+        this.nodeIds = nodeIds;
     }
 }

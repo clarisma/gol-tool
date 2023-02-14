@@ -5,12 +5,9 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-package com.geodesk.gol.update;
+package com.geodesk.gol.update_old;
 
-import org.eclipse.collections.api.map.primitive.LongIntMap;
-
-public class ChangeModel2
+public enum ChangeType 
 {
-    //private final LongIntMap nodes;
-
+	CREATE, MODIFY, DELETE
 }

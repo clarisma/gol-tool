@@ -7,11 +7,18 @@
 
 package com.geodesk.gol.update;
 
+import com.clarisma.common.util.Log;
 import com.geodesk.core.Mercator;
 import com.geodesk.feature.FeatureId;
 import com.geodesk.feature.FeatureType;
+import com.geodesk.feature.store.FeatureStore;
+import com.geodesk.gol.build.BuildContext;
 import org.eclipse.collections.api.list.primitive.MutableLongList;
-import org.eclipse.collections.impl.factory.primitive.LongLists;
+import org.eclipse.collections.api.map.primitive.MutableLongObjectMap;
+import org.eclipse.collections.api.set.primitive.MutableLongSet;
+import org.eclipse.collections.impl.list.mutable.primitive.LongArrayList;
+import org.eclipse.collections.impl.map.mutable.primitive.LongObjectHashMap;
+import org.eclipse.collections.impl.set.mutable.primitive.LongHashSet;
 import org.xml.sax.Attributes;
 import org.xml.sax.SAXException;
 import org.xml.sax.helpers.DefaultHandler;
@@ -22,151 +29,315 @@ import javax.xml.parsers.SAXParserFactory;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.ArrayList;
-import java.util.List;
-
+import java.util.*;
+import java.util.zip.GZIPInputStream;
 
 public class ChangeReader extends DefaultHandler
 {
-	private final ChangeModel model;
-	private final SAXParser parser;
-	private ChangeType currentChangeType;
-	private long currentId;
-	private int currentX, currentY;
-	private final List<String> currentTags = new ArrayList<>();
-	private final MutableLongList currentChildIds = LongLists.mutable.empty();
-	private final List<String> currentRoles = new ArrayList<>();
-	/*
-	protected String timestamp;
-	protected String userName;
-	protected String userId;
-	 */
-	protected int version;
+    private final TileFinder tileFinder;
+    private final FeatureStore store;
+    private boolean reportProgress = true;  // TODO
 
-	public ChangeReader(ChangeModel model)
-	{
-		this.model = model;
-		SAXParserFactory factory = SAXParserFactory.newInstance();
-		try
-		{
-			parser = factory.newSAXParser();
-		}
-		catch(SAXException | ParserConfigurationException ex)
-		{
-			throw new RuntimeException(
-				"Failed to initialize SAXParser: " + ex.getMessage());
-		}
-	}
+    private int currentChangeType;
+    private long currentId;
+    private int currentVersion;
+    private int currentX, currentY;
+    private final List<String> tagList = new ArrayList<>();
+    private final MutableLongList memberList = new LongArrayList();
+    private final List<String> roleList = new ArrayList<>();
+    private final List<ChangedNode> nodes = new ArrayList<>();
+    private final List<ChangedWay> ways = new ArrayList<>();
+    private final List<ChangedRelation> relations = new ArrayList<>();
+    private Map<String,String> strings = new HashMap<>();
+    private long changeCount;
+    private long wayNodeCount;
+    private long memberCount;
 
-	public void read(InputStream in) throws SAXException, IOException
-	{
-		parser.parse(in, this);
-	}
+    private final static String[] EMPTY_STRING_ARRAY = new String[0];
 
-	public void read(String fileName) throws SAXException, IOException
-	{
-//		try(BufferedInputStream in = new BufferedInputStream(
-//			new FileInputStream(fileName), 64 * 1024))
-		try(FileInputStream in = new FileInputStream(fileName))
-		{
-			parser.parse(in, this);
-		}
-	}
+    public ChangeReader(BuildContext ctx, TileFinder tileFinder) throws IOException
+    {
+        this.tileFinder = tileFinder;
+        this.store = ctx.getFeatureStore();
+    }
+
+    public void read(String file, boolean zipped) throws IOException
+    {
+        long start = System.currentTimeMillis();
+        try (FileInputStream fin = new FileInputStream(file))
+        {
+            InputStream in = fin;
+            if (zipped) in = new GZIPInputStream(fin);
+
+            SAXParserFactory factory = SAXParserFactory.newInstance();
+            SAXParser parser = factory.newSAXParser();
+            parser.parse(in, this);
+            if(reportProgress) reportProgress();
+            reportFreeMemory();
+            reportStats();
+            in.close();
+        }
+        catch(SAXException | ParserConfigurationException ex)
+        {
+            throw new IOException("%s: Invalid file (%s)".formatted(file, ex.getMessage()));
+        }
+
+        Log.debug("CR5: Read %s in %,d ms", file, System.currentTimeMillis() - start);
+
+    }
+
+    private void reportFreeMemory()
+    {
+        for(int i=0; i<10; i++) Runtime.getRuntime().gc();
+        Log.debug("Memory used: %d MB",
+            (Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory())
+            / (1024 * 1024));
+        /*
+        Log.debug("%,d bytes free", Runtime.getRuntime().freeMemory());
+        Log.debug("%,d bytes total", Runtime.getRuntime().totalMemory());
+        Log.debug("%,d bytes max", Runtime.getRuntime().maxMemory());
+         */
+    }
+
+    private void reportStats()
+    {
+        Log.debug("Building model...");
+        MutableLongObjectMap<ChangedNode> nodes = getFeatures(this.nodes);
+        MutableLongObjectMap<ChangedWay> ways = getFeatures(this.ways);
+        MutableLongObjectMap<ChangedRelation> relations = getFeatures(this.relations);
+
+        int deletedWayCount = 0;
+        MutableLongSet nodeIds = new LongHashSet(wayNodeCount);
+        for(ChangedWay w: ways)
+        {
+            if((w.flags & ChangedFeature.DELETE) == 0)
+            {
+                nodeIds.addAll(w.nodeIds);
+            }
+            else
+            {
+                deletedWayCount++;
+            }
+        }
+
+        int deletedRelCount = 0;
+        MutableLongSet memberIds = new LongHashSet(memberCount);
+        for(ChangedRelation r: relations)
+        {
+            if((r.flags & ChangedFeature.DELETE) != 0)
+            {
+                deletedRelCount++;
+            }
+            else
+            {
+                memberIds.addAll(r.memberIds);
+            }
+        }
+
+        reportFreeMemory();
+
+        Log.debug("%,d way-nodes   (%,d unique)", wayNodeCount, nodeIds.size());
+        Log.debug("%,d rel-members (%,d unique)", memberCount, memberIds.size());
+        /*
+        Log.debug("%,d of %,d modified ways have complete coordinates",
+            completeWayCount, ways.size() - deletedWayCount);
+         */
+        Log.debug("%,d of %,d ways deleted", deletedWayCount, ways.size());
+        Log.debug("%,d of %,d relations deleted", deletedRelCount, relations.size());
+
+        Log.debug("Sorting node list...");
+        List<ChangedNode> sortedNodeList = new ArrayList<>(nodes.values());
+        Collections.sort(sortedNodeList);
+        Log.debug("Sorted node list.");
+        long newNodeCount = 0;
+        long newSimpleNodeCount = 0;
+        for(ChangedNode n: sortedNodeList)
+        {
+            if (n.version == 1)
+            {
+                newNodeCount++;
+                if (n.tags.length == 0) newSimpleNodeCount++;
+            }
+        }
+        Log.debug("%,d nodes are new.", newNodeCount);
+        Log.debug("(Of these, %,d nodes are untagged)", newSimpleNodeCount);
+    }
+
+    private <T extends ChangedFeature> MutableLongObjectMap<T> getFeatures(List<T> list)
+    {
+        int dupeCount = 0;
+
+        Log.debug("Sorting list...");
+        Collections.sort(list);
+        Log.debug("Sorted list.");
+
+        int count = list.size();
+        MutableLongObjectMap<T> map =new LongObjectHashMap<>(count);
+        for(T f: list)
+        {
+            if (map.containsKey(f.id))
+            {
+                // Log.debug("Dupe: %s %d", f.getClass().getSimpleName(), f.id);
+                dupeCount++;
+            }
+            else
+            {
+                map.put(f.id, f);
+            }
+        }
+        Log.debug("%,d duplicate changes", dupeCount);
+        return map;
+    }
+
+    private void startFeature(FeatureType type, Attributes attr)
+    {
+        currentVersion = Integer.parseInt(attr.getValue("version"));
+        currentId = Long.parseLong(attr.getValue("id"));
+        if(tileFinder != null && currentVersion != 1)
+        {
+            tileFinder.addFeature(FeatureId.of(type, currentId));
+        }
+        changeCount++;
+        if (reportProgress)
+        {
+            if((changeCount % (8 * 8192)) == 0) reportProgress();
+        }
+    }
+
+    private void reportProgress()
+    {
+        System.err.format("Reading... %,d nodes / %,d ways / %,d relations\r",
+            nodes.size(), ways.size(), relations.size());
+    }
 
 
-	private void storeId(Attributes attributes)
-	{
-		currentId = Long.parseLong(attributes.getValue("id"));
-		/*
-		userId = attributes.getValue("uid");
-		userName = attributes.getValue("user");
-		timestamp = attributes.getValue("timestamp");
-		 */
-		version = Integer.parseInt(attributes.getValue("version"));
-	}
-		
-	public void startElement (String uri, String localName,
-		String qName, Attributes attributes)
-	{
-		switch(qName)
-		{
-		case "node":
-			storeId(attributes);
-			double lon = Double.parseDouble(attributes.getValue("lon"));
-			double lat = Double.parseDouble(attributes.getValue("lat"));
-			currentX = (int)Math.round(Mercator.xFromLon(lon));
-			currentY = (int)Math.round(Mercator.yFromLat(lat));
-			break;
-		case "way":
-		case "relation":
-			storeId(attributes);
-			break;
-		case "nd":
-			currentChildIds.add(Long.parseLong(attributes.getValue("ref")));
-			break;
-		case "member":
-			currentRoles.add(attributes.getValue("role"));
-			long memberId = Long.parseLong(attributes.getValue("ref"));
-			String type = attributes.getValue("type");
-			currentChildIds.add(FeatureId.of(FeatureType.from(type), memberId));
-			break;
-		case "tag":
-			currentTags.add(attributes.getValue("k"));
-			currentTags.add(attributes.getValue("v"));
-			break;
-		case "create":
-			currentChangeType = ChangeType.CREATE;
-			break;
-		case "modify":
-			currentChangeType = ChangeType.MODIFY;
-			break;
-		case "delete":
-			currentChangeType = ChangeType.DELETE;
-			break;
-		}
-	}
+    @Override public void startElement (String uri, String localName,
+        String qName, Attributes attr)
+    {
+        switch(qName)
+        {
+        case "node":
+            startFeature(FeatureType.NODE, attr);
+            double lon = Double.parseDouble(attr.getValue("lon"));
+            double lat = Double.parseDouble(attr.getValue("lat"));
+            currentX = (int)Math.round(Mercator.xFromLon(lon));
+            currentY = (int)Math.round(Mercator.yFromLat(lat));
+            break;
+        case "way":
+            startFeature(FeatureType.WAY, attr);
+            break;
+        case "relation":
+            startFeature(FeatureType.RELATION, attr);
+            break;
+        case "nd":
+            memberList.add(Long.parseLong(attr.getValue("ref")));
+            break;
+        case "member":
+            String type = attr.getValue("type");
+            long id = Long.parseLong(attr.getValue("ref"));
+            memberList.add(FeatureId.of(FeatureType.from(type), id));
+            roleList.add(getString(attr.getValue("role")));
+            break;
+        case "tag":
+            tagList.add(getString(attr.getValue("k")));
+            tagList.add(getString(attr.getValue("v")));
+            break;
+        case "create":
+            currentChangeType = ChangedFeature.CREATE;
+            break;
+        case "modify":
+            currentChangeType = 0;
+            break;
+        case "delete":
+            currentChangeType = ChangedFeature.DELETE;
+            break;
+        }
+    }
 
-	public void endElement (String uri, String localName, String qName)
-	{
-		switch(qName)
-		{
-		case "node":
-			if(currentChangeType == ChangeType.DELETE)
-			{
-				model.deleteNode(version, currentId);
-			}
-			else
-			{
-				model.changeNode(version, currentId, currentTags, currentX, currentY);
-			}
-			currentTags.clear();
-			break;
-		case "way":
-			if(currentChangeType == ChangeType.DELETE)
-			{
-				model.deleteWay(version, currentId);
-			}
-			else
-			{
-				model.changeWay(version, currentId, currentTags, currentChildIds);
-			}
-			currentTags.clear();
-			currentChildIds.clear();
-			break;
-		case "relation":
-			if(currentChangeType == ChangeType.DELETE)
-			{
-				model.deleteRelation(version, currentId);
-			}
-			else
-			{
-				model.changeRelation(version, currentId, currentTags,
-					currentChildIds, currentRoles);
-			}
-			currentTags.clear();
-			currentChildIds.clear();
-			currentRoles.clear();
-			break;
-		}
-	}
+    private String getString(String s)
+    {
+        int code = store.codeFromString(s);
+        if(code >= 0) return store.stringFromCode(code);
+        String unique = strings.get(s);
+        if(unique == null)
+        {
+            strings.put(s, s);
+            unique = s;
+        }
+        return unique;
+    }
+
+    private String[] getTags()
+    {
+        return tagList.toArray(EMPTY_STRING_ARRAY);
+    }
+
+    private String[] getRoles()
+    {
+        return roleList.toArray(EMPTY_STRING_ARRAY);
+    }
+
+    public void endElement (String uri, String localName, String qName)
+    {
+        String[] tags;
+        switch(qName)
+        {
+        case "node":
+            if(currentChangeType == ChangedFeature.DELETE)
+            {
+                tags = null;
+            }
+            else
+            {
+                tags = getTags();
+            }
+            nodes.add(new ChangedNode(currentId, currentVersion, currentChangeType,
+                tags, currentX, currentY));
+            // Always clear list, since tags may be listed even for deleted nodes
+            tagList.clear();
+            break;
+        case "way":
+            long[] nodeIds;
+            if(currentChangeType == ChangedFeature.DELETE)
+            {
+                tags = null;
+                nodeIds = null;
+            }
+            else
+            {
+                tags = getTags();
+                nodeIds = memberList.toArray();
+                wayNodeCount+=nodeIds.length;
+            }
+            ways.add(new ChangedWay(currentId, currentVersion, currentChangeType,
+                tags, nodeIds));
+            // Always clear lists, since tags/nodes may be listed even for deleted ways
+            tagList.clear();
+            memberList.clear();
+            break;
+        case "relation":
+            long[] memberIds;
+            String[] roles;
+            if(currentChangeType == ChangedFeature.DELETE)
+            {
+                tags = null;
+                memberIds = null;
+                roles = null;
+            }
+            else
+            {
+                tags = getTags();
+                memberIds = memberList.toArray();
+                roles = getRoles();
+                memberCount += memberIds.length;
+            }
+            relations.add(new ChangedRelation(currentId, currentVersion, currentChangeType,
+                tags, memberIds, roles));
+            // Always clear lists, since tags/members/roles may be listed even for deleted relations
+            tagList.clear();
+            memberList.clear();
+            roleList.clear();
+            break;
+        }
+    }
 }

@@ -73,7 +73,9 @@ public class Archive
 		this.header = header;
 		beforeCurrentPage = header;
 		last = header;
-		pos = header.size();
+		// Skip 4-byte Blob header (Fix for gol-tool#96)
+		assert header.location() == 4;
+		pos = header.size() + 4;
 		pageSpaceRemaining = pageSize-pos;
 	}
 	
@@ -198,7 +200,8 @@ public class Archive
 	public void writeToBuffer(ByteBuffer buf, int pos, PbfOutputStream imports) throws IOException
 	{
 		StructOutputStream out = new StructOutputStream(
-			new ByteBufferOutputStream(buf, pos));
+			new ByteBufferOutputStream(buf, pos + 4));
+			// Skip 4-byte blob header (fix for gol-tool#96)
 		out.setLinks(imports);
 		out.writeChain(header);
 	}

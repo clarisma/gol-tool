@@ -77,7 +77,6 @@ public class FeatureTile
     // TODO: incorporate this class into the parent class?
     private class SHeader extends Struct
     {
-        int payloadSize;
         SIndexTree nodeIndex;
         SIndexTree wayIndex;
         SIndexTree areaIndex;
@@ -85,12 +84,14 @@ public class FeatureTile
 
         SHeader()
         {
-            setSize(32);
+            setSize(28); // excludes blob header
+            setLocation(4);
         }
 
         public void writeTo(StructOutputStream out) throws IOException
         {
-            out.writeInt(payloadSize);    // payload size (excluding first 4 bytes)
+            // Don't write the header (Fix for #96)
+            // out.writeInt(payloadSize);    // payload size (excluding first 4 bytes)
             out.writeInt(0);    // TODO
             SIndexTree.writeIndexPointer(out, nodeIndex);
             SIndexTree.writeIndexPointer(out, wayIndex);
@@ -139,6 +140,7 @@ public class FeatureTile
         return tileBounds;
     }
 
+    // TODO: should this be the payload size?
     public int size()
     {
         assert archive != null: "Tile must be built first";
@@ -586,7 +588,7 @@ public class FeatureTile
             .strings(localStrings.values())
             .relationTables(relationTables.values())
             .layout();
-        header.payloadSize = archive.size() - 4;      // payload size (excludes first 4 bytes)
+        // header.payloadSize = archive.size() - 4;      // payload size (excludes first 4 bytes)
 
         nodes.forEach(node -> node.export(this));
         ways.forEach(way -> way.export(this));

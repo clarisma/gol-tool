@@ -8,12 +8,18 @@
 package com.geodesk.gol.update;
 
 import com.clarisma.common.pbf.PbfDecoder;
+import com.clarisma.common.text.Format;
+import com.clarisma.common.util.Log;
+import com.geodesk.core.Tile;
 import com.geodesk.feature.FeatureId;
+import com.geodesk.feature.FeatureType;
 import com.geodesk.feature.Features;
 import com.geodesk.feature.query.WorldView;
 import com.geodesk.feature.store.*;
 import com.geodesk.gol.TaskEngine;
 import com.geodesk.gol.build.BuildContext;
+import com.geodesk.gol.build.TileCatalog;
+import com.geodesk.gol.tiles.MemberReader;
 import com.geodesk.gol.util.TileReaderTask;
 import org.eclipse.collections.api.list.primitive.MutableLongList;
 import org.eclipse.collections.api.map.primitive.LongObjectMap;
@@ -37,6 +43,7 @@ import java.util.List;
 public class FeatureFinder extends TaskEngine<FeatureFinder.SearchTile>
 {
     private final FeatureStore store;
+    private final TileCatalog tileCatalog;
     private final LongObjectMap<ChangedNode> changedNodes;
     private final LongObjectMap<ChangedWay> changedWays;
     private final LongObjectMap<ChangedRelation> changedRelations;
@@ -45,6 +52,11 @@ public class FeatureFinder extends TaskEngine<FeatureFinder.SearchTile>
     private final LongSet relationsOfInterest;
     private final Path wayNodeIndexPath;
     private final Features<?> duplicateNodes;
+    private MutableIntObjectMap<SearchTile> tiles;
+    private boolean reportProgress = true; // TODO
+    private int tileCount;
+    private int tilesSearched;
+    private int percentageReported;
 
     private static final int FIND_NODES = 1;
     private static final int FIND_WAYS = 1 << 1;
@@ -58,7 +70,10 @@ public class FeatureFinder extends TaskEngine<FeatureFinder.SearchTile>
         List<ChangedRelation> changedRelationList) throws IOException
     {
         super(new SearchTile(-1), 2, false);
+        Log.debug("Creating FeatureFinder...");
         store = ctx.getFeatureStore();
+        tileCatalog = ctx.getTileCatalog();
+        tileCount = tileCatalog.tileCount();
         wayNodeIndexPath = ctx.indexPath().resolve("waynodes");
         duplicateNodes = new WorldView<>(store).select("n[geodesk:duplicate]");
         changedNodes = getChangedFeatures(changedNodeList);
@@ -70,21 +85,30 @@ public class FeatureFinder extends TaskEngine<FeatureFinder.SearchTile>
         nodesOfInterest.addAll(changedNodes.keysView());
         waysOfInterest.addAll(changedWays.keysView());
         relationsOfInterest.addAll(changedRelations.keysView());
-        for(ChangedWay way: changedWays) nodesOfInterest.addAll(way.nodeIds);
+        for(ChangedWay way: changedWays)
+        {
+            long[] nodeIds = way.nodeIds;
+            if (nodeIds != null) nodesOfInterest.addAll();
+        }
         MutableLongSet[] membersOfInterest = new MutableLongSet[] {
             nodesOfInterest, waysOfInterest, relationsOfInterest };
         for(ChangedRelation rel: changedRelations)
         {
-            for(long memberId : rel.memberIds)
+            long[] memberIds = rel.memberIds;
+            if(memberIds != null)
             {
-                long id = FeatureId.id(memberId);
-                int type = FeatureId.typeCode(memberId);
-                membersOfInterest[type].add(id);
+                for (long memberId : memberIds)
+                {
+                    long id = FeatureId.id(memberId);
+                    int type = FeatureId.typeCode(memberId);
+                    membersOfInterest[type].add(id);
+                }
             }
         }
         this.nodesOfInterest = nodesOfInterest;
         this.waysOfInterest = waysOfInterest;
         this.relationsOfInterest = relationsOfInterest;
+        Log.debug("Created FeatureFinder.");
     }
 
     private <T extends ChangedFeature> MutableLongObjectMap<T> getChangedFeatures(List<T> list)
@@ -92,34 +116,89 @@ public class FeatureFinder extends TaskEngine<FeatureFinder.SearchTile>
         MutableLongObjectMap<T> map =new LongObjectHashMap<>(list.size());
         for(T f: list)
         {
-            T existing = map.get(f.id);
+            T existing = map.get(f.id());
             if(existing == null || existing.version < f.version)
             {
-                map.put(f.id, f);
+                map.put(f.id(), f);
             }
         }
         return map;
     }
 
-    public void search(IntSet nodeTiles, IntSet wayTiles, IntSet relationTiles)
+    public void search(TileFinder tileFinder) throws InterruptedException
     {
-
+        long start = System.currentTimeMillis();
+        IntSet nodeTiles = tileFinder.nodeTiles();
+        tiles = new IntObjectHashMap<>(nodeTiles.size() * 2);
+        nodeTiles.forEach(t ->
+        {
+            markTile(t, FIND_NODES);
+            markTileAndParents(t, FIND_WAY_NODES);
+        });
+        tileFinder.wayTiles().forEach(t -> markTile(t, FIND_WAYS));
+        tileFinder.relationTiles().forEach(t -> markTile(t, FIND_RELATIONS));
+        for(ChangedNode node: changedNodes)
+        {
+            // TODO: use tile directly
+            int pile = tileCatalog.resolvePileOfXY(node.x, node.y);
+            markTile(tileCatalog.tileOfPile(pile), FIND_DUPLICATE_XY);
+        }
+        start();
+        for(SearchTile st: tiles.values()) submit(st);
+        awaitCompletionOfGroup(0);
+        System.err.format("Analyzed %,d tiles (%d%%) in %s\n",
+            tilesSearched, tilesSearched * 100 / tileCount,
+            Format.formatTimespan(System.currentTimeMillis() - start));
     }
 
-    private MutableIntObjectMap<SearchTile> prepareSearch(
-        IntSet nodeTiles,
-        IntSet wayTiles,
-        IntSet relationTiles)
+    private SearchTile getTile(int tile)
     {
-        MutableIntObjectMap<SearchTile> tiles = new IntObjectHashMap<>(
-            nodeTiles.size() * 2);
-        return tiles;
+        SearchTile st = tiles.get(tile);
+        if(st == null)
+        {
+            st = new SearchTile(tileCatalog.tipOfTile(tile));
+            tiles.put(tile, st);
+        }
+        return st;
     }
+
+    private void markTile(int tile, int flags)
+    {
+        getTile(tile).flags |= flags;
+    }
+
+    private void markTileAndParents(int tile, int flags)
+    {
+        SearchTile st = getTile(tile);
+        if((st.flags & flags) != 0) return;
+        st.flags |= flags;
+        if(Tile.zoom(tile) > 0)
+        {
+            markTileAndParents(tileCatalog.parentTile(tile), flags);
+        }
+    }
+
+    private synchronized void updateProgress()
+    {
+        tilesSearched++;
+        int percentageCompleted = (tilesSearched * 100 / tileCount);
+        if (percentageCompleted != percentageReported)
+        {
+            System.err.format("Analyzing... %d%% (%,d of %,d tiles)\r",
+                percentageCompleted, tilesSearched, tileCount);
+            percentageReported = percentageCompleted;
+        }
+    }
+
 
     @Override protected WorkerThread createWorker()
     {
         return new Worker();
     }
+
+    // TODO: For nodes, we just need to distinguish between feature nodes
+    //  and anonymous nodes; no need to store refs, always store x/y
+    //  only time we need ref is for changed nodes
 
     protected class Worker extends WorkerThread
     {
@@ -128,11 +207,13 @@ public class FeatureFinder extends TaskEngine<FeatureFinder.SearchTile>
         private final MutableLongList relationRefs = new LongArrayList();
         private final MutableLongList locations = new LongArrayList();
         private final TileScanner tileReader = new TileScanner();
+        private final MemberReader memberReader = new MemberReader(store);
         private final MutableLongObjectMap<ChangedWay> implicitlyChangedWays =
             new LongObjectHashMap<>();
         private int currentTip;
         private int pTile;
         private boolean findDuplicateLocations;
+        private final MutableLongList[] featureRefs;
 
         /**
          * A collection of all the way-node IDs of relevant ways in the
@@ -149,11 +230,13 @@ public class FeatureFinder extends TaskEngine<FeatureFinder.SearchTile>
 
         Worker()
         {
+            featureRefs = new MutableLongList[] { nodeRefs, wayRefs, relationRefs};
         }
 
         @Override protected void process(SearchTile tile) throws Exception
         {
             currentTip = tile.tip;
+            // Log.debug("Searching %s...", Tip.toString(currentTip));
             if((tile.flags & FIND_WAY_NODES) != 0) findWayNodes();
             findDuplicateLocations = (tile.flags & FIND_DUPLICATE_XY) != 0;
 
@@ -171,7 +254,8 @@ public class FeatureFinder extends TaskEngine<FeatureFinder.SearchTile>
             }
             currentTileWayNodes.clear();
             if((tile.flags & FIND_RELATIONS) != 0) tileReader.scanNonAreaRelations();
-            tile.done();
+            // tile.done();
+            if(reportProgress) updateProgress();
         }
 
         // TODO: instead of decoding the way-node table, could also just
@@ -247,7 +331,7 @@ public class FeatureFinder extends TaskEngine<FeatureFinder.SearchTile>
                         if(implicitlyChanged)
                         {
                             implicitlyChangedWays.put(wayId, new ChangedWay(wayId,
-                                Integer.MAX_VALUE, 0, null, nodeIds));
+                                0, Integer.MAX_VALUE, null, nodeIds));
                         }
                     }
                     prevWayId = wayId;
@@ -259,6 +343,12 @@ public class FeatureFinder extends TaskEngine<FeatureFinder.SearchTile>
         {
             list.add(id);
             list.add((((long)currentTip) << 32) | (long)(p - pTile));
+        }
+
+        private void foundForeignFeatureRef(MutableLongList list, long id, int tip, int ofs)
+        {
+            list.add(id);
+            list.add((((long)tip) << 32) | (long)(ofs));
         }
 
         // TODO: fold functionality into the Worker
@@ -361,10 +451,31 @@ public class FeatureFinder extends TaskEngine<FeatureFinder.SearchTile>
                 long id = StoredFeature.id(buf, p);
                 if(relationsOfInterest.contains(id))
                 {
+                    // Log.debug("relation/%d", id);
                     ChangedRelation rel = changedRelations.get(id);
                     if (rel != null)
                     {
                         // TODO: update relation
+                        memberReader.start(buf, StoredRelation.bodyPointer(buf, p));
+                        while(memberReader.next())
+                        {
+                            long typedMemberId = memberReader.typedMemberId();
+                            MutableLongList memberRefs = featureRefs[
+                                FeatureId.typeCode(typedMemberId)];
+                            long memberId = FeatureId.id(typedMemberId);
+                            // Log.debug("- %s", FeatureId.toString(typedMemberId));
+                            int memberTip = memberReader.tip();
+                            if(memberTip == MemberReader.LOCAL_TIP)
+                            {
+                                foundFeatureRef(memberRefs, memberId,
+                                    memberReader.memberPointer());
+                            }
+                            else
+                            {
+                                foundForeignFeatureRef(memberRefs, memberId, memberTip,
+                                    memberReader.memberOffset());
+                            }
+                        }
                     }
                     else
                     {
@@ -378,42 +489,12 @@ public class FeatureFinder extends TaskEngine<FeatureFinder.SearchTile>
 
     static class SearchTile
     {
-        static final int SUBMITTED = 1 << 8;
-
-        int tip;
+        final int tip;
         int flags;
 
         SearchTile(int tip)
         {
             this.tip = tip;
-        }
-
-        boolean isSubmitted()
-        {
-            return (flags & SUBMITTED) != 0;
-        }
-
-        // TODO: Can only add one flag at a time, otherwise check becomes
-        //  ambiguous
-        public boolean addFlags(int flags)
-        {
-            assert !isSubmitted();
-            if((this.flags & (flags | (flags << 16))) == 0)
-            {
-                this.flags |= flags;
-                return true;
-            }
-            return false;
-        }
-
-        public void done()
-        {
-            flags <<= 16;
-        }
-
-        public boolean hasTasks()
-        {
-            return (flags & 0xffff) != 0;
         }
     }
 }

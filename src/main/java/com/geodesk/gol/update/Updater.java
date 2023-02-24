@@ -7,7 +7,9 @@
 
 package com.geodesk.gol.update;
 
+import com.clarisma.common.text.Format;
 import com.clarisma.common.util.Log;
+import com.geodesk.gol.build.BuildContext;
 import org.xml.sax.SAXException;
 import org.xml.sax.helpers.DefaultHandler;
 
@@ -21,43 +23,32 @@ import java.util.zip.GZIPInputStream;
 
 public class Updater
 {
-    public Updater()
+    private final BuildContext context;
+
+    public Updater(BuildContext context)
     {
+        this.context = context;
     }
 
-    public void read(String file, boolean zipped) throws IOException
+    public void update() throws IOException, InterruptedException
     {
+        // TODO
+        // String oscFile = "c:\\geodesk\\research\\world-3803.osc.gz";
+        String oscFile = "c:\\geodesk\\research\\de-3530.osc.gz";
+
         long start = System.currentTimeMillis();
-        try (FileInputStream fin = new FileInputStream(file))
-        {
-            InputStream in = fin;
-            if (zipped) in = new GZIPInputStream(fin);
+        TileFinder tileFinder = new TileFinder(context);
+        ChangeReader reader = new ChangeReader(context, tileFinder);
+        reader.read(oscFile, true); // TODO
+        tileFinder.finish();
+        reader.dump();
 
-            SAXParserFactory factory = SAXParserFactory.newInstance();
-            SAXParser parser = factory.newSAXParser();
-            // reader.read(in);
-            parser.parse(in, new DefaultHandler());
-            in.close();
-        }
-        catch(SAXException | ParserConfigurationException ex)
-        {
-            throw new IOException("%s: Invalid file (%s)".formatted(file, ex.getMessage()));
-        }
+        int fileCount = 1;  // TODO
+        System.err.format("Read %,d file%s in %s\n", fileCount, fileCount==1 ? "" : "s",
+            Format.formatTimespan(System.currentTimeMillis() - start));
 
-        Log.debug("Read %s in %,d ms", file, System.currentTimeMillis() - start);
-    }
-
-    public static void main(String[] args) throws Exception
-    {
-        Updater updater = new Updater();
-
-        updater.read("c:\\geodesk\\research\\de-3530.osc", false);
-        updater.read("c:\\geodesk\\research\\de-3530.osc.gz", true);
-        updater.read("c:\\geodesk\\research\\de-3530.osc", false);
-        updater.read("c:\\geodesk\\research\\de-3530.osc.gz", true);
-        updater.read("c:\\geodesk\\research\\de-3530.osc", false);
-        updater.read("c:\\geodesk\\research\\de-3530.osc.gz", true);
-        updater.read("c:\\geodesk\\research\\world-3795.osc.gz", true);
-        updater.read("c:\\geodesk\\research\\world-3795.osc.gz", true);
+        FeatureFinder featureFinder = new FeatureFinder(context,
+            reader.nodes(), reader.ways(), reader.relations());
+        featureFinder.search(tileFinder);
     }
 }

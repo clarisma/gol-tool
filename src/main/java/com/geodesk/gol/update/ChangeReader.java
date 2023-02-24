@@ -7,15 +7,19 @@
 
 package com.geodesk.gol.update;
 
+import com.clarisma.common.cli.Verbosity;
 import com.clarisma.common.util.Log;
 import com.geodesk.core.Mercator;
+import com.geodesk.core.XY;
 import com.geodesk.feature.FeatureId;
 import com.geodesk.feature.FeatureType;
 import com.geodesk.feature.store.FeatureStore;
 import com.geodesk.gol.build.BuildContext;
+import org.eclipse.collections.api.list.primitive.MutableIntList;
 import org.eclipse.collections.api.list.primitive.MutableLongList;
 import org.eclipse.collections.api.map.primitive.MutableLongObjectMap;
 import org.eclipse.collections.api.set.primitive.MutableLongSet;
+import org.eclipse.collections.impl.list.mutable.primitive.IntArrayList;
 import org.eclipse.collections.impl.list.mutable.primitive.LongArrayList;
 import org.eclipse.collections.impl.map.mutable.primitive.LongObjectHashMap;
 import org.eclipse.collections.impl.set.mutable.primitive.LongHashSet;
@@ -32,11 +36,14 @@ import java.io.InputStream;
 import java.util.*;
 import java.util.zip.GZIPInputStream;
 
+// TODO: What happens if there are multiple versions of the same node,
+//  some with tags, some without?
+
 public class ChangeReader extends DefaultHandler
 {
     private final TileFinder tileFinder;
     private final FeatureStore store;
-    private boolean reportProgress = true;  // TODO
+    private final int verbosity = Verbosity.VERBOSE;  // TODO
 
     private int currentChangeType;
     private long currentId;
@@ -46,12 +53,15 @@ public class ChangeReader extends DefaultHandler
     private final MutableLongList memberList = new LongArrayList();
     private final List<String> roleList = new ArrayList<>();
     private final List<ChangedNode> nodes = new ArrayList<>();
+    private final MutableLongList untaggedNodes = new LongArrayList();
+    private final MutableIntList untaggedNodeVersions = new IntArrayList();
     private final List<ChangedWay> ways = new ArrayList<>();
     private final List<ChangedRelation> relations = new ArrayList<>();
     private Map<String,String> strings = new HashMap<>();
     private long changeCount;
     private long wayNodeCount;
     private long memberCount;
+    private long anonymousNodeCount;
 
     private final static String[] EMPTY_STRING_ARRAY = new String[0];
 
@@ -63,7 +73,6 @@ public class ChangeReader extends DefaultHandler
 
     public void read(String file, boolean zipped) throws IOException
     {
-        long start = System.currentTimeMillis();
         try (FileInputStream fin = new FileInputStream(file))
         {
             InputStream in = fin;
@@ -72,18 +81,27 @@ public class ChangeReader extends DefaultHandler
             SAXParserFactory factory = SAXParserFactory.newInstance();
             SAXParser parser = factory.newSAXParser();
             parser.parse(in, this);
-            if(reportProgress) reportProgress();
-            reportFreeMemory();
-            reportStats();
             in.close();
         }
         catch(SAXException | ParserConfigurationException ex)
         {
             throw new IOException("%s: Invalid file (%s)".formatted(file, ex.getMessage()));
         }
+    }
 
-        Log.debug("CR5: Read %s in %,d ms", file, System.currentTimeMillis() - start);
+    public List<ChangedNode> nodes()
+    {
+        return nodes;
+    }
 
+    public List<ChangedWay> ways()
+    {
+        return ways;
+    }
+
+    public List<ChangedRelation> relations()
+    {
+        return relations;
     }
 
     private void reportFreeMemory()
@@ -99,95 +117,17 @@ public class ChangeReader extends DefaultHandler
          */
     }
 
-    private void reportStats()
+    public void dump()
     {
-        Log.debug("Building model...");
-        MutableLongObjectMap<ChangedNode> nodes = getFeatures(this.nodes);
-        MutableLongObjectMap<ChangedWay> ways = getFeatures(this.ways);
-        MutableLongObjectMap<ChangedRelation> relations = getFeatures(this.relations);
-
-        int deletedWayCount = 0;
-        MutableLongSet nodeIds = new LongHashSet(wayNodeCount);
-        for(ChangedWay w: ways)
-        {
-            if((w.flags & ChangedFeature.DELETE) == 0)
-            {
-                nodeIds.addAll(w.nodeIds);
-            }
-            else
-            {
-                deletedWayCount++;
-            }
-        }
-
-        int deletedRelCount = 0;
-        MutableLongSet memberIds = new LongHashSet(memberCount);
-        for(ChangedRelation r: relations)
-        {
-            if((r.flags & ChangedFeature.DELETE) != 0)
-            {
-                deletedRelCount++;
-            }
-            else
-            {
-                memberIds.addAll(r.memberIds);
-            }
-        }
-
+        // strings = null;
         reportFreeMemory();
-
-        Log.debug("%,d way-nodes   (%,d unique)", wayNodeCount, nodeIds.size());
-        Log.debug("%,d rel-members (%,d unique)", memberCount, memberIds.size());
-        /*
-        Log.debug("%,d of %,d modified ways have complete coordinates",
-            completeWayCount, ways.size() - deletedWayCount);
-         */
-        Log.debug("%,d of %,d ways deleted", deletedWayCount, ways.size());
-        Log.debug("%,d of %,d relations deleted", deletedRelCount, relations.size());
-
-        Log.debug("Sorting node list...");
-        List<ChangedNode> sortedNodeList = new ArrayList<>(nodes.values());
-        Collections.sort(sortedNodeList);
-        Log.debug("Sorted node list.");
-        long newNodeCount = 0;
-        long newSimpleNodeCount = 0;
-        for(ChangedNode n: sortedNodeList)
-        {
-            if (n.version == 1)
-            {
-                newNodeCount++;
-                if (n.tags.length == 0) newSimpleNodeCount++;
-            }
-        }
-        Log.debug("%,d nodes are new.", newNodeCount);
-        Log.debug("(Of these, %,d nodes are untagged)", newSimpleNodeCount);
+        // Log.debug("%,d of %,d nodes are untagged", anonymousNodeCount, nodes.size());
+        Log.debug("Tagged nodes:   %,d", nodes.size());
+        Log.debug("Untagged nodes: %,d", untaggedNodes.size());
+        Log.debug("Ways:           %,d", ways.size());
+        Log.debug("Relations:      %,d", relations.size());
     }
 
-    private <T extends ChangedFeature> MutableLongObjectMap<T> getFeatures(List<T> list)
-    {
-        int dupeCount = 0;
-
-        Log.debug("Sorting list...");
-        Collections.sort(list);
-        Log.debug("Sorted list.");
-
-        int count = list.size();
-        MutableLongObjectMap<T> map =new LongObjectHashMap<>(count);
-        for(T f: list)
-        {
-            if (map.containsKey(f.id))
-            {
-                // Log.debug("Dupe: %s %d", f.getClass().getSimpleName(), f.id);
-                dupeCount++;
-            }
-            else
-            {
-                map.put(f.id, f);
-            }
-        }
-        Log.debug("%,d duplicate changes", dupeCount);
-        return map;
-    }
 
     private void startFeature(FeatureType type, Attributes attr)
     {
@@ -198,7 +138,7 @@ public class ChangeReader extends DefaultHandler
             tileFinder.addFeature(FeatureId.of(type, currentId));
         }
         changeCount++;
-        if (reportProgress)
+        if (verbosity >= Verbosity.NORMAL)
         {
             if((changeCount % (8 * 8192)) == 0) reportProgress();
         }
@@ -243,8 +183,6 @@ public class ChangeReader extends DefaultHandler
             tagList.add(getString(attr.getValue("v")));
             break;
         case "create":
-            currentChangeType = ChangedFeature.CREATE;
-            break;
         case "modify":
             currentChangeType = 0;
             break;
@@ -286,13 +224,20 @@ public class ChangeReader extends DefaultHandler
             if(currentChangeType == ChangedFeature.DELETE)
             {
                 tags = null;
+                currentX = currentY = 0;
             }
             else
             {
                 tags = getTags();
+                if(tags.length == 0)
+                {
+                    untaggedNodes.add(currentId);
+                    untaggedNodes.add(XY.of(currentX, currentY));
+                    // untaggedNodeVersions.add(currentVersion);
+                    break;
+                }
             }
-            nodes.add(new ChangedNode(currentId, currentVersion, currentChangeType,
-                tags, currentX, currentY));
+            nodes.add(new ChangedNode(currentId, currentChangeType, currentVersion, tags, currentX, currentY));
             // Always clear list, since tags may be listed even for deleted nodes
             tagList.clear();
             break;
@@ -309,8 +254,7 @@ public class ChangeReader extends DefaultHandler
                 nodeIds = memberList.toArray();
                 wayNodeCount+=nodeIds.length;
             }
-            ways.add(new ChangedWay(currentId, currentVersion, currentChangeType,
-                tags, nodeIds));
+            ways.add(new ChangedWay(currentId, currentChangeType, currentVersion, tags, nodeIds));
             // Always clear lists, since tags/nodes may be listed even for deleted ways
             tagList.clear();
             memberList.clear();
@@ -331,8 +275,7 @@ public class ChangeReader extends DefaultHandler
                 roles = getRoles();
                 memberCount += memberIds.length;
             }
-            relations.add(new ChangedRelation(currentId, currentVersion, currentChangeType,
-                tags, memberIds, roles));
+            relations.add(new ChangedRelation(currentId, currentChangeType, currentVersion, tags, memberIds, roles));
             // Always clear lists, since tags/members/roles may be listed even for deleted relations
             tagList.clear();
             memberList.clear();

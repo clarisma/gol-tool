@@ -13,10 +13,10 @@ import java.nio.ByteBuffer;
 
 public class FeatureTableIterator
 {
-    private int shift;
-    private int stepAfter;
-    private int stepAfterTileChange;
-    private int stepAfterTip;
+    private final int shift;
+    private final int stepAfter;
+    private final int stepAfterTileChange;
+    private final boolean roles;
     private ByteBuffer buf;
     private int pos;
     private int entry;
@@ -24,4 +24,22 @@ public class FeatureTableIterator
     private int role;
     private ByteBuffer foreignBuf;
     private int pForeignTile;
+
+
+    public FeatureTableIterator(int shift, int direction, boolean roles)
+    {
+        this.shift = shift;
+        this.roles = roles;
+        stepAfter = 4 * direction;
+
+        // Step to take after foreign feature in a different tile:
+        // +4 if forward, -2 if backward
+        stepAfterTileChange = 3 * direction + 1;
+
+    }
+
+    public boolean next()
+    {
+        return false; // TODO
+    }
 }

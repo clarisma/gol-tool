@@ -11,9 +11,9 @@ public class ChangedWay extends ChangedFeature
 {
     long[] nodeIds;
 
-    public ChangedWay(long id, int version, int flags, String[] tags, long[] nodeIds)
+    public ChangedWay(long id, int flags, int version, String[] tags, long[] nodeIds)
     {
-        super(id, version, flags, tags);
+        super(id, flags, version, tags);
         this.nodeIds = nodeIds;
     }
 }

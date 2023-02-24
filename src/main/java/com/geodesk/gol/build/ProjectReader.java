@@ -43,7 +43,7 @@ public class ProjectReader extends FabReader
     {
         if(section == null)
         {
-            Log.debug("%s=%s", key, value);
+            // Log.debug("%s=%s", key, value);
             project.set(key, value);
         }
         else
@@ -51,7 +51,7 @@ public class ProjectReader extends FabReader
             switch(section)
             {
             case "properties":
-                Log.debug("PROPERTY %s=%s", key, value);
+                // Log.debug("PROPERTY %s=%s", key, value);
                 project.setProperty(key, value);
                 break;
             }

@@ -15,7 +15,8 @@ import com.clarisma.common.util.Log;
 import com.geodesk.gol.build.BuildContext;
 import com.geodesk.gol.build.Project;
 import com.geodesk.gol.build.ProjectReader;
-import com.geodesk.gol.update_old.*;
+// import com.geodesk.gol.update_old.*;
+import com.geodesk.gol.update.Updater;
 import org.xml.sax.SAXException;
 
 import java.io.FileInputStream;
@@ -36,62 +37,6 @@ public class UpdateCommand extends GolCommand
         this.sourceFiles = sourceFiles;
     }
 
-    private void readFiles(ChangeModel changes) throws IOException
-    {
-        if(verbosity >= Verbosity.NORMAL) System.err.print("Reading changes ...\r");
-        long start = System.currentTimeMillis();
-
-        ChangeReader reader = new ChangeReader(changes);
-        for(String file : sourceFiles)
-        {
-            String ext = FileUtils.getExtension(file);
-            if(ext.isEmpty())
-            {
-                if (readFile(reader, file + ".osc", false, false)) continue;
-                if (readFile(reader, file + ".osc.gz", true, false)) continue;
-                throw new IllegalArgumentException("No .osc or .osc.gz file found with name " + file);
-            }
-            switch(ext)
-            {
-            case "osc":
-                readFile(reader, file, false, true);
-                break;
-            case "gz":
-                readFile(reader, file, true, true);
-                break;
-            default:
-                throw new IllegalArgumentException("Unknown change file format: " + file);
-            }
-        }
-
-        if(verbosity >= Verbosity.NORMAL)
-        {
-            System.err.format("Read %,d file%s in %s\n" , sourceFiles.length,
-                sourceFiles.length==1 ? "" : "s", Format.formatTimespan(
-                    System.currentTimeMillis() - start));
-        }
-    }
-
-    private boolean readFile(ChangeReader reader, String file,
-        boolean zipped, boolean mustExist) throws IOException
-    {
-        if (!mustExist && !Files.exists(Path.of(file))) return false;
-
-        try (FileInputStream fin = new FileInputStream(file))
-        {
-            InputStream in = fin;
-            if (zipped) in = new GZIPInputStream(fin);
-            reader.read(in);
-            in.close();
-        }
-        catch(SAXException ex)
-        {
-            throw new IOException("%s: Invalid file (%s)".formatted(file, ex.getMessage()));
-        }
-        return true;
-    }
-
-
     @Override protected void performWithLibrary() throws Exception
     {
         long start = System.currentTimeMillis();
@@ -108,11 +53,16 @@ public class UpdateCommand extends GolCommand
 
         // TODO: do we need a work path?
         BuildContext context = new BuildContext(features.store(), null, project);
+
+        Updater updater = new Updater(context);
+        updater.update();
+
         /*
         TileCompiler compiler = new TileCompiler(context);
         compiler.compileAll();
         */
 
+        /*
         ChangeModel changes = new ChangeModel(features.store());
         String oscFile = "c:\\geodesk\\research\\world-3803.osc.gz";
 
@@ -164,6 +114,8 @@ public class UpdateCommand extends GolCommand
         readFiles(changes);
         ChangeAnalyzer analyzer = new ChangeAnalyzer(changes, context);
         analyzer.analyze();
+
+         */
 
         System.err.format("Processed updates in %s\n" , Format.formatTimespan(System.currentTimeMillis() - start));
     }

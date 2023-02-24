@@ -11,9 +11,8 @@ import java.nio.ByteBuffer;
 
 public abstract class ChangedFeature implements Comparable<ChangedFeature>
 {
-    final long id;
+    private final long idAndFlags;
     final int version;
-    int flags;
     protected ByteBuffer buf;
     protected int pFeature;
     protected int quad;
@@ -38,9 +37,6 @@ public abstract class ChangedFeature implements Comparable<ChangedFeature>
      */
     public static final int TIP_ANONYMOUS_NODE = -1;
 
-
-    public static final int CREATE = 1 << 8;
-
     /**
      * The feature will be deleted. Ways and relations are only deleted
      * explicitly. Nodes can be deleted explicitly or implicitly (loss of
@@ -48,19 +44,23 @@ public abstract class ChangedFeature implements Comparable<ChangedFeature>
      * not be part of relations AND will not be a duplicate AND will not
      * be an orphan).
      */
-    public static final int DELETE = 1 << 9;
+    public static final int DELETE = 1;
 
-    protected ChangedFeature(long id, int version, int flags, String[] tags)
+    protected ChangedFeature(long id, int flags, int version, String[] tags)
     {
-        this.id = id;
+        this.idAndFlags = (id << 8) | flags;
         this.version = version;
-        this.flags = flags;
         this.tags = tags;
+    }
+
+    public long id()
+    {
+        return idAndFlags >>> 8;
     }
 
     @Override public int compareTo(ChangedFeature other)
     {
-        int comp = Long.compare(id, other.id);
+        int comp = Long.compare(idAndFlags, other.idAndFlags);
         if(comp != 0) return comp;
         return Integer.compare(version, other.version);
     }

@@ -26,6 +26,7 @@ public class TileFinder extends TaskEngine<TileFinder.Task>
     private BuildContext context;
     private long[] featureIds;
     private int featureCount;
+
     private MutableIntSet nodeTiles;
     private MutableIntSet wayTiles;
     private MutableIntSet relationTiles;
@@ -44,9 +45,26 @@ public class TileFinder extends TaskEngine<TileFinder.Task>
     {
         flush();
         awaitCompletionOfGroup(0);
+        /*
         Log.debug("%,d node tiles", nodeTiles.size());
         Log.debug("%,d way tiles", wayTiles.size());
         Log.debug("%,d relation tiles", relationTiles.size());
+         */
+    }
+
+    public IntSet nodeTiles()
+    {
+        return nodeTiles;
+    }
+
+    public IntSet wayTiles()
+    {
+        return wayTiles;
+    }
+
+    public IntSet relationTiles()
+    {
+        return relationTiles;
     }
 
     @Override protected WorkerThread createWorker() throws Exception

@@ -14,10 +14,10 @@ public class ChangedRelation extends ChangedFeature
     long[] membersAdded;
     long[] membersDropped;
 
-    public ChangedRelation(long id, int version, int flags, String[] tags,
+    public ChangedRelation(long id, int flags, int version, String[] tags,
         long[] memberIds, String[] roles)
     {
-        super(id, version, flags, tags);
+        super(id, flags, version, tags);
         this.memberIds = memberIds;
         this.roles = roles;
     }

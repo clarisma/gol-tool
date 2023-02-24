@@ -10,8 +10,12 @@ package com.geodesk.gol.build;
 import com.clarisma.common.io.PileFile;
 import com.clarisma.common.pbf.PbfBuffer;
 import com.clarisma.common.text.Format;
+import com.clarisma.common.util.Log;
+import com.geodesk.feature.FeatureId;
+import com.geodesk.feature.store.FeatureStore;
 import com.geodesk.gol.Processor;
 
+import org.eclipse.collections.api.map.primitive.IntObjectMap;
 import org.eclipse.collections.api.map.primitive.LongIntMap;
 import org.eclipse.collections.api.map.primitive.MutableIntObjectMap;
 import org.eclipse.collections.api.map.primitive.MutableLongIntMap;
@@ -20,12 +24,13 @@ import org.eclipse.collections.impl.map.mutable.primitive.LongIntHashMap;
 
 import java.io.IOException;
 import java.io.RandomAccessFile;
+import java.nio.ByteBuffer;
 
 public class Linker extends Processor<Linker.Task>
 {
     // private static final Logger log = LogManager.getLogger();
 
-    private final ServerFeatureStore featureStore;
+    private final FeatureStore featureStore;
     private final TileCatalog tileCatalog;
     private final RandomAccessFile linkerImportFile;
     private final PileFile linkerExportFile;
@@ -77,8 +82,49 @@ public class Linker extends Processor<Linker.Task>
                 sourceTiles.put(tip, targets);
             }
             exports = null; // free memory early
-            featureStore.fixTileLinks(importingTip, imports, sourceTiles);
+            fixTileLinks(importingTip, imports, sourceTiles);
             completed(1);
+        }
+
+        // not synchronized, safe as long as each thread works on a different tile
+        private void fixTileLinks(int importingTip, PbfBuffer imports, IntObjectMap<LongIntMap> exports)
+        {
+            FeatureStore store = featureStore;
+            int page = store.tilePage(importingTip);
+            assert page != 0;
+            ByteBuffer buf = store.bufferOfPage(page);
+            int ofs = store.offsetOfPage(page);
+
+            while(imports.hasMore())
+            {
+                int linkPos = imports.readFixed32();
+                int tipAndShift = imports.readFixed32();
+                int shift = tipAndShift & 0xf;
+                int tip = tipAndShift >>> 4;
+                long typedId = imports.readFixed64();
+                LongIntMap targets = exports.get(tip);
+                if(targets == null)
+                {
+                    if(tip != 0)
+                    {
+                        Log.warn("No exports for tip %06X, can't resolve %s at %06X/%08X",
+                            tip, FeatureId.toString(typedId), importingTip, linkPos);
+                    }
+                    continue;
+                }
+                // assert targets != null: "No exports for tip " + tip;
+                int targetPos = targets.get(typedId);
+                if(targetPos == 0)
+                {
+                    Log.warn("%s has not been exported by tile %06X, can't resolve at %06X/%08X",
+                        FeatureId.toString(typedId), tip, importingTip, linkPos);
+                    continue;
+                }
+
+                int p = linkPos + ofs;
+                int flags = buf.getInt(p);
+                buf.putInt(p, (targetPos << shift) | flags);
+            }
         }
     }
 

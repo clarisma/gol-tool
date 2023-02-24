@@ -289,6 +289,12 @@ public class CommandConfigurator
                     m.invoke(command, toParamValue(setter, methodParams[0], args));
                 }
             }
+            catch(InvocationTargetException ex)
+            {
+                Throwable cause = ex.getCause();
+                throw new IllegalArgumentException(String.format("%s: %s",
+                    formatParamName(setter), cause.getMessage(), cause));
+            }
             catch(Exception ex)
             {
                 throw new IllegalArgumentException(String.format("%s: %s",

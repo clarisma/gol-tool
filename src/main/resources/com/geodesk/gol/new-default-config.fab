@@ -1,10 +1,4 @@
-name:				world
-title:
-description:
-updates:			daily
-retention:			90 days
-import-file:        ../mapdata/de.osm.pbf
-import-page-size:	64K					// the page size of the bootstrap db
+// import-page-size:	64K					// the page size of the bootstrap db
 max-tiles:			64000               // 16K
 min-tile-density:	75000
 // tile-zoom-levels:	4,6,8,10,12
@@ -131,10 +125,10 @@ area-tags:
     historic
     indoor
     landuse
-    leisure // no: slipway, track
+    leisure (except slipway, track)
     natural (except arete, cliff, coastline, ridge, tree_row) // valley?
     man_made (except cutline, embankment, pipeline)
-    military // no: "trench"
+    military (except trench)
     office
     place
     power (only generator, plant, substation, transformer)
@@ -144,3 +138,8 @@ area-tags:
     shop
     tourism
     waterway (only boatyard, dam, dock, riverbank)
+
+properties:
+    copyright:      (C) OpenStreetMap contributors
+    license:        Open Database License 1.0
+    license-url:    https://opendatacommons.org/licenses/odbl/1-0

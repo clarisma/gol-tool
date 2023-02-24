@@ -11,7 +11,10 @@ import com.geodesk.feature.store.ZoomLevels;
 
 import java.io.*;
 import java.nio.file.Path;
+import java.util.HashMap;
 import java.util.Map;
+
+// TODO: Rename to Settings
 
 public class Project implements Serializable
 {
@@ -29,7 +32,8 @@ public class Project implements Serializable
 	private KeyIndexSchema keyIndexSchema;
 	private int maxKeyIndexes = 8;
 	private int keyIndexMinFeatures = 300;
-	private Map<String,String> properties;
+	private Map<String,String> properties = new HashMap<>();
+	private boolean explicitIdIndexing;
 	private boolean idIndexing;
 	private boolean tagDuplicateNodes;
 	private boolean tagOrphanNodes;
@@ -55,7 +59,12 @@ public class Project implements Serializable
 
 	public boolean idIndexing()
 	{
-		return idIndexing;
+		return explicitIdIndexing ? idIndexing : updatable;
+	}
+
+	public boolean isUpdatable()
+	{
+		return updatable;
 	}
 
 	public Path workPath()
@@ -231,12 +240,26 @@ public class Project implements Serializable
 		}
 	}
 
+	public void setProperty(String name, String value)
+	{
+		properties.put(name, value);
+	}
+
+	public Map<String,String> properties()
+	{
+		return properties;
+	}
+
 	public boolean set(String name, String value)
 	{
 		switch(name)
 		{
 		case "source":
 			sourcePath(Path.of(value));
+			return true;
+		case "id-indexing":
+			idIndexing = booleanValue(value);
+			explicitIdIndexing = true;
 			return true;
 		case "indexed-keys":
 			keyIndexSchema(value);
@@ -276,11 +299,6 @@ public class Project implements Serializable
 			return true;
 		}
 		return false;
-	}
-
-	public Map<String,String> properties()
-	{
-		return properties;
 	}
 
 	public static Project read(Path path) throws Exception

@@ -46,6 +46,8 @@ import java.util.*;
  *
  * - Only global keys can be indexed (see https://github.com/clarisma/gol-tool/issues/9)
  *
+ * TODO: Support for priorities: https://github.com/clarisma/gol-tool/issues/88
+ *
  */
 public class KeyIndexSchema implements Serializable
 {
@@ -86,6 +88,11 @@ public class KeyIndexSchema implements Serializable
             }
         }
         keysToCategories = map;
+    }
+
+    public Set<String> indexedKeys()
+    {
+        return keysToCategories.keySet();
     }
 
     /**
@@ -149,6 +156,7 @@ public class KeyIndexSchema implements Serializable
         }
     }
 
+    /*
     public static boolean isGlobalKey(String key, ObjectIntMap<String> strings)
     {
         int keyCode = strings.get(key);
@@ -159,6 +167,7 @@ public class KeyIndexSchema implements Serializable
     {
         keysToCategories.entrySet().removeIf(e -> !isGlobalKey(e.getKey(), strings));
     }
+     */
 
     public SBytes encode(ObjectIntMap<String> strings)
     {

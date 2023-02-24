@@ -254,7 +254,8 @@ public class OsmPbfInfoReader extends OsmPbfReader
     public static void main(String[] args) throws Exception
     {
         OsmPbfInfoReader analyzer = new OsmPbfInfoReader();
-        analyzer.analyze(Path.of("c:\\geodesk\\mapdata\\de-2022-11-28.osm.pbf"));
+        // analyzer.analyze(Path.of("c:\\geodesk\\mapdata\\de-2022-11-28.osm.pbf"));
+        analyzer.analyze(Path.of("/home/md/geodesk/mapdata/planet-2023-02-19.osm.pbf"));
         // analyzer.analyze(Path.of("c:\\geodesk\\mapdata\\planet-2022-10-17.osm.pbf"));
         // analyzer.analyze(Path.of("c:\\geodesk\\mapdata\\planet.osm.pbf"));
     }

@@ -580,7 +580,7 @@ public class FeatureTile
         indexes[2] = header.areaIndex;
         indexes[3] = header.relationIndex;
 
-        archive = new Archive();
+        archive = new Archive(4);
         archive.setHeader(header);
         new DefaultFeatureLayout(archive)
             .indexes(indexes)

@@ -319,7 +319,7 @@ public class BuildCommand extends BasicCommand
 
     private void createFeatureStore(TileIndexBuilder tib, StringTableBuilder stb) throws IOException
     {
-        Archive archive = new Archive();
+        Archive archive = new Archive(0);
         SFeatureStoreHeader header = new SFeatureStoreHeader(project);
         archive.setHeader(header);
 

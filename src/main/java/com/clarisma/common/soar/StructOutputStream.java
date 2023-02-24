@@ -23,10 +23,10 @@ public class StructOutputStream extends OutputStream
 	private int pos;
 	private PbfOutputStream links;
 	
-	public StructOutputStream(OutputStream out) 
+	public StructOutputStream(OutputStream out, int start)
 	{
 		this.out = out;
-		pos = 4; // skip 4-byte blob header (Fix for gol-tool#96)
+		pos = start; // skip 4-byte blob header (Fix for gol-tool#96)
 	}
 
 	public void setLinks(PbfOutputStream links)

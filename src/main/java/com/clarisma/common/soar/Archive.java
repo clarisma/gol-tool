@@ -30,6 +30,7 @@ public class Archive
 	private Struct header;
 	private Struct beforeCurrentPage;
 	private Struct last;
+	private final int start;
 	private int pos;
 	private int pageSpaceRemaining;
 	private int pageSizeShift = 12;
@@ -57,6 +58,12 @@ public class Archive
 		}
 	}
 
+	public Archive(int start)
+	{
+		this.start = start;
+	}
+
+
 	public Struct header()
 	{
 		return header;
@@ -73,9 +80,8 @@ public class Archive
 		this.header = header;
 		beforeCurrentPage = header;
 		last = header;
-		// Skip 4-byte Blob header (Fix for gol-tool#96)
-		assert header.location() == 4;
-		pos = header.size() + 4;
+		header.setLocation(start);
+		pos = header.size() + start;
 		pageSpaceRemaining = pageSize-pos;
 	}
 	
@@ -151,7 +157,8 @@ public class Archive
 		// TODO
 		return false;
 	}
-	
+
+	/*
 	public void writeGzipFile(Path path) throws IOException
 	{
 		try(FileOutputStream fout = new FileOutputStream(path.toFile()))
@@ -175,6 +182,7 @@ public class Archive
 			out.close();
 		}
 	}
+	 */
 
 	public void writeSparseFile(Path path) throws IOException
 	{
@@ -186,7 +194,7 @@ public class Archive
 			CREATE_NEW,WRITE,SPARSE);
 		try(OutputStream fout = Channels.newOutputStream(channel))
 		{
-			StructOutputStream out = new StructOutputStream(fout);
+			StructOutputStream out = new StructOutputStream(fout, start);
 			out.writeChain(header);
 			out.flush();
 			fout.flush();
@@ -200,7 +208,7 @@ public class Archive
 	public void writeToBuffer(ByteBuffer buf, int pos, PbfOutputStream imports) throws IOException
 	{
 		StructOutputStream out = new StructOutputStream(
-			new ByteBufferOutputStream(buf, pos + 4));
+			new ByteBufferOutputStream(buf, pos + start), start);
 			// Skip 4-byte blob header (fix for gol-tool#96)
 		out.setLinks(imports);
 		out.writeChain(header);

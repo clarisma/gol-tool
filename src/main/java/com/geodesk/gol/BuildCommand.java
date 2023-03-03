@@ -9,7 +9,8 @@ package com.geodesk.gol;
 
 import com.clarisma.common.cli.*;
 import com.clarisma.common.io.FileUtils;
-import com.clarisma.common.io.PileFile;
+import com.clarisma.common.soar.Archive;
+import com.clarisma.common.soar.SBytes;
 import com.clarisma.common.text.Format;
 import com.clarisma.common.util.Log;
 import com.geodesk.core.Tile;
@@ -79,6 +80,12 @@ public class BuildCommand extends BasicCommand
     public void configFile(String filename)
     {
         configPath = Utils.pathWithExtension(filename, ".fab");
+    }
+
+    @Option("u")
+    public void updatable(String value)
+    {
+        setOption("updatable", value);
     }
 
     @Override public int perform() throws Throwable
@@ -156,7 +163,7 @@ public class BuildCommand extends BasicCommand
 
         if(!keepWork)
         {
-            delete(workPath, "state.txt", "stats.txt", "tile-map.html", "tile-index.bin");
+            delete(workPath, "state.txt");
             try
             {
                 Files.delete(workPath);
@@ -185,7 +192,8 @@ public class BuildCommand extends BasicCommand
 
     private void createWorkPath() throws IOException
     {
-        workPath = golPath.resolveSibling(golPath.getFileName() + ".work");
+        // workPath = golPath.resolveSibling(golPath.getFileName() + ".work");
+        workPath = Utils.peerFolder(golPath, "-work");
         if(Files.notExists(workPath))
         {
             try
@@ -202,18 +210,27 @@ public class BuildCommand extends BasicCommand
         statePath = workPath.resolve("state.txt");
     }
 
-    private void createIndexFolders(Path indexPath) throws IOException
+    private void createIndexFolders(Path indexPath, boolean wayNodes) throws IOException
     {
-        Files.createDirectories(indexPath);
-        int topTip = context.getTileCatalog().topTip();
-        createTipFolders(indexPath.resolve("anodes"), topTip);
-        createTipFolders(indexPath.resolve("wnodes"), topTip);
+        try
+        {
+            Files.createDirectories(indexPath);
+            int topTip = context.getTileCatalog().topTip();
+            if (wayNodes) createTipFolders(indexPath.resolve("waynodes"), topTip);
+            // createTipFolders(indexPath.resolve("wnodes"), topTip);
+        }
+        catch(IOException ex)
+        {
+            throw new IOException(
+                "Failed to create folder for indexes (%s: %s)".formatted(
+                ex.getClass().getSimpleName(), ex.getMessage()), ex);
+        }
     }
 
     private static void createTipFolders(Path folder, int topTip) throws IOException
     {
         int maxFolder = topTip >>> 12;
-        for (int n = 0; n < maxFolder; n++)
+        for (int n = 0; n <= maxFolder; n++)
         {
             Path subFolder = folder.resolve("%03X".formatted(n));
             Files.createDirectories(subFolder);
@@ -225,7 +242,10 @@ public class BuildCommand extends BasicCommand
         if(Files.exists(statePath))
         {
             Properties props = new Properties();
-            props.load(new FileInputStream(statePath.toFile()));
+            try(FileInputStream in = new FileInputStream(statePath.toFile()))
+            {
+                props.load(in);
+            }
             String task = props.getProperty("task");
             for (int i=0; i<TASKS.length; i++)
             {
@@ -256,22 +276,40 @@ public class BuildCommand extends BasicCommand
     {
         writeState(PREPARE);
         StringTableBuilder stb = new StringTableBuilder();
-        stb.readStrings(workPath.resolve("string-counts.txt"));
+        stb.build(
+            workPath.resolve("string-counts.txt"),
+            project.keyIndexSchema(),
+            project.maxStringCount(),
+            project.minStringUsage());
         stb.writeStringTables(
-            workPath.resolve("keys.txt"), workPath.resolve("values.txt"),
-            workPath.resolve("roles.txt"), workPath.resolve("global.txt"),
-            project.maxStringCount());
+            workPath.resolve("keys.txt"),
+            workPath.resolve("values.txt"),
+            workPath.resolve("roles.txt"));
 
         TileIndexBuilder tib = new TileIndexBuilder();
         tib.buildTileTree(
             workPath.resolve("node-counts.txt"),
             project.zoomLevels(),
-            project.maxTiles(), project.minTileDensity());
-        tib.writeTileIndex(workPath.resolve("tile-index.bin"));
-        tib.writeTileCatalog(workPath.resolve("tile-catalog.txt"));
-        // TODO: don't write map anymore
-        tib.createTileMap(workPath.resolve("tile-map.html"),
-            TileQuad.fromSingleTile(Tile.fromString("0/0/0")));
+            project.maxTiles(),
+            project.minTileDensity());
+        if(keepWork)
+        {
+            tib.writeTileCatalog(workPath.resolve("tile-catalog.txt"));
+        }
+
+        createFeatureStore(tib, stb);
+
+        if(keepWork)
+        {
+            tib.createTileMap(workPath.resolve("tile-map.html"),
+                TileQuad.fromSingleTile(Tile.fromString("0/0/0")));
+        }
+
+        boolean isUpdatable = project.isUpdatable();
+        if(project.idIndexing() || isUpdatable)
+        {
+            createIndexFolders(context.indexPath(), isUpdatable);
+        }
 
         if(!keepWork)
         {
@@ -279,18 +317,39 @@ public class BuildCommand extends BasicCommand
         }
     }
 
+    private void createFeatureStore(TileIndexBuilder tib, StringTableBuilder stb) throws IOException
+    {
+        Archive archive = new Archive();
+        SFeatureStoreHeader header = new SFeatureStoreHeader(project);
+        archive.setHeader(header);
+
+        // TODO: properties
+
+        header.tileIndex = tib.addToArchive(archive);
+
+        SBytes indexSchema = project.keyIndexSchema().encode(stb.stringsToCodes());
+        archive.place(indexSchema);
+        header.indexSchema = indexSchema;
+
+        SBytes stringTable = stb.encodeGlobalStrings();
+        archive.place(stringTable);
+        header.stringTable = stringTable;
+
+        header.setMetadataSize(archive.size());
+        archive.writeSparseFile(golPath);
+    }
+
+
     private void sort() throws Exception
     {
         writeState(SORT);
-        PileFile pileFile = context.createPileFile();
-        Sorter sorter = new Sorter(workPath, project.verbosity(),
-            context.getTileCatalog(), pileFile);
+        Sorter sorter = new Sorter(context, project.verbosity());
         sorter.sortFeatures(project.sourcePath().toFile());
+        context.closeIndexes();
 
         if(!keepWork && !project.idIndexing())
         {
-            delete(workPath,
-                "nodes.idx", "ways.idx", "relations.idx");
+            delete(workPath,"nodes.idx", "ways.idx", "relations.idx");
         }
     }
 
@@ -313,27 +372,65 @@ public class BuildCommand extends BasicCommand
      * Make sure this step is performed if we split the Compiler into a
      * separate executable (This will likely read settings in binary form).
      *
+     * We cannot perform this step when we're reading the settings,
+     * because we don't know yet whether the keys to be indexed will
+     * use global strings.
+     *
+     * 1/11/23: No longer needed. The StringTableBuilder ensures that all
+     *   indexed keys (regardless of usage frequency) are stored in the GST
+     *
+     * TODO: The Compiler should read the key index schema from the GOL!
+     *
      * @throws IOException if global string table fails to load
      */
+    /*
     private void normalizeIndexedKeys() throws IOException
     {
         KeyIndexSchema schema = context.project().keyIndexSchema();
         schema.removeLocalKeys(context.getGlobalStringMap());
     }
+     */
+
+    /*
+    private void createFeatureStore_old() throws IOException
+    {
+        //Project project = context.project();
+        //Path workPath = context.workPath();
+        Archive archive = new Archive();
+        SFeatureStoreHeader header = new SFeatureStoreHeader(project);
+        archive.setHeader(header);
+
+        // TODO: properties
+
+        SBytes tileIndex = new SBytes(Files.readAllBytes(
+            workPath.resolve("tile-index.bin")), 2);
+        archive.place(tileIndex);
+        header.tileIndex = tileIndex;
+
+        SBytes indexSchema = project.keyIndexSchema().encode(context.getGlobalStringMap());
+        archive.place(indexSchema);
+        header.indexSchema = indexSchema;
+
+        SBytes stringTable = StringTableBuilder.encodeStringTable(
+            Files.readAllLines(workPath.resolve("global.txt")));
+        archive.place(stringTable);
+        header.stringTable = stringTable;
+
+        header.setMetadataSize(archive.size());
+        archive.writeSparseFile(golPath);
+    }
+     */
 
     private void compile() throws Exception
     {
         writeState(COMPILE);
-        normalizeIndexedKeys();
-        ServerFeatureStore.create(context);
+
         Compiler compiler = new Compiler(context);
         compiler.compileAll();
 
         if(!keepWork)
         {
-            delete(workPath,
-                "features.bin", "tile-catalog.txt",
-                "global.txt", "keys.txt", "values.txt", "roles.txt");
+            delete(workPath, "features.bin", "keys.txt", "values.txt", "roles.txt");
         }
     }
 

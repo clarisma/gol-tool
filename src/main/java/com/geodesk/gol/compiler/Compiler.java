@@ -10,10 +10,12 @@ package com.geodesk.gol.compiler;
 import com.clarisma.common.io.PileFile;
 import com.clarisma.common.pbf.PbfBuffer;
 import com.clarisma.common.pbf.PbfOutputStream;
+import com.clarisma.common.store.BlobStoreConstants;
 import com.clarisma.common.text.Format;
 import com.geodesk.core.Tile;
 import com.geodesk.core.TileQuad;
 import com.geodesk.core.Box;
+import com.geodesk.feature.store.FeatureStore;
 import com.geodesk.feature.store.Tip;
 import com.geodesk.geom.Bounds;
 import com.geodesk.gol.*;
@@ -22,6 +24,7 @@ import org.eclipse.collections.api.map.primitive.IntObjectMap;
 import org.eclipse.collections.api.map.primitive.ObjectIntMap;
 
 import java.io.*;
+import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -30,7 +33,7 @@ import static com.geodesk.gol.build.ProtoGol.*;
 
 public class Compiler extends Processor<Compiler.Task>
 {
-    private final ServerFeatureStore featureStore;
+    private final FeatureStore featureStore;
     private final Path rootPath;
     private final TileCatalog tileCatalog;
     private final List<String> keyStrings;
@@ -43,6 +46,7 @@ public class Compiler extends Processor<Compiler.Task>
     private final PbfOutputStream linkerExportHeader = new PbfOutputStream();
     private final RandomAccessFile linkerImportFile;
     private Path debugPath;
+    private final Path wayNodeIndexPath;
     private final boolean debug = false; // true;
 
     private static final int DEFAULT_LINK_DB_PAGE_SIZE = 1 << 13; // TODO: configurable
@@ -64,7 +68,12 @@ public class Compiler extends Processor<Compiler.Task>
         keyStrings = Files.readAllLines(rootPath.resolve("keys.txt"));
         valueStrings = Files.readAllLines(rootPath.resolve("values.txt"));
         roleStrings = Files.readAllLines(rootPath.resolve("roles.txt"));
-        globalStrings = ctx.getGlobalStringMap();
+
+        // TODO: check if we need to have "" in the table
+        //  (currently not included)
+        globalStrings = featureStore.stringsToCodes();
+        wayNodeIndexPath = ctx.project().isUpdatable() ?
+            ctx.indexPath().resolve("waynodes") : null;
     }
 
     protected class Task implements Runnable
@@ -85,8 +94,8 @@ public class Compiler extends Processor<Compiler.Task>
         // TODO: don't create a new String for empty string
         public String readPackedString(List<String> dictionary)
         {
-            int n = (int)sourceData.readVarint();
-            if((n & 1) == 1)
+            int n = (int) sourceData.readVarint();
+            if ((n & 1) == 1)
             {
                 return dictionary.get(n >>> 1);
             }
@@ -96,12 +105,12 @@ public class Compiler extends Processor<Compiler.Task>
 
         public String[] readTags()
         {
-            int len = (int)sourceData.readVarint();
-            String[] tags = new String[len*2];
-            for(int i=0; i<tags.length; i+=2)
+            int len = (int) sourceData.readVarint();
+            String[] tags = new String[len * 2];
+            for (int i = 0; i < tags.length; i += 2)
             {
                 tags[i] = readPackedString(keyStrings);
-                tags[i+1] = readPackedString(valueStrings);
+                tags[i + 1] = readPackedString(valueStrings);
             }
             return tags;
         }
@@ -277,7 +286,7 @@ public class Compiler extends Processor<Compiler.Task>
         private int readQuadLocator()
         {
             byte locator = sourceData.readByte();
-            if(locator == (byte)0xff)
+            if (locator == (byte) 0xff)
             {
                 // complex locator that refers to an unrelated tile
                 // (e.g. reference from missing member in the Purgatory
@@ -310,13 +319,13 @@ public class Compiler extends Processor<Compiler.Task>
         private void readRelations()
         {
             long prevId = 0;
-            for(;;)
+            for (; ; )
             {
                 long id = sourceData.readVarint();
-                if(id==0) break;
-                int membershipFlag = (int)id & 1;
-                id = prevId + (id >> 1);	// TODO: >> ?
-                if(membershipFlag == 0)
+                if (id == 0) break;
+                int membershipFlag = (int) id & 1;
+                id = prevId + (id >> 1);    // TODO: >> ?
+                if (membershipFlag == 0)
                 {
                     readRelation(id);
                 }
@@ -330,10 +339,10 @@ public class Compiler extends Processor<Compiler.Task>
 
         private void readForeignNodes()
         {
-            int donorPile = (int)sourceData.readVarint();
+            int donorPile = (int) sourceData.readVarint();
             int donorTile = tileCatalog.tileOfPile(donorPile);
             assert Tile.isValid(donorTile);
-            assert donorTile != sourceTile: "Donor tile must be different from current tile";
+            assert donorTile != sourceTile : "Donor tile must be different from current tile";
             readNodes(donorTile);
         }
 
@@ -391,7 +400,7 @@ public class Compiler extends Processor<Compiler.Task>
         {
             int sourceTile = tileCatalog.tileOfPile(pile);
             int sourceTip = tileCatalog.tipOfTile(sourceTile);
-            synchronized(linkerExportFile)
+            synchronized (linkerExportFile)
             {
                 exports.forEachKeyValue((targetTile, buf) ->
                 {
@@ -406,7 +415,7 @@ public class Compiler extends Processor<Compiler.Task>
                         linkerExportFile.append(targetPile, linkerExportHeader.buffer(), 0, 8);
                         linkerExportFile.append(targetPile, buf.buffer(), 0, exportDataSize);
                     }
-                    catch(IOException ex)
+                    catch (IOException ex)
                     {
                         throw new RuntimeException(ex); // TODO
                     }
@@ -424,6 +433,15 @@ public class Compiler extends Processor<Compiler.Task>
                 linkerImportFile.writeInt(imports.size());
                 linkerImportFile.write(imports.buffer(), 0, imports.size());
             }
+        }
+
+        private void writeWayNodeIndex(PbfOutputStream out) throws IOException
+        {
+            // TODO: save to temp file first, then rename
+            Path path = Tip.path(wayNodeIndexPath, tip, ".wnx");
+            // TODO: make more efficient, avoid buffer copy
+            //  (can use PbfOutputStream qwith ofs/len)
+            Files.write(path, out.toByteArray());
         }
 
         private void dump(FeatureTile ft) throws IOException
@@ -444,19 +462,43 @@ public class Compiler extends Processor<Compiler.Task>
             archive.build();
             try
             {
-                int payloadSize = archive.size() - 4;   // don't include 4-byte header
-                int page = featureStore.createTile(tip, payloadSize);
-                PbfOutputStream imports = new PbfOutputStream();
-                featureStore.writeBlob(page, archive.structs(), imports);
+                PbfOutputStream imports = writeTile();
                 writeImports(imports);
                 writeExports(archive.getExports());
-                if(debug) dump(archive);
+                if (wayNodeIndexPath != null && sourceTile != TileCatalog.PURGATORY_TILE)
+                {
+                    writeWayNodeIndex(archive.createWayNodeIndex());
+                }
+                if (debug) dump(archive);
             }
-            catch(IOException ex)
+            catch (IOException ex)
             {
                 fail(ex);
             }
             completed(1);
+        }
+
+        private PbfOutputStream writeTile() throws IOException
+        {
+            FeatureStore store = featureStore;
+            int payloadSize = archive.size() - 4;   // don't include 4-byte header
+            int page = store.createTile(tip, payloadSize);
+            PbfOutputStream imports = new PbfOutputStream();
+
+            ByteBuffer buf = store.bufferOfPage(page);
+            int ofs = store.offsetOfPage(page);
+
+            // preserve the prev_blob_free flag in the blob's header word,
+            // because Archive.writeToBuffer() will clobber it
+            int oldHeader = buf.getInt(ofs);
+            int prevBlobFreeFlag = oldHeader & BlobStoreConstants.PRECEDING_BLOB_FREE_FLAG;
+            archive.structs().writeToBuffer(buf, ofs, imports);
+            // put the flag back in
+            int newHeader = buf.getInt(ofs);
+            buf.putInt(ofs, newHeader | prevBlobFreeFlag);
+            assert (oldHeader & ~BlobStoreConstants.PRECEDING_BLOB_FREE_FLAG) ==
+                (newHeader & ~BlobStoreConstants.PRECEDING_BLOB_FREE_FLAG);
+            return imports;
         }
     }
 

@@ -106,7 +106,17 @@ public abstract class Struct
 		out.format("%08X  %s\n", location(), dumped());
 	}
 
-	public abstract void writeTo(StructOutputStream out) throws IOException;
+	// TODO: deprecate in favor of write(StruictWriter)
+	public void writeTo(StructOutputStream out) throws IOException
+	{
+		throw new RuntimeException("Not implemented.");
+	}
+
+	// TODO: make this abstract & use as default
+	public void write(StructWriter out)
+	{
+		throw new RuntimeException("Not implemented.");
+	}
 
 	public static <T extends Struct> T addToChain(T last, T s)
 	{

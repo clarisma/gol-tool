@@ -7,13 +7,22 @@
 
 package com.geodesk.gol.build;
 
+import com.geodesk.core.Box;
 import com.geodesk.core.Tile;
 import com.geodesk.core.TileQuad;
+import com.geodesk.feature.store.FeatureStore;
+import com.geodesk.feature.store.TileIndexWalker;
+import com.geodesk.feature.store.Tip;
 import com.geodesk.feature.store.ZoomLevels;
+import org.eclipse.collections.api.list.primitive.MutableIntList;
 import org.eclipse.collections.api.map.primitive.MutableIntIntMap;
+import org.eclipse.collections.impl.list.mutable.primitive.IntArrayList;
 import org.eclipse.collections.impl.map.mutable.primitive.IntIntHashMap;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.PrintWriter;
+import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -57,7 +66,7 @@ public class TileCatalog
 	// public static final int OVERSIZED_PILES = 3;
 
 	// TODO: consolidate with TileArchive
-	public static final int PURGATORY_TILE = 0x0f00_0000;
+	public static final int PURGATORY_TILE = 0x0f00_0000;	// TODO: make -1?
 	public static final int PURGATORY_PILE = 1;
 	public static final int PURGATORY_TIP = 0;
 
@@ -66,7 +75,12 @@ public class TileCatalog
 		throw new IOException(
 			String.format("Tile Catalog %s invalid at line %d", tileCatalogFile, line));
 	}
-	
+
+	// TODO: don't read from the text file; this should only be used fore debugging
+	//  instead, read the tile catalog by walking the tile index
+	//  This keeps the mapping of piles <-> tips consistent
+	//  (We cannot always assume that if pileA > pileB then tipA > tipB)
+
 	public TileCatalog(Path tileCatalogFile) throws IOException
 	{
 		List<String> lines = Files.readAllLines(tileCatalogFile);
@@ -110,6 +124,43 @@ public class TileCatalog
 		minZoom = ZoomLevels.minZoom(zoomLevelsInUse);
 		maxZoom = ZoomLevels.maxZoom(zoomLevelsInUse);
 	}
+
+	// TODO: This is wrong; traversal order does not yield tip order,
+	//  since traversal is depth first (rather than breadth first)
+	public TileCatalog(FeatureStore store)
+	{
+		this(store.baseMapping(), store.tileIndexPointer(), store.zoomLevels());
+	}
+
+	public TileCatalog(ByteBuffer buf, int pTileIndex, int zoomLevels)
+	{
+		this.zoomLevels = zoomLevels;
+
+		// TODO: If we store tile count in the GOL, get it here
+		tileToPile = new IntIntHashMap();
+		tileToTip = new IntIntHashMap();
+		MutableIntList pileToTileList = new IntArrayList();
+		tileToPile.put(PURGATORY_TILE, PURGATORY_PILE);
+		tileToTip.put(PURGATORY_TILE, PURGATORY_TIP);
+		pileToTileList.add(0);			// index entry 0 is not used
+		assert PURGATORY_PILE == 1;
+		pileToTileList.add(PURGATORY_TILE);
+
+		TileIndexWalker walker = new TileIndexWalker(buf, pTileIndex, zoomLevels);
+		walker.start(Box.ofWorld());
+		while(walker.next())
+		{
+			int tile = walker.tile();
+			tileToPile.put(tile, pileToTileList.size());
+			tileToTip.put(tile, walker.tip());
+			pileToTileList.add(tile);
+		}
+		pileToTile = pileToTileList.toArray();
+
+		minZoom = ZoomLevels.minZoom(zoomLevels);
+		maxZoom = ZoomLevels.maxZoom(zoomLevels);
+	}
+
 	
 	public int tileCount()
 	{
@@ -254,6 +305,17 @@ public class TileCatalog
 		return 0;   // root quad -- no! TODO: should not get here
 	}
 
+	public void write(String filename) throws FileNotFoundException
+	{
+		PrintWriter out = new PrintWriter(filename);
+		for(int i=1; i<pileToTile.length; i++)
+		{
+			int tile = pileToTile[i];
+			out.format("%s\t%s\n", Tip.toString(tipOfTile(tile)), Tile.toString(tile));
+		}
+		out.close();
+	}
+
 	/**
 	 * Returns the highest TIP.
 	 *
@@ -263,5 +325,14 @@ public class TileCatalog
 	public int topTip()
 	{
 		return tileToTip.values().max();
+	}
+
+	public int parentTile(int childTile)
+	{
+		int zoom = Tile.zoom(childTile);
+		assert zoom > 0: "Root tile has no parent";
+		int nextLevels = zoomLevels << (32 - zoom);
+		int zoomDelta = Integer.numberOfLeadingZeros(nextLevels) + 1;
+		return Tile.zoomedOut(childTile, zoom - zoomDelta);
 	}
 }

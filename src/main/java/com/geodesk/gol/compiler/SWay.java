@@ -411,4 +411,15 @@ public class SWay extends SFeature
             super.export(ft);
         }
     }
+
+    public void writeNodes(PbfOutputStream out)
+    {
+        out.writeVarint(nodeIds.length);
+        long prevNodeId = 0;
+        for(long nodeId: nodeIds)
+        {
+            out.writeSignedVarint(nodeId - prevNodeId);
+            prevNodeId = nodeId;
+        }
+    }
 }

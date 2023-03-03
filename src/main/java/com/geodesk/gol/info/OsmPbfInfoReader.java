@@ -43,6 +43,10 @@ public class OsmPbfInfoReader extends OsmPbfReader
     private long globalMaxNodeId;
     private long globalMaxWayId;
     private long globalMaxRelationId;
+    private long globalMaxWayNodeCount;
+    private long globalMaxWayNodeWayId;
+    private long globalMaxMemberCount;
+    private long globalMaxMemberRelationId;
 
     private ProgressListener progress;
 
@@ -67,6 +71,10 @@ public class OsmPbfInfoReader extends OsmPbfReader
         private long maxRelationId;
         private long blockCount;
         private long maxBlockSize;
+        private long maxWayNodeCount;
+        private long maxWayNodeWayId;
+        private long maxMemberCount;
+        private long maxMemberRelationId;
         private boolean sorted = true;
 
         @Override protected void header(HeaderData hd)
@@ -96,7 +104,13 @@ public class OsmPbfInfoReader extends OsmPbfReader
         @Override protected void way(long id, Tags tags, Nodes nodes)
         {
             wayCount++;
-            wayNodeCount += nodes.size();
+            int thisWayNodeCount = nodes.size();
+            wayNodeCount += thisWayNodeCount;
+            if(thisWayNodeCount > maxWayNodeCount)
+            {
+                maxWayNodeCount = thisWayNodeCount;
+                maxWayNodeWayId = id;
+            }
             tagCount += tags.size();
             if(id <= maxWayId)
             {
@@ -135,6 +149,11 @@ public class OsmPbfInfoReader extends OsmPbfReader
             memberCount += thisMemberCount;
             if(thisMemberCount == 0) emptyRelationCount++;
             if(isSuperRelation) superRelationCount++;
+            if(thisMemberCount > maxMemberCount)
+            {
+                maxMemberCount = thisMemberCount;
+                maxMemberRelationId = id;
+            }
         }
 
         @Override protected void endBlock(Block block)
@@ -162,6 +181,16 @@ public class OsmPbfInfoReader extends OsmPbfReader
                 if (maxWayId > globalMaxWayId) globalMaxWayId = maxWayId;
                 if (maxRelationId > globalMaxRelationId) globalMaxRelationId = maxRelationId;
                 if (maxBlockSize > globalMaxBlockSize) globalMaxBlockSize = maxBlockSize;
+                if (maxWayNodeCount > globalMaxWayNodeCount)
+                {
+                    globalMaxWayNodeCount = maxWayNodeCount;
+                    globalMaxWayNodeWayId = maxWayNodeWayId;
+                }
+                if (maxMemberCount > globalMaxMemberCount)
+                {
+                    globalMaxMemberCount = maxMemberCount;
+                    globalMaxMemberRelationId = maxMemberRelationId;
+                }
             }
         }
     }
@@ -199,10 +228,12 @@ public class OsmPbfInfoReader extends OsmPbfReader
         out.format("tagged-nodes:    %,d\n", totalTaggedNodeCount);
         out.format("ways:            %,d\n", totalWayCount);
         out.format("way-nodes:       %,d\n", totalWayNodeCount);
+        out.format("max-way-nodes:   %,d (way/%d)\n", globalMaxWayNodeCount, globalMaxWayNodeWayId);
         out.format("relations:       %,d\n", totalRelationCount);
         out.format("super-relations: %,d\n", totalSuperRelationCount);
         out.format("empty-relations: %,d\n", totalEmptyRelationCount);
         out.format("members:         %,d\n", totalMemberCount);
+        out.format("max-members:     %,d (relation/%d)\n", globalMaxMemberCount, globalMaxMemberRelationId);
         out.format("tags:            %,d\n", totalTagCount);
         out.format("max-node-id:     %d\n", globalMaxNodeId);
         out.format("max-way-id:      %d\n", globalMaxWayId);

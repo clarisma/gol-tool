@@ -8,8 +8,6 @@
 package com.geodesk.gol.build;
 
 import com.clarisma.common.cli.Verbosity;
-import com.clarisma.common.index.DenseInt16Index;
-import com.clarisma.common.index.DensePackedIntIndex;
 import com.clarisma.common.index.IntIndex;
 import com.clarisma.common.io.PileFile;
 import com.clarisma.common.pbf.PbfOutputStream;
@@ -62,7 +60,7 @@ import java.util.Locale;
 public class Sorter extends OsmPbfReader
 {
     private final int verbosity;
-    private final Path workPath;
+    // private final Path workPath;
     private final PileFile pileFile;
     private final IntIndex nodeIndex;
     private final IntIndex wayIndex;
@@ -81,27 +79,20 @@ public class Sorter extends OsmPbfReader
 
     private static final int DEFAULT_SORT_DB_PAGE_SIZE = 1 << 16; // TODO: configurable
 
-    public Sorter(Path workPath, int verbosity, TileCatalog tileCatalog, PileFile pileFile) throws IOException
+    public Sorter(BuildContext ctx, int verbosity) throws IOException
     {
-        this.workPath = workPath;
+        Path workPath = ctx.workPath();
+        // this.workPath = ctx.workPath();
         this.verbosity = verbosity;
-        this.tileCatalog = tileCatalog;
-        this.pileFile = pileFile;
-        nodeIndex = createIndex("nodes.idx", 0);
-        wayIndex = createIndex("ways.idx", 2);
-        relationIndex = createIndex("relations.idx", 2);
+        this.tileCatalog = ctx.getTileCatalog();
+        this.pileFile = ctx.createPileFile();
+        ctx.createIndexes();
+        nodeIndex = ctx.getNodeIndex();
+        wayIndex = ctx.getWayIndex();
+        relationIndex = ctx.getRelationIndex();
         keyStrings = loadStringMap(workPath.resolve("keys.txt"));
         valueStrings = loadStringMap(workPath.resolve("values.txt"));
         roleStrings = loadStringMap(workPath.resolve("roles.txt"));
-    }
-
-    private IntIndex createIndex(String fileName, int extraBits) throws IOException
-    {
-        int tileCount = tileCatalog.tileCount();
-        int bits = 32 - Integer.numberOfLeadingZeros(tileCount) + extraBits;
-        Path path = workPath.resolve(fileName);
-        Files.deleteIfExists(path);
-        return bits == 16 ? new DenseInt16Index(path) : new DensePackedIntIndex(path, bits);
     }
 
     private ObjectIntMap<String> loadStringMap(Path path) throws IOException
@@ -1175,12 +1166,7 @@ public class Sorter extends OsmPbfReader
         }
          */
         read(file);
-
-        // TODO: clean this up (avoid ugly cast; we only use MappedFile-based index):
-        ((MappedFile)nodeIndex).close();
-        ((MappedFile)wayIndex).close();
-        ((MappedFile)relationIndex).close();
-    }
+   }
 
     /*
     public static void main(String[] args) throws Exception
@@ -1199,6 +1185,7 @@ public class Sorter extends OsmPbfReader
 
     // TODO: turn exception into exit code
 
+    /*
     public static void main(String[] args) throws Exception
     {
         Path workPath = Path.of(args[0]);
@@ -1216,5 +1203,7 @@ public class Sorter extends OsmPbfReader
         sorter.sortFeatures(sourcePath.toFile());
         pileFile.close();
     }
+
+     */
 
 }

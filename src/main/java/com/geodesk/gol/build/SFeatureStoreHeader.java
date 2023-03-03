@@ -16,9 +16,9 @@ import static com.geodesk.feature.store.FeatureStoreConstants.*;
 public class SFeatureStoreHeader extends SBlobStoreHeader
 {
     private Project project;
-    Struct tileIndex;
-    Struct stringTable;
-    Struct indexSchema;
+    public Struct tileIndex;
+    public Struct stringTable;
+    public Struct indexSchema;
 
     public SFeatureStoreHeader(Project project)
     {

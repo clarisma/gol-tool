@@ -199,12 +199,12 @@ public class StringTableBuilder
         MutableObjectIntMap<String> map = new ObjectIntHashMap<>(globalStringCount);
         globalStrings = new String[globalStringCount+1];
         globalStrings[0] = "";
-        int i=1;
-        for(StringEntry entry : tentativeGlobal)
+        for(int i=0; i<globalStringCount; i++)
         {
-            String string = entry.string;;
-            map.put(string, i);
-            globalStrings[i++] = string;
+            String string = tentativeGlobal.get(i).string;;
+            int pos = i+1;
+            map.put(string, pos);
+            globalStrings[pos] = string;
         }
         stringsToCodes = map;
     }

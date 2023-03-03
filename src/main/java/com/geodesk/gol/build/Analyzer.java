@@ -238,7 +238,7 @@ public class Analyzer extends OsmPbfReader
         if(evictionCount < evictionGoal)
         {
             minLocalStringCount++; //  <<= 1;
-            Log.debug("Minimum instance count is now %d", minLocalStringCount);
+            // Log.debug("Minimum instance count is now %d", minLocalStringCount);
         }
     }
 

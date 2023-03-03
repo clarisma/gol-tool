@@ -34,7 +34,8 @@ public class Updater
     {
         // TODO
         // String oscFile = "c:\\geodesk\\research\\world-3803.osc.gz";
-        String oscFile = "c:\\geodesk\\research\\de-3530.osc.gz";
+        // String oscFile = "c:\\geodesk\\research\\de-3530.osc.gz";
+        String oscFile = "/home/md/geodesk/osc/planet-3807.osc.gz";
 
         long start = System.currentTimeMillis();
         TileFinder tileFinder = new TileFinder(context);

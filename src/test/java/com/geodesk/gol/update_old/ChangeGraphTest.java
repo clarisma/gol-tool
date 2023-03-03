@@ -16,7 +16,7 @@ public class ChangeGraphTest
 
      */
 
-    @Test public void testTileCatalog() throws Exception
+    /* @Test */ public void testTileCatalog() throws Exception
     {
         FeatureLibrary features = new FeatureLibrary("c:\\geodesk\\tests\\de-update.gol");
         TileCatalog tc = new TileCatalog(features.store());

@@ -146,7 +146,7 @@ public class Analyzer extends OsmPbfReader
      * The maximum number of strings a worker thread will accumulate
      * before handing the set of string counts to the output thread.
      */
-    private final int stringBatchSize = 64 * 1024;  // TODO: was 64
+    private final int stringBatchSize = 64 * 1024;
 
     public Analyzer(Project project)
     {
@@ -343,21 +343,34 @@ public class Analyzer extends OsmPbfReader
             counters = null;
         }
 
+        /**
+         * Removes the string counters that have less than 3 occurrences,
+         * because it is unlikely that these strings will end up in the
+         * string tables.
+         */
         private void killWeakestStrings()
         {
             final int minOccurrence = 3;
-            int killCount = 0;
             StringCounter c = counters;
             for(;;)
             {
                 StringCounter next = c.next();
                 if(c.total < minOccurrence)
                 {
-                    killCount++;
+                    // String counter doesn't meet the minimum --> remove it
                     c.remove();
                     if(c == counters)
                     {
-                        if(next == counters) break;
+                        // The removed string counter was the first in the
+                        // circular linked list
+
+                        if(next == counters)
+                        {
+                            // The removed counter is also the last, which means
+                            // none of the strings meet the minimum
+                            counters = null;
+                            break;
+                        }
                         counters = next;
                         c = next;
                         continue;
@@ -366,7 +379,6 @@ public class Analyzer extends OsmPbfReader
                 if(next == counters) break;
                 c = next;
             }
-            // log.debug("Killed off {} of {} strings", killCount, strings.size());
         }
 
         private void flush()
@@ -379,7 +391,7 @@ public class Analyzer extends OsmPbfReader
             try
             {
                 killWeakestStrings();
-                output(new Batch(counters));
+                if(counters != null) output(new Batch(counters));
             }
             catch(InterruptedException ex)
             {

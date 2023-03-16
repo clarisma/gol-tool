@@ -12,6 +12,7 @@ import com.clarisma.common.index.DensePackedIntIndex;
 import com.clarisma.common.index.IntIndex;
 import com.clarisma.common.io.MappedFile;
 import com.clarisma.common.io.PileFile;
+import com.clarisma.common.store.Store;
 import com.geodesk.feature.store.FeatureStore;
 import org.eclipse.collections.api.map.primitive.MutableObjectIntMap;
 import org.eclipse.collections.api.map.primitive.ObjectIntMap;
@@ -21,6 +22,7 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -160,20 +162,33 @@ public class BuildContext
         if(tileCatalog == null)
         {
             ByteBuffer buf;
+            MappedByteBuffer explicitMappedBuffer = null;
             if(featureStore != null)
             {
                 buf = featureStore.baseMapping();
             }
             else
             {
+                // If we're only reading the tile index, we don't need to read
+                // the string tables of the GOL and initialize the query engine;
+                // this saves both time and memory (which may be in short supply
+                // during a build)
+
                 FileChannel channel = FileChannel.open(golPath, READ);
                 int size = (int)Math.min(channel.size(), 1 << 30);
-                buf = channel.map(FileChannel.MapMode.READ_ONLY, 0, size);
+                buf = explicitMappedBuffer  = channel.map(FileChannel.MapMode.READ_ONLY, 0, size);
                 buf.order(ByteOrder.LITTLE_ENDIAN);
                 channel.close();
             }
             tileCatalog = new TileCatalog(buf, FeatureStore.tileIndexPointer(buf),
                     buf.getInt(FeatureStore.ZOOM_LEVELS_OFS));
+
+            if(explicitMappedBuffer != null)
+            {
+                // If we explicitly mapped the GOL file (without going through
+                //  a FeatureStore), unmap it now (Fix for #100)
+                Store.unmapSegments(new MappedByteBuffer[]{explicitMappedBuffer});
+            }
         }
         return tileCatalog;
     }

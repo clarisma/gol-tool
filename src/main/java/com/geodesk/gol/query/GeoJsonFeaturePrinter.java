@@ -143,6 +143,7 @@ public class GeoJsonFeaturePrinter extends AbstractFeaturePrinter
     }
 
     // TODO: should string escaping happen in baseclass?
+    //  No, different for each output type
 
     @Override protected void printProperty(String key, String value)
     {
@@ -151,7 +152,7 @@ public class GeoJsonFeaturePrinter extends AbstractFeaturePrinter
             out.print(propertyNumber > 0 ? ",\"" : "\"");
             out.print(key);
             out.print("\":\"");
-            out.print(escapeValue(value));
+            out.print(Strings.escapeForJson(value));
             out.print('\"');
             return;
         }
@@ -159,13 +160,17 @@ public class GeoJsonFeaturePrinter extends AbstractFeaturePrinter
         out.print("\t\t\t\t\"");
         out.print(key);
         out.print("\": \"");
-        out.print(escapeValue(value));
+        out.print(Strings.escapeForJson(value));
         out.print('\"');
     }
 
     // We can do simplified escaping (only quote and backslash) as all OSM
     // strings have already been cleaned up during import, with unprintables
     // turned into spaces
+    // (No, only dictionary strings are treated that way; must assume that we
+    // need to escape every string)
+    // Replaced with Strings.escapeForJson() to fix gol-tool#101
+    /*
     private static String escapeValue(String s)
     {
         if(Strings.indexOfAny(s, "\"\\") < 0) return s;
@@ -188,6 +193,7 @@ public class GeoJsonFeaturePrinter extends AbstractFeaturePrinter
         }
         return buf.toString();
     }
+     */
 
     private void printId(Feature feature)
     {

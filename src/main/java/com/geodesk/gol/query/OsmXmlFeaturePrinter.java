@@ -218,7 +218,9 @@ public class OsmXmlFeaturePrinter extends AbstractFeaturePrinter
     {
         xml.begin("tag");
         xml.attr("k", key);
-        xml.attr("v", value);
+        xml.attr("v", Strings.cleanString(value));
+            // TODO: This turns CR/LF into spaces, should we use another
+            //  form of escaping?
         xml.end();
     }
 

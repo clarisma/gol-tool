@@ -7,6 +7,7 @@
 
 package com.geodesk.gol.query;
 
+import com.clarisma.common.text.Strings;
 import com.geodesk.feature.Feature;
 
 import java.io.PrintStream;
@@ -23,7 +24,8 @@ public class FabFeaturePrinter extends AbstractFeaturePrinter
         out.print('\t');
         out.print(key);
         out.print(": ");
-        out.println(value);       // TODO: escape
+        out.println(Strings.cleanString(value));
+            // TODO: check escaping rules
     }
 
     @Override public void print(Feature feature)

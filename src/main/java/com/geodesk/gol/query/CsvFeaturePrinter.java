@@ -7,6 +7,7 @@
 
 package com.geodesk.gol.query;
 
+import com.clarisma.common.text.Strings;
 import com.geodesk.feature.Feature;
 
 import java.io.PrintStream;
@@ -70,6 +71,7 @@ public class CsvFeaturePrinter extends AbstractFeaturePrinter
 
     private String escaped(String s)
     {
+        s = Strings.cleanString(s);
         if(s.indexOf('\"') < 0 && s.indexOf(',') <0 && s.indexOf(' ') < 0) return s;
         StringBuffer buf = new StringBuffer();
         buf.append('\"');

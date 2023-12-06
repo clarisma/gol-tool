@@ -219,7 +219,7 @@ public class SWay extends SFeature
                             if (FeatureTile.isWideTipDelta(tipDelta))
                             {
                                 out.writeShort(tipDelta >> 15);
-                                out.writeShort((tipDelta >> 1) | 1);
+                                out.writeShort((tipDelta << 1) | 1);
                             }
                             else
                             {

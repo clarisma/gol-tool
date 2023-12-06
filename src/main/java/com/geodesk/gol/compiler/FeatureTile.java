@@ -72,6 +72,9 @@ public class FeatureTile
     public static boolean isWideTipDelta(int tipDelta)
     {
         return (short)(tipDelta << 1) != (tipDelta << 1);
+        // TODO: The above is more efficient, but there may be a sign bug??
+        // return tipDelta < -16384 || tipDelta > 16383;
+        // TIP delta is wide if it cannot be expressed in 15 bits
     }
 
     // TODO: incorporate this class into the parent class?

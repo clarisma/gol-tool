@@ -1,4 +1,4 @@
-<img src="https://docs.geodesk.com/img/logo2.png" width="30%">
+<img src="https://docs.geodesk.com/img/github-header.png">
 
 # Geographic Object Librarian (GOL)
 

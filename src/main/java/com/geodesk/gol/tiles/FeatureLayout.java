@@ -87,6 +87,7 @@ public class FeatureLayout extends StructLayout
         index.forEachTrunk(this::placeFeatureBodies);
     }
 
+    // TODO: How does this place the stubs??
     private void placeSpatialIndex(TIndex.Branch branch)
     {
         place(branch);

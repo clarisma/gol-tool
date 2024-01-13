@@ -35,6 +35,10 @@ public abstract class AbstractFeaturePrinter implements FeaturePrinter
     protected int columnNumber;
     protected int propertyNumber;
     protected CoordinateTransformer transformer;
+    protected boolean fillEmptyColumns;
+        // If true, printProperty() will be called even if the feature does
+        // not have this tag; required to maintain column structure for CSV
+        // output (#108)
 
     protected AbstractFeaturePrinter(PrintStream out)
     {
@@ -220,6 +224,11 @@ public abstract class AbstractFeaturePrinter implements FeaturePrinter
                 if(col.value != null)
                 {
                     printProperty(col.key, col.value);
+                    propertyNumber++;
+                }
+                else if (fillEmptyColumns)
+                {
+                    printProperty(col.key, "");
                     propertyNumber++;
                 }
                 col.value = null;

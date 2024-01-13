@@ -21,6 +21,7 @@ public class CsvFeaturePrinter extends AbstractFeaturePrinter
     public CsvFeaturePrinter(PrintStream out)
     {
         super(out);
+        fillEmptyColumns = true;
     }
 
 

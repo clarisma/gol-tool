@@ -146,7 +146,7 @@ public class StringTableBuilder
                     // characters makes sense
                     if (keyCount > 2) addEntry(keys, string, keyCount * len);
                     if (valueCount > 2) addEntry(values, string, valueCount * len);
-                    if (roleCount > 2) addEntry(roles, string, valueCount * len);
+                    if (roleCount > 2) addEntry(roles, string, roleCount * len);
                 }
 
                 long d = Decimal.parse(string, true);

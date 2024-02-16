@@ -12,7 +12,7 @@ import com.clarisma.common.cli.Application;
 
 public class GolTool extends Application
 {
-    public static final String VERSION = "0.1.10-SNAPSHOT";
+    public static final String VERSION = "0.1.10";
 
     @Override public String version()
     {

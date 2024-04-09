@@ -7,9 +7,9 @@
 
 package com.geodesk.gol.build;
 
-import com.geodesk.core.Box;
-import com.geodesk.core.Tile;
-import com.geodesk.core.TileQuad;
+import com.geodesk.geom.Box;
+import com.geodesk.geom.Tile;
+import com.geodesk.geom.TileQuad;
 import com.geodesk.feature.store.FeatureStore;
 import com.geodesk.feature.store.TileIndexWalker;
 import com.geodesk.feature.store.Tip;

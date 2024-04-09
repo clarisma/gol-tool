@@ -10,9 +10,8 @@ package com.geodesk.gol.update;
 import com.clarisma.common.pbf.PbfDecoder;
 import com.clarisma.common.text.Format;
 import com.clarisma.common.util.Log;
-import com.geodesk.core.Tile;
+import com.geodesk.geom.Tile;
 import com.geodesk.feature.FeatureId;
-import com.geodesk.feature.FeatureType;
 import com.geodesk.feature.Features;
 import com.geodesk.feature.query.WorldView;
 import com.geodesk.feature.store.*;
@@ -51,7 +50,7 @@ public class FeatureFinder extends TaskEngine<FeatureFinder.SearchTile>
     private final LongSet waysOfInterest;
     private final LongSet relationsOfInterest;
     private final Path wayNodeIndexPath;
-    private final Features<?> duplicateNodes;
+    private final Features duplicateNodes;
     private MutableIntObjectMap<SearchTile> tiles;
     private boolean reportProgress = true; // TODO
     private int tileCount;
@@ -75,7 +74,7 @@ public class FeatureFinder extends TaskEngine<FeatureFinder.SearchTile>
         tileCatalog = ctx.getTileCatalog();
         tileCount = tileCatalog.tileCount();
         wayNodeIndexPath = ctx.indexPath().resolve("waynodes");
-        duplicateNodes = new WorldView<>(store).select("n[geodesk:duplicate]");
+        duplicateNodes = new WorldView(store).select("n[geodesk:duplicate]");
         changedNodes = getChangedFeatures(changedNodeList);
         changedWays = getChangedFeatures(changedWayList);
         changedRelations = getChangedFeatures(changedRelationList);

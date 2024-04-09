@@ -7,40 +7,21 @@
 
 package com.geodesk.gol.tiles;
 
-import com.clarisma.common.io.PileFile;
-import com.clarisma.common.pbf.PbfBuffer;
 import com.clarisma.common.pbf.PbfOutputStream;
 import com.clarisma.common.soar.StructWriter;
 import com.clarisma.common.store.BlobStoreConstants;
-import com.clarisma.common.text.Format;
-import com.geodesk.core.Box;
-import com.geodesk.core.Tile;
-import com.geodesk.core.TileQuad;
+import com.geodesk.geom.Box;
 import com.geodesk.feature.store.FeatureStore;
 import com.geodesk.feature.store.TileIndexWalker;
-import com.geodesk.feature.store.Tip;
-import com.geodesk.geom.Bounds;
 import com.geodesk.gol.Processor;
 import com.geodesk.gol.build.BuildContext;
-import com.geodesk.gol.build.Project;
 import com.geodesk.gol.build.TileCatalog;
-import com.geodesk.gol.compiler.FeatureTile;
-import com.geodesk.gol.compiler.SFeature;
-import com.geodesk.gol.compiler.SRelation;
-import com.geodesk.gol.compiler.SWay;
-import org.eclipse.collections.api.map.primitive.IntObjectMap;
 import org.eclipse.collections.api.map.primitive.ObjectIntMap;
 
-import java.io.FileWriter;
 import java.io.IOException;
-import java.io.PrintWriter;
-import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.List;
-
-import static com.geodesk.gol.build.ProtoGol.*;
 
 public class TileCompiler extends Processor<TileCompiler.Task>
 {

@@ -7,7 +7,7 @@
 
 package com.geodesk.gol.update_old;
 
-import com.geodesk.core.Mercator;
+import com.geodesk.geom.Mercator;
 import com.geodesk.feature.FeatureId;
 import com.geodesk.feature.FeatureType;
 import org.eclipse.collections.api.list.primitive.MutableLongList;

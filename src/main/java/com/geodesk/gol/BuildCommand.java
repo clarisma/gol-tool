@@ -13,8 +13,8 @@ import com.clarisma.common.soar.Archive;
 import com.clarisma.common.soar.SBytes;
 import com.clarisma.common.text.Format;
 import com.clarisma.common.util.Log;
-import com.geodesk.core.Tile;
-import com.geodesk.core.TileQuad;
+import com.geodesk.geom.Tile;
+import com.geodesk.geom.TileQuad;
 import com.geodesk.gol.build.*;
 import com.geodesk.gol.compiler.Compiler;
 

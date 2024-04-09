@@ -8,8 +8,8 @@
 package com.geodesk.gol.update_old;
 
 import com.clarisma.common.index.IntIndex;
-import com.geodesk.core.Heading;
-import com.geodesk.core.Tile;
+import com.geodesk.geom.Heading;
+import com.geodesk.geom.Tile;
 import com.geodesk.gol.build.BuildContext;
 import com.geodesk.gol.build.TileCatalog;
 import org.eclipse.collections.api.map.primitive.MutableIntObjectMap;

@@ -8,11 +8,10 @@
 package com.geodesk.gol.build;
 
 import com.clarisma.common.soar.Archive;
-import com.clarisma.common.soar.SBytes;
 import com.clarisma.common.soar.Struct;
 import com.clarisma.common.soar.StructOutputStream;
-import com.geodesk.core.Tile;
-import com.geodesk.core.TileQuad;
+import com.geodesk.geom.Tile;
+import com.geodesk.geom.TileQuad;
 import com.geodesk.feature.store.ZoomLevels;
 import com.geodesk.util.MapMaker;
 import com.geodesk.util.Marker;

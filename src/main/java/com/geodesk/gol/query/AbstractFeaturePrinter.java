@@ -8,7 +8,6 @@
 package com.geodesk.gol.query;
 
 import com.clarisma.common.cli.Converter;
-import com.geodesk.core.Mercator;
 import com.geodesk.feature.Feature;
 import com.geodesk.feature.Tags;
 import com.geodesk.util.CoordinateTransformer;

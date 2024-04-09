@@ -9,7 +9,7 @@ package com.geodesk.gol.compiler;
 
 import com.clarisma.common.soar.StructGroup;
 import com.clarisma.common.soar.StructOutputStream;
-import com.geodesk.core.Box;
+import com.geodesk.geom.Box;
 import com.geodesk.feature.query.IndexBits;  // TODO: check
 import com.geodesk.geom.*;
 import com.geodesk.gol.build.KeyIndexSchema;

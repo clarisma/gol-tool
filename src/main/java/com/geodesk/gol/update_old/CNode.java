@@ -7,7 +7,7 @@
 
 package com.geodesk.gol.update_old;
 
-import com.geodesk.core.XY;
+import com.geodesk.geom.XY;
 import com.geodesk.feature.FeatureType;
 
 public class CNode extends CFeature<CNode.Change>

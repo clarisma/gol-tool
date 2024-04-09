@@ -8,9 +8,8 @@
 package com.geodesk.gol.update;
 
 import com.clarisma.common.index.IntIndex;
-import com.clarisma.common.util.Log;
-import com.geodesk.core.Heading;
-import com.geodesk.core.Tile;
+import com.geodesk.geom.Heading;
+import com.geodesk.geom.Tile;
 import com.geodesk.feature.FeatureId;
 import com.geodesk.gol.TaskEngine;
 import com.geodesk.gol.build.BuildContext;

@@ -46,7 +46,7 @@ public class FeatureFinder extends TaskEngine<SearchTile>
     private final LongSet waysOfInterest;
     private final LongSet relationsOfInterest;
     private final Path wayNodeIndexPath;
-    private final Features<?> duplicateNodes;
+    private final Features duplicateNodes;
 
     public FeatureFinder(BuildContext ctx,
         List<ChangedNode2> changedNodeList,
@@ -56,7 +56,7 @@ public class FeatureFinder extends TaskEngine<SearchTile>
         super(new SearchTile(-1), 2, false);
         store = ctx.getFeatureStore();
         wayNodeIndexPath = ctx.indexPath().resolve("waynodes");
-        duplicateNodes = new WorldView<>(store).select("n[geodesk:duplicate]");
+        duplicateNodes = new WorldView(store).select("n[geodesk:duplicate]");
         changedNodes = getChangedFeatures(changedNodeList);
         changedWays = getChangedFeatures(changedWayList);
         changedRelations = getChangedFeatures(changedRelationList);

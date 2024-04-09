@@ -8,16 +8,13 @@
 package com.geodesk.gol.query;
 
 import com.clarisma.common.text.Strings;
-import com.geodesk.core.XY;
+import com.geodesk.geom.XY;
 import com.geodesk.feature.*;
 import com.geodesk.feature.store.AnonymousWayNode;
 import com.geodesk.gol.GolTool;
-import org.eclipse.collections.api.map.primitive.MutableLongLongMap;
 import org.eclipse.collections.api.map.primitive.MutableLongObjectMap;
-import org.eclipse.collections.impl.map.mutable.primitive.LongLongHashMap;
 import org.eclipse.collections.impl.map.mutable.primitive.LongObjectHashMap;
 
-import java.io.IOException;
 import java.io.PrintStream;
 import java.util.*;
 
@@ -26,10 +23,10 @@ import java.util.*;
 
 public class OsmXmlFeaturePrinter extends AbstractFeaturePrinter
 {
-    final MutableLongObjectMap<Node> syntheticNodes = new LongObjectHashMap();
-    final MutableLongObjectMap<Node> nodes = new LongObjectHashMap<>();
-    final Set<Way> ways = new HashSet<>();
-    final Set<Relation> relations = new HashSet<>();
+    final MutableLongObjectMap<Feature> syntheticNodes = new LongObjectHashMap();
+    final MutableLongObjectMap<Feature> nodes = new LongObjectHashMap<>();
+    final Set<Feature> ways = new HashSet<>();
+    final Set<Feature> relations = new HashSet<>();
     final XmlWriter xml;
 
     private class SyntheticWayNode extends AnonymousWayNode
@@ -54,7 +51,7 @@ public class OsmXmlFeaturePrinter extends AbstractFeaturePrinter
         xml = new XmlWriter(out);
     }
 
-    private Node addNode(Node node)
+    private Feature addNode(Feature node)
     {
         long id = node.id();
         return nodes.getIfAbsentPut(id, node);
@@ -62,39 +59,38 @@ public class OsmXmlFeaturePrinter extends AbstractFeaturePrinter
 
     @Override public void print(Feature feature)
     {
-        if(feature instanceof Node node)
+        if(feature.isNode())
         {
-            addNode(node);
+            addNode(feature);
         }
-        else if(feature instanceof Way way)
+        else if(feature.isWay())
         {
-            ways.add(way);
+            ways.add(feature);
         }
         else
         {
-            relations.add((Relation)feature);
+            relations.add(feature);
         }
     }
 
-    private void loadMembers(Relation rel)
+    private void loadMembers(Feature rel)
     {
         for (Feature member : rel.members())
         {
-            if (member instanceof Way memberWay)
+            if (member.isWay())
             {
-                ways.add(memberWay);
+                ways.add(member);
             }
-            else if(member instanceof Node memberNode)
+            else if(member.isNode())
             {
-                addNode(memberNode);
+                addNode(member);
             }
             else
             {
-                Relation memberRel = (Relation)member;
-                if(!relations.contains(memberRel))
+                if(!relations.contains(member))
                 {
-                    relations.add(memberRel);
-                    loadMembers(memberRel);
+                    relations.add(member);
+                    loadMembers(member);
                 }
             }
         }
@@ -105,23 +101,23 @@ public class OsmXmlFeaturePrinter extends AbstractFeaturePrinter
         // Recursively retrieve all relation members
         // (We make a copy of relation set, because loadMembers will modify
         // the underlying set)
-        for(Relation rel: new ArrayList<>(relations)) loadMembers(rel);
+        for(Feature rel: new ArrayList<>(relations)) loadMembers(rel);
 
         // Retrieve all feature nodes referenced by the ways
 
-        for(Way way: ways)
+        for(Feature way: ways)
         {
-            for(Node node: way) addNode(node);
+            for(Feature node: way) addNode(node);
         }
 
         // Now, get all way nodes; create IDs for anonymous nodes
 
         long nextNodeId = 0;
-        for(Way way: ways)
+        for(Feature way: ways)
         {
-            Features<Node> wayNodes = way.nodes();
+            Features wayNodes = way.nodes();
             int i=0;
-            for(Node node: way.nodes())
+            for(Feature node: way.nodes())
             {
                 long nodeId = node.id();
                 if(nodeId == 0)
@@ -144,7 +140,7 @@ public class OsmXmlFeaturePrinter extends AbstractFeaturePrinter
         }
     }
 
-    private void printNode(Node node)
+    private void printNode(Feature node)
     {
         xml.begin("node");
         xml.attr("id", node.id());
@@ -156,7 +152,7 @@ public class OsmXmlFeaturePrinter extends AbstractFeaturePrinter
         xml.end();
     }
 
-    private void printWay(Way way)
+    private void printWay(Feature way)
     {
         xml.begin("way");
         xml.attr("id", way.id());
@@ -167,7 +163,7 @@ public class OsmXmlFeaturePrinter extends AbstractFeaturePrinter
         xml.end();
     }
 
-    private void printRelation(Relation rel)
+    private void printRelation(Feature rel)
     {
         xml.begin("relation");
         xml.attr("id", rel.id());
@@ -184,9 +180,9 @@ public class OsmXmlFeaturePrinter extends AbstractFeaturePrinter
         printProperties();
     }
 
-    private void printWayNodes(Way way)
+    private void printWayNodes(Feature way)
     {
-        for(Node node: way.nodes())
+        for(Feature node: way.nodes())
         {
             long nodeId = node.id();
             if(nodeId == 0)
@@ -202,7 +198,7 @@ public class OsmXmlFeaturePrinter extends AbstractFeaturePrinter
         }
     }
 
-    private void printMembers(Relation rel)
+    private void printMembers(Feature rel)
     {
         for(Feature member: rel.members())
         {
@@ -237,18 +233,18 @@ public class OsmXmlFeaturePrinter extends AbstractFeaturePrinter
     {
         loadAll();
 
-        List<Node> nodeList = new ArrayList<>(nodes.size() + syntheticNodes.size());
+        List<Feature> nodeList = new ArrayList<>(nodes.size() + syntheticNodes.size());
         nodeList.addAll(nodes.values());
         nodeList.addAll(syntheticNodes.values());
         // Collections.sort(nodeList);  // wait for geodesk#45 to allow sorting
 
-        for(Node node: nodeList) printNode(node);
+        for(Feature node: nodeList) printNode(node);
         nodeList = null;
-        List<Way> wayList = new ArrayList<>(ways);
-        for(Way way: wayList) printWay(way);
+        List<Feature> wayList = new ArrayList<>(ways);
+        for(Feature way: wayList) printWay(way);
         wayList = null;
-        List<Relation> relList = new ArrayList<>(relations);
-        for(Relation rel: relList) printRelation(rel);
+        List<Feature> relList = new ArrayList<>(relations);
+        for(Feature rel: relList) printRelation(rel);
         relList = null;
 
         xml.end();

@@ -11,8 +11,8 @@ import com.clarisma.common.cli.Verbosity;
 import com.clarisma.common.collect.Linked;
 import com.clarisma.common.text.Format;
 import com.clarisma.common.util.Log;
-import com.geodesk.core.Mercator;
-import com.geodesk.core.Tile;
+import com.geodesk.geom.Mercator;
+import com.geodesk.geom.Tile;
 import com.geodesk.feature.FeatureType;
 import com.geodesk.feature.Tags;
 import com.geodesk.io.osm.Members;
@@ -27,7 +27,6 @@ import java.io.PrintWriter;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.Locale;
 import java.util.Map;
 
 /**

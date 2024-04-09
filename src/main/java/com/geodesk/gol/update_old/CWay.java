@@ -7,7 +7,7 @@
 
 package com.geodesk.gol.update_old;
 
-import com.geodesk.core.Box;
+import com.geodesk.geom.Box;
 import com.geodesk.feature.FeatureType;
 
 public class CWay extends CFeature<CWay.Change>

@@ -169,7 +169,7 @@ public class QueryCommand extends GolCommand
         printer.columns(tags);
 
         printer.printHeader();
-        Features<?> selected = features.select(query);
+        Features selected = features.select(query);
         if(area != null)
         {
             selected = selected.select(Filters.intersects(area));

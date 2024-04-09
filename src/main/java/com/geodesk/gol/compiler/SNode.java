@@ -7,8 +7,8 @@
 
 package com.geodesk.gol.compiler;
 
-import com.geodesk.core.TileQuad;
-import com.geodesk.core.XY;
+import com.geodesk.geom.TileQuad;
+import com.geodesk.geom.XY;
 import com.geodesk.geom.Bounds;
 
 

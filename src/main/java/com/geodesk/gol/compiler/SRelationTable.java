@@ -10,8 +10,8 @@ package com.geodesk.gol.compiler;
 import com.clarisma.common.soar.SharedStruct;
 import com.clarisma.common.soar.StructOutputStream;
 import com.geodesk.feature.FeatureId;
-import com.geodesk.core.Tile;
-import com.geodesk.core.TileQuad;
+import com.geodesk.geom.Tile;
+import com.geodesk.geom.TileQuad;
 import com.geodesk.feature.store.FeatureConstants;
 import com.geodesk.feature.store.Tip;
 

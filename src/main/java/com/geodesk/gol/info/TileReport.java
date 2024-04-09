@@ -9,7 +9,7 @@ package com.geodesk.gol.info;
 
 import com.clarisma.common.store.BlobStoreConstants;
 import com.clarisma.common.text.Table;
-import com.geodesk.core.Tile;
+import com.geodesk.geom.Tile;
 import com.geodesk.feature.store.FeatureStore;
 import com.geodesk.feature.store.TileIndexWalker;
 import org.eclipse.collections.api.list.primitive.MutableLongList;

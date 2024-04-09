@@ -35,7 +35,7 @@ public class ChangeAnalyzer extends TaskEngine<SearchTile>
     private final ChangeModel model;
     private final FeatureStore store;
     private final Path wayNodeIndexPath;
-    private final Features<?> duplicateNodes;
+    private final Features duplicateNodes;
     private final SearchScope searchScope;
 
     private long testLocationUpdateCount;
@@ -49,7 +49,7 @@ public class ChangeAnalyzer extends TaskEngine<SearchTile>
         this.model = model;
         store = ctx.getFeatureStore();
         wayNodeIndexPath = ctx.indexPath().resolve("waynodes");
-        duplicateNodes = new WorldView<>(store).select("n[geodesk:duplicate]");
+        duplicateNodes = new WorldView(store).select("n[geodesk:duplicate]");
         searchScope = new SearchScope(ctx);
     }
 

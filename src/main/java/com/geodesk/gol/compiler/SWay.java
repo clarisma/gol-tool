@@ -14,11 +14,11 @@ import com.clarisma.common.pbf.PbfOutputStream;
 import com.clarisma.common.soar.StructOutputStream;
 import com.clarisma.common.util.Log;
 import com.geodesk.feature.FeatureId;
-import com.geodesk.core.Tile;
-import com.geodesk.core.TileQuad;
-import com.geodesk.core.XY;
+import com.geodesk.geom.Tile;
+import com.geodesk.geom.TileQuad;
+import com.geodesk.geom.XY;
 import com.geodesk.feature.store.FeatureConstants;
-import com.geodesk.core.Box;
+import com.geodesk.geom.Box;
 import com.geodesk.geom.Bounds;
 import com.geodesk.geom.Coordinates;
 

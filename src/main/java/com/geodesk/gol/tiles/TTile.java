@@ -9,23 +9,18 @@ package com.geodesk.gol.tiles;
 
 import com.clarisma.common.soar.SString;
 import com.clarisma.common.soar.Struct;
-import com.clarisma.common.soar.StructOutputStream;
 import com.clarisma.common.soar.StructWriter;
-import com.geodesk.core.Box;
-import com.geodesk.core.Tile;
+import com.geodesk.geom.Box;
+import com.geodesk.geom.Tile;
 import com.geodesk.feature.FeatureId;
 import com.geodesk.feature.FeatureType;
 import com.geodesk.geom.Bounds;
-import com.geodesk.gol.build.Project;
 import com.geodesk.gol.build.TileCatalog;
-import com.geodesk.gol.compiler.SIndexTree;
-import com.geodesk.gol.compiler.SRelation;
 import org.eclipse.collections.api.map.primitive.*;
 import org.eclipse.collections.impl.map.mutable.primitive.LongLongHashMap;
 import org.eclipse.collections.impl.map.mutable.primitive.LongObjectHashMap;
 import org.eclipse.collections.impl.map.mutable.primitive.ObjectIntHashMap;
 
-import java.io.IOException;
 import java.util.*;
 
 public class TTile

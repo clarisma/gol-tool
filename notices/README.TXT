@@ -1,4 +1,4 @@
-Geographic Object Librarian (GOL) 0.1.11-SNAPSHOT EA
+Geographic Object Librarian (GOL) 0.2.0 EA
 ==========================================
 
 Copyright (c) Clarisma / GeoDesk contributors

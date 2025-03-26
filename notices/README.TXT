@@ -1,5 +1,5 @@
-Geographic Object Librarian (GOL) 0.2.1 EA
-==========================================
+Geographic Object Librarian (GOL) 1.0.0
+=============================================
 
 Copyright (c) Clarisma / GeoDesk contributors
 Licensed under AGPL 3.0 (see LICENSE.txt)

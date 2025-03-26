@@ -1,4 +1,4 @@
-Geographic Object Librarian (GOL) 1.0.0
+Geographic Object Librarian (GOL) 1.0.1
 =============================================
 
 Copyright (c) Clarisma / GeoDesk contributors

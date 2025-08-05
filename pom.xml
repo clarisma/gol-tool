@@ -4,7 +4,7 @@
 
   <groupId>com.geodesk</groupId>
   <artifactId>gol-tool</artifactId>
-  <version>1.0.2</version>
+  <version>1.1.0</version>
   <packaging>jar</packaging>
 
   <name>GeoDesk GOL Tool</name>
@@ -21,7 +21,7 @@
   	<dependency>
 		<groupId>com.geodesk</groupId>
   		<artifactId>geodesk</artifactId>
-  		<version>1.0.2</version>
+  		<version>1.1.0</version>
 	</dependency>
 
     <!-- Testing -->

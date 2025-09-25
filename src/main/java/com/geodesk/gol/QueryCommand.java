@@ -18,7 +18,6 @@ import com.geodesk.gol.query.*;
 import com.geodesk.util.CoordinateTransformer;
 
 import java.io.*;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 

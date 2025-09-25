@@ -10,11 +10,11 @@ package com.geodesk.gol;
 import com.clarisma.common.cli.BasicCommand;
 import com.clarisma.common.cli.Option;
 import com.clarisma.common.cli.Parameter;
+import com.geodesk.feature.filter.IntersectsFilter;
 import com.geodesk.geom.Box;
 import com.geodesk.geom.Tile;
 import com.geodesk.feature.FeatureLibrary;
 import com.geodesk.feature.Filter;
-import com.geodesk.feature.Filters;
 import com.geodesk.feature.store.TileIndexWalker;
 import com.geodesk.gol.build.Utils;
 import com.geodesk.io.PolyReader;
@@ -133,7 +133,7 @@ public abstract class GolCommand extends BasicCommand
         TileIndexWalker walker = new TileIndexWalker(features.store());
         if (area != null)
         {
-            Filter filter = Filters.intersects(area);
+            Filter filter = new IntersectsFilter(area);
             walker.start(filter.bounds(), filter);
         }
         else

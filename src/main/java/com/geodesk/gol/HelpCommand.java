@@ -22,7 +22,7 @@ public class HelpCommand extends BasicCommand
 
     @Override public int perform() throws Exception
     {
-        String url = "https://docs.geodesk.com/gol";
+        String url = "https://docs1.geodesk.com/gol";
         if(command != null) url += "/" + command;
         Desktop.getDesktop().browse(new URI(url));
         return 0;

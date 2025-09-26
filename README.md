@@ -10,7 +10,7 @@
 > The GOL file format has changed in Version 2.0 and is not backward-compatible.
 > Use GOL Tool 1.2 (this repo) to create and manage GOL 1.0 files.
 > 
-> This repo will continue to receive updates for critical issues only until September 30, 2016. 
+> This repo will continue to receive updates for critical issues until September 30, 2026. 
 
 Use the GOL command-line utility to:
 

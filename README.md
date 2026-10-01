@@ -1,16 +1,14 @@
-<img src="https://docs.geodesk.com/img/github-header.png">
-
-# Geographic Object Librarian (GOL)
+# Geo-Object Librarian (GOL) 1.2
 
 > [!IMPORTANT]
 >
-> We have released [GOL Tool 2.0](https://github.com/clarisma/geodesk-gol), based
+> This repo has been replaced by [GOL Tool 2.0+](https://github.com/clarisma/geodesk-gol), based
 > on [GeoDesk for C++](https://github.com/clarisma/libgeodesk). 
 > 
 > The GOL file format has changed in Version 2.0 and is not backward-compatible.
 > Use GOL Tool 1.2 (this repo) to create and manage GOL 1.0 files.
 > 
-> This repo will continue to receive updates for critical issues until September 30, 2026. 
+> Support for v1.2 ended on September 30, 2026. Please upgrade ([downloads](https://www.geodesk.com/download)].
 
 Use the GOL command-line utility to:
 
@@ -116,5 +114,5 @@ gol query germany na[amenity=pub] -a=bavaria.poly -f=map -t=lon,lat,name > pubs.
 ```
 
 
-See the [full documentation](http://docs.geodesk.com/gol/query) for details. Please note that as the current release is still Early Access, some less-common options are not yet supported.
+See the [full documentation](http://docs.geodesk.com/gol/query) for details. 
 

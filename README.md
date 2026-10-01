@@ -8,7 +8,7 @@
 > The GOL file format has changed in Version 2.0 and is not backward-compatible.
 > Use GOL Tool 1.2 (this repo) to create and manage GOL 1.0 files.
 > 
-> Support for v1.2 ended on September 30, 2026. Please upgrade ([downloads](https://www.geodesk.com/download)].
+> Support for v1.2 ended on September 30, 2026. Please upgrade ([downloads](https://www.geodesk.com/download)).
 
 Use the GOL command-line utility to:
 
